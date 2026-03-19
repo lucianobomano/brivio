@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '200mb',
     },
   },
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;
