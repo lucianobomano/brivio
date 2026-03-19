@@ -738,7 +738,7 @@ export async function getPublicSharedItem(id: string) {
     const { data: subfolders } = await foldersQuery
 
     // Combine and map types
-    const mapFolderToChild = (f: AssetFolder): (AssetFolder & { file_url: null }) => ({
+    const mapFolderToChild = (f: AssetFolder): (AssetFolder & { type: string; file_url: null; metadata: any }) => ({
         ...f,
         type: 'folder', // Ensure type is 'folder' for UI
         file_url: null, // Folders don't have file_url
