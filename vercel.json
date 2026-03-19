@@ -1,5 +1,8 @@
 {
-  "buildCommand": "cd apps/web && npx prisma generate && next build",
+  "buildCommand": "cd apps/web && npx prisma generate --schema=./prisma/schema.prisma && NEXT_TELEMETRY_DISABLED=1 next build",
   "installCommand": "cd apps/web && npm install --legacy-peer-deps",
-  "outputDirectory": "apps/web/.next"
+  "outputDirectory": "apps/web/.next",
+  "env": {
+    "NEXT_TELEMETRY_DISABLED": "1"
+  }
 }
