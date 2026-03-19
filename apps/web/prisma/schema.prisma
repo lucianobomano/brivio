@@ -1,0 +1,824 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// Enums
+enum GlobalRole {
+  designer
+  agency_owner
+  client
+  admin
+  @@map("global_role")
+}
+
+enum WorkspaceType {
+  personal
+  agency
+  company
+  @@map("workspace_type")
+}
+
+enum WorkspaceRole {
+  owner
+  admin
+  member
+  client_viewer
+  @@map("workspace_role")
+}
+
+enum BrandStatus {
+  draft
+  active
+  archived
+  @@map("brand_status")
+}
+
+enum ModuleType {
+  history
+  mission
+  archetype
+  voice_tone
+  logo
+  palette
+  typography
+  photography
+  illustration
+  icons
+  grid
+  applications
+  motion
+  forbidden
+  download_center
+  custom
+  @@map("module_type")
+}
+
+enum AssetType {
+  logo
+  font
+  template
+  image
+  video
+  doc
+  ui_kit
+  other
+  @@map("asset_type")
+}
+
+enum ProjectStatus {
+  planning
+  in_progress
+  review
+  done
+  archived
+  @@map("project_status")
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  review
+  done
+  @@map("task_status")
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+  urgent
+  @@map("task_priority")
+}
+
+enum PomodoroStatus {
+  completed
+  interrupted
+  @@map("pomodoro_status")
+}
+
+enum ProjectType {
+  work
+  project
+  @@map("project_type")
+}
+
+enum ConversationType {
+  direct
+  project
+  brand
+  @@map("conversation_type")
+}
+
+enum JobStatus {
+  open
+  in_progress
+  closed
+  @@map("job_status")
+}
+
+enum ProposalStatus {
+  pending
+  accepted
+  rejected
+  @@map("proposal_status")
+}
+
+enum IntegrationType {
+  figma
+  slack
+  notion
+  google_drive
+  adobe_cc
+  @@map("integration_type")
+}
+
+enum SprintStatus {
+  planned
+  active
+  completed
+  @@map("sprint_status")
+}
+
+// Models
+
+model User {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  email       String   @unique
+  avatar_url  String?
+  cover_url   String?
+  bio         String?
+  role_global GlobalRole? @default(designer)
+  profile_type String? // Hirer, Creator, Agency, Company
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  created_workspaces Workspace[]
+  memberships        WorkspaceMember[]
+  assets_uploaded    Asset[]
+  projects_created   Project[]
+  tasks_assigned     Task[] @relation("Assignee")
+  tasks_created      Task[] @relation("Creator")
+  task_comments      TaskComment[]
+  time_entries       TimeEntry[]
+  pomodoro_sessions  PomodoroSession[]
+  messages_sent      Message[]
+  posts              CommunityPost[]
+  post_comments      CommunityComment[]
+  jobs_created       Job[]
+  proposals          JobProposal[]
+  notifications      Notification[]
+  creator_profile    CreatorProfile?
+  given_follows      Follow[] @relation("Follower")
+  received_follows   Follow[] @relation("Following")
+  post_likes         CommunityLike[]
+  project_likes      ProjectLike[]
+  project_comments      ProjectComment[]
+  project_comment_likes ProjectCommentLike[]
+
+  // Standup Relations
+  led_standup_teams   StandupTeam[]
+  standup_memberships StandupTeamMember[]
+
+  created_standups    Standup[]
+  standup_updates     StandupUpdate[]
+
+  @@map("users")
+}
+
+model Workspace {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String
+  slug          String   @unique
+  type          WorkspaceType? @default(personal)
+  logo_url      String?
+  primary_color String?
+  created_by    String?  @db.Uuid
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  creator       User?    @relation(fields: [created_by], references: [id])
+  members       WorkspaceMember[]
+  brands        Brand[]
+  projects      Project[]
+  conversations Conversation[]
+  integrations  Integration[]
+  sprints       Sprint[]
+  standup_teams StandupTeam[]
+
+  @@map("workspaces")
+}
+
+model WorkspaceMember {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String?  @db.Uuid
+  user_id      String?  @db.Uuid
+  role         WorkspaceRole? @default(member)
+  invited_at   DateTime? @default(now()) @db.Timestamptz(6)
+  accepted_at  DateTime? @db.Timestamptz(6)
+
+  workspace    Workspace? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  user         User?      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([workspace_id, user_id])
+  @@map("workspace_members")
+}
+
+model Brand {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id  String?  @db.Uuid
+  name          String
+  slug          String
+  logo_url      String?
+  favicon_url   String?
+  primary_color String?
+  description   String?
+  status        BrandStatus? @default(draft)
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  workspace     Workspace? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  brandbooks    Brandbook[]
+  assets        Asset[]
+  projects      Project[]
+  community_posts CommunityPost[]
+  jobs          Job[]
+  settings      BrandSettings?
+  asset_folders AssetFolder[]
+
+  @@unique([workspace_id, slug])
+  @@map("brands")
+}
+
+model BrandSettings {
+  id                   String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id             String   @unique @db.Uuid
+  
+  // Visibility
+  visibility           String?  @default("visible")
+  
+  // Colors
+  menu_background      String?  @default("#F4F4F4")
+  attachment_bg        String?  @default("#F6C944")
+  highlights_bg        String?  @default("#ffffff")
+  highlights_text      String?  @default("#0C56FF")
+  text_card_icon       String?  @default("#ffffff")
+  text_card_tabs       String?  @default("#0C56FF")
+  attachment_icon      String?  @default("#0C56FF")
+  
+  // Brand palette (array of hex colors)
+  color_palette        String[] @default([])
+  
+  // Font Styles (JSON object)
+  font_styles          Json?    @default("{}")
+  
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+  
+  brand                Brand    @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  
+  @@map("brand_settings")
+}
+
+
+model Brandbook {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id     String?  @db.Uuid
+  title        String
+  version      String?  @default("1.0")
+  is_public    Boolean? @default(false)
+  published_at DateTime? @db.Timestamptz(6)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  brand        Brand?   @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  modules      BrandbookModule[]
+
+  @@map("brandbooks")
+}
+
+model BrandbookModule {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brandbook_id  String?  @db.Uuid
+  type          ModuleType
+  title         String
+  order         Int
+  content_json  Json?    @default("{}")
+  category      String?  @default("others")
+  created_at    DateTime? @default(now()) @db.Timestamptz(6)
+
+  brandbook     Brandbook? @relation(fields: [brandbook_id], references: [id], onDelete: Cascade)
+
+  @@map("brandbook_modules")
+}
+
+model AssetFolder {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id    String?  @db.Uuid
+  name        String
+  parent_id   String?  @db.Uuid
+  is_favorite Boolean? @default(false)
+  is_public   Boolean? @default(false)
+  allow_viewers Boolean? @default(false)
+  expires_at  DateTime? @db.Timestamptz(6)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  brand       Brand?   @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  parent      AssetFolder? @relation("FolderHierarchy", fields: [parent_id], references: [id], onDelete: Cascade)
+  children    AssetFolder[] @relation("FolderHierarchy")
+  assets      Asset[]
+
+  @@map("asset_folders")
+}
+
+model Asset {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id        String?  @db.Uuid
+  uploader_id     String?  @db.Uuid
+  name            String
+  type            AssetType
+  file_url        String
+  thumbnail_url   String?
+  tags            String[]
+  metadata        Json?    @default("{}")
+  is_downloadable Boolean? @default(true)
+  folder_id       String?  @db.Uuid
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  brand           Brand?   @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  folder          AssetFolder? @relation(fields: [folder_id], references: [id], onDelete: SetNull)
+  uploader        User?    @relation(fields: [uploader_id], references: [id])
+
+  @@map("assets")
+}
+
+model Project {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id     String?  @db.Uuid
+  workspace_id String?  @db.Uuid
+  name         String
+  description  String?
+  type         ProjectType @default(work)
+  status       ProjectStatus? @default(planning)
+  visibility   String?  @default("everyone")
+  published_at DateTime? @db.Timestamptz(6)
+  cover_url    String?
+  content_json Json?    @default("[]")
+  category     String?
+  tags         String[] @default([])
+  start_date   DateTime? @db.Timestamptz(6)
+  due_date     DateTime? @db.Timestamptz(6)
+  position     Int      @default(0)
+  created_by   String?  @db.Uuid
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  budget_type  String?
+  budget_amount Decimal? @db.Decimal
+  currency     String?  @default("USD")
+
+  brand        Brand?   @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  workspace    Workspace? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  creator      User?    @relation(fields: [created_by], references: [id])
+  tasks        Task[]
+  media        ProjectMedia[]
+  credits      ProjectCredit[]
+  awards       Award[]
+  likes        ProjectLike[]
+  comments     ProjectComment[]
+  sprints      Sprint[]
+
+  @@map("projects")
+}
+
+model ProjectLike {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id String   @db.Uuid
+  user_id    String   @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  project    Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([project_id, user_id])
+  @@map("project_likes")
+}
+
+model Task {
+  id                  String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id          String?  @db.Uuid
+  title               String
+  description         String?
+  status              TaskStatus? @default(todo)
+  priority            TaskPriority? @default(medium)
+  assignee_id         String?  @db.Uuid
+  created_by          String?  @db.Uuid
+  due_date            DateTime? @db.Timestamptz(6)
+  estimated_hours     Float?
+  tracked_hours       Float?   @default(0)
+  ai_compliance_score Int?
+  created_at          DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at          DateTime? @default(now()) @db.Timestamptz(6)
+
+  sprint_id           String?  @db.Uuid
+
+  project             Project? @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  sprint              Sprint?  @relation(fields: [sprint_id], references: [id], onDelete: SetNull)
+  assignee            User?    @relation("Assignee", fields: [assignee_id], references: [id])
+  creator             User?    @relation("Creator", fields: [created_by], references: [id])
+  comments            TaskComment[]
+  time_entries        TimeEntry[]
+  pomodoro_sessions   PomodoroSession[]
+
+  @@map("tasks")
+}
+
+model Sprint {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String?        @db.Uuid
+  project_id   String?        @db.Uuid
+  name         String
+  goal         String?
+  status       SprintStatus?  @default(planned)
+  start_date   DateTime?      @db.Timestamptz(6)
+  end_date     DateTime?      @db.Timestamptz(6)
+  created_at   DateTime?      @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime?      @default(now()) @db.Timestamptz(6)
+
+  workspace    Workspace?     @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  project      Project?       @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  tasks        Task[]
+
+  @@map("sprints")
+}
+
+model TaskComment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id   String?  @db.Uuid
+  author_id String?  @db.Uuid
+  content   String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  task      Task?    @relation(fields: [task_id], references: [id], onDelete: Cascade)
+  author    User?    @relation(fields: [author_id], references: [id])
+
+  @@map("task_comments")
+}
+
+model TimeEntry {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  task_id          String?  @db.Uuid
+  user_id          String?  @db.Uuid
+  started_at       DateTime @db.Timestamptz(6)
+  ended_at         DateTime? @db.Timestamptz(6)
+  duration_minutes Int?
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  task             Task?    @relation(fields: [task_id], references: [id])
+  user             User?    @relation(fields: [user_id], references: [id])
+
+  @@map("time_entries")
+}
+
+model PomodoroSession {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id          String?  @db.Uuid
+  task_id          String?  @db.Uuid
+  started_at       DateTime @db.Timestamptz(6)
+  ended_at         DateTime? @db.Timestamptz(6)
+  duration_minutes Int?
+  status           PomodoroStatus? @default(completed)
+  created_at       DateTime? @default(now()) @db.Timestamptz(6)
+
+  user             User?    @relation(fields: [user_id], references: [id])
+  task             Task?    @relation(fields: [task_id], references: [id])
+
+  @@map("pomodoro_sessions")
+}
+
+model Conversation {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String?  @db.Uuid
+  type         ConversationType
+  title        String?
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  workspace    Workspace? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id String?  @db.Uuid
+  sender_id       String?  @db.Uuid
+  content         String
+  attachments     Json?    @default("[]")
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  conversation    Conversation? @relation(fields: [conversation_id], references: [id], onDelete: Cascade)
+  sender          User?         @relation(fields: [sender_id], references: [id])
+
+  @@map("messages")
+}
+
+model CommunityPost {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  author_id      String?  @db.Uuid
+  title          String
+  description    String?
+  image_url      String
+  brand_id       String?  @db.Uuid
+  likes_count    Int?     @default(0)
+  comments_count Int?     @default(0)
+  tags           String[]
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  author         User?    @relation(fields: [author_id], references: [id])
+  brand          Brand?   @relation(fields: [brand_id], references: [id])
+  comments       CommunityComment[]
+  likes          CommunityLike[]
+
+  @@map("community_posts")
+}
+
+model CommunityComment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  post_id   String?  @db.Uuid
+  author_id String?  @db.Uuid
+  content   String
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  post      CommunityPost? @relation(fields: [post_id], references: [id], onDelete: Cascade)
+  author    User?          @relation(fields: [author_id], references: [id])
+
+  @@map("community_comments")
+}
+
+model Job {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  created_by      String?  @db.Uuid
+  brand_id        String?  @db.Uuid
+  title           String
+  description     String
+  budget_min      Decimal? @db.Decimal
+  budget_max      Decimal? @db.Decimal
+  currency        String?  @default("USD")
+  status          JobStatus? @default(open)
+  skills_required String[]
+  deadline        DateTime? @db.Timestamptz(6)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  creator         User?    @relation(fields: [created_by], references: [id])
+  brand           Brand?   @relation(fields: [brand_id], references: [id])
+  proposals       JobProposal[]
+
+  @@map("jobs")
+}
+
+model JobProposal {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  job_id          String?  @db.Uuid
+  designer_id     String?  @db.Uuid
+  cover_letter    String?
+  proposed_budget Decimal? @db.Decimal
+  status          ProposalStatus? @default(pending)
+  created_at      DateTime? @default(now()) @db.Timestamptz(6)
+
+  job             Job?     @relation(fields: [job_id], references: [id], onDelete: Cascade)
+  designer        User?    @relation(fields: [designer_id], references: [id])
+
+  @@map("job_proposals")
+}
+
+model Notification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String?  @db.Uuid
+  type       String
+  data       Json?    @default("{}")
+  is_read    Boolean? @default(false)
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  user       User?    @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("notifications")
+}
+
+model Integration {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String?  @db.Uuid
+  type         IntegrationType
+  config       Json?    @default("{}")
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  workspace    Workspace? @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+
+  @@map("integrations")
+}
+
+model CreatorProfile {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id           String   @unique @db.Uuid
+  user              User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  
+  location          String?
+  website           String?
+  category          String? // UI/UX, Branding, etc.
+  type              String? // Individual, Studio, Agency
+  country           String?
+  
+  // Stats
+  works_count       Int @default(0)
+  soty_count        Int @default(0)
+  sotm_count        Int @default(0)
+  sotd_count        Int @default(0)
+  hm_count          Int @default(0)
+  
+  // CV Data
+  about             String?
+  experience        Json? @default("[]")
+  expertise         String[] @default([])
+  tools             Json? @default("[]")
+  languages         Json? @default("[]")
+  education         Json? @default("[]")
+  
+  social_links      SocialLink[]
+  
+  @@map("creator_profiles")
+}
+
+model SocialLink {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  creator_id        String   @db.Uuid
+  creator           CreatorProfile @relation(fields: [creator_id], references: [id], onDelete: Cascade)
+  platform          String // Twitter, Instagram, Behance, etc.
+  url               String
+  
+  @@map("social_links")
+}
+
+model ProjectMedia {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id   String   @db.Uuid
+  project      Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  url          String
+  type         String   @default("image") // image, video
+  order        Int      @default(0)
+  caption      String?
+  
+  @@map("project_media")
+}
+
+model ProjectCredit {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id   String   @db.Uuid
+  project      Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  role         String
+  name         String
+  user_id      String?  @db.Uuid
+  
+  @@map("project_credits")
+}
+
+model Award {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id   String   @db.Uuid
+  project      Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  label        String   // SOTD, HM, etc.
+  issued_at    DateTime @default(now()) @db.Timestamptz(6)
+  
+  @@map("awards")
+}
+
+model Follow {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  follower_id  String   @db.Uuid
+  following_id String   @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  follower     User     @relation("Follower", fields: [follower_id], references: [id], onDelete: Cascade)
+  following    User     @relation("Following", fields: [following_id], references: [id], onDelete: Cascade)
+
+  @@unique([follower_id, following_id])
+  @@map("follows")
+}
+
+model CommunityLike {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String   @db.Uuid
+  post_id      String   @db.Uuid
+  created_at   DateTime @default(now()) @db.Timestamptz(6)
+
+  user         User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  post         CommunityPost @relation(fields: [post_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, post_id])
+  @@map("community_likes")
+}
+
+model ProjectComment {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id   String   @db.Uuid
+  author_id    String   @db.Uuid
+  parent_id    String?  @db.Uuid
+  content      String
+  likes_count  Int      @default(0)
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  project      Project  @relation(fields: [project_id], references: [id], onDelete: Cascade)
+  author       User     @relation(fields: [author_id], references: [id], onDelete: Cascade)
+  parent       ProjectComment? @relation("CommentReplies", fields: [parent_id], references: [id], onDelete: Cascade)
+  replies      ProjectComment[] @relation("CommentReplies")
+  likes        ProjectCommentLike[]
+
+  @@map("project_comments")
+}
+
+model ProjectCommentLike {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  comment_id String   @db.Uuid
+  user_id    String   @db.Uuid
+  created_at DateTime? @default(now()) @db.Timestamptz(6)
+
+  comment    ProjectComment @relation(fields: [comment_id], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([comment_id, user_id])
+  @@map("project_comment_likes")
+}
+
+model StandupTeam {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  workspace_id String   @db.Uuid
+  name         String
+  leader_id    String?  @db.Uuid
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  // Relations
+  workspace    Workspace @relation(fields: [workspace_id], references: [id], onDelete: Cascade)
+  leader       User?     @relation(fields: [leader_id], references: [id])
+  members      StandupTeamMember[]
+  standups     Standup[]
+
+  @@map("standup_teams")
+}
+
+model StandupTeamMember {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  team_id      String   @db.Uuid
+  user_id      String   @db.Uuid
+  created_at   DateTime? @default(now()) @db.Timestamptz(6)
+
+  team         StandupTeam @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  user         User        @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([team_id, user_id])
+  @@map("standup_team_members")
+}
+
+model Standup {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  team_id        String   @db.Uuid
+  name           String
+  frequency      String?  @default("daily")
+  reminder_time  String?
+  schedule_days  String[] // 'Mon', 'Tue', etc.
+  questions      Json?    @default("[]")
+  is_active      Boolean? @default(true)
+  target_audience String?  @default("leader")
+  created_by     String?  @db.Uuid
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at     DateTime? @default(now()) @db.Timestamptz(6)
+  cover_url      String?
+
+  team           StandupTeam @relation(fields: [team_id], references: [id], onDelete: Cascade)
+  creator        User?       @relation(fields: [created_by], references: [id])
+  updates        StandupUpdate[]
+
+  @@map("standups")
+}
+
+model StandupUpdate {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  standup_id  String    @db.Uuid
+  user_id     String    @db.Uuid
+  content     Json      @default("[]") // Stores answers to questions
+  mood        String?   // 'happy', 'neutral', 'bad'
+  blockers    String?
+  kudos       Int       @default(0)
+  created_at  DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime? @default(now()) @db.Timestamptz(6)
+
+  standup     Standup   @relation(fields: [standup_id], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("standup_updates")
+}
+
