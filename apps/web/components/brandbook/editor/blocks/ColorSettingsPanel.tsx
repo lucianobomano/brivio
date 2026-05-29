@@ -90,7 +90,7 @@ export function ColorSettingsPanel({ color, settings, onUpdateBlock, onUpdateCol
 
     return (
         <div
-            className="w-[300px] bg-[#111116] rounded-lg overflow-hidden shadow-2xl border border-[#222] text-sm font-sans z-[100] flex flex-col fixed left-[50%] top-[20%]"
+            className="w-[300px] bg-[#111116] rounded-lg overflow-hidden shadow-2xl border border-[#222] text-sm font-sans z-[9999] flex flex-col fixed left-[50%] top-[20%]"
             onClick={e => e.stopPropagation()}
             style={{
                 transform: `translate(${position.x}px, ${position.y}px)`,

@@ -9,16 +9,14 @@ import {
     CheckSquare,
     FolderKanban,
     ArrowRight,
-    ChevronLeft,
-    ChevronRight,
     Sparkles,
     Settings,
     PlusCircle,
     Layout
 } from "lucide-react"
 import Link from "next/link"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
 import { ThemeToggle } from "@/components/theme-toggle"
 import { WorkspaceCreateModal } from "@/components/dashboard/WorkspaceCreateModal"
 import { GlobalSettingsView } from "@/components/settings/GlobalSettingsView"
@@ -32,6 +30,7 @@ interface NavOption {
     color: string
     bg: string
     id: string
+    imageUrl?: string
 }
 
 const NAV_OPTIONS: NavOption[] = [
@@ -44,6 +43,7 @@ const NAV_OPTIONS: NavOption[] = [
         href: "/brands",
         color: "#0066FF",
         bg: "rgba(0, 102, 255, 0.1)",
+        imageUrl: "/images/templates/Frame 615.png",
     },
     {
         id: "02",
@@ -54,6 +54,7 @@ const NAV_OPTIONS: NavOption[] = [
         href: "/projects",
         color: "#00D6A0",
         bg: "rgba(0, 214, 160, 0.1)",
+        imageUrl: "/images/templates/Frame 610.png",
     },
     {
         id: "03",
@@ -74,6 +75,7 @@ const NAV_OPTIONS: NavOption[] = [
         href: "/assets",
         color: "#00D6A0",
         bg: "rgba(0, 214, 160, 0.1)",
+        imageUrl: "/images/templates/Frame 617.png",
     },
     {
         id: "05",
@@ -84,6 +86,7 @@ const NAV_OPTIONS: NavOption[] = [
         href: "/brandops",
         color: "#FF6600",
         bg: "rgba(255, 102, 0, 0.1)",
+        imageUrl: "/images/templates/Frame 605.png",
     },
     {
         id: "06",
@@ -97,6 +100,8 @@ const NAV_OPTIONS: NavOption[] = [
     },
 ]
 
+import { StandupHeader } from "@/components/standups/StandupHeader"
+
 export function DashboardClient({
     userName,
     hasWorkspace,
@@ -108,190 +113,128 @@ export function DashboardClient({
     workspaceName?: string | null,
     workspaceId?: string | null
 }) {
-    const [currentIndex, setCurrentIndex] = React.useState(0)
     const [isWorkspaceModalOpen, setIsWorkspaceModalOpen] = React.useState(false)
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
     const router = useRouter()
-    const scrollContainerRef = React.useRef<HTMLDivElement>(null)
-
-    const handleNext = () => {
-        if (currentIndex < NAV_OPTIONS.length - 1) {
-            setCurrentIndex(prev => prev + 1)
-        }
-    }
-
-    const handlePrev = () => {
-        if (currentIndex > 0) {
-            setCurrentIndex(prev => prev - 1)
-        }
-    }
-
-    React.useEffect(() => {
-        if (scrollContainerRef.current) {
-            const cardWidth = 532 // 500px + 32px gap
-            scrollContainerRef.current.scrollTo({
-                left: currentIndex * cardWidth,
-                behavior: "smooth"
-            })
-        }
-    }, [currentIndex])
 
     return (
         <div className="min-h-screen bg-bg-0 text-text-primary font-sans selection:bg-accent-indigo selection:text-white overflow-hidden relative transition-colors duration-500">
             {/* Ambient Background Glows */}
             <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-accent-indigo/40 to-transparent blur-[2px] opacity-30 dark:opacity-50" />
-            <div className="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-transparent via-accent-indigo/40 to-transparent blur-[2px] opacity-30 dark:opacity-50" />
-
             <div className="absolute left-[-10%] top-[-10%] w-[40%] h-[40%] bg-accent-indigo/5 rounded-full blur-[120px] pointer-events-none" />
-            <div className="absolute right-[-10%] bottom-[-10%] w-[40%] h-[40%] bg-accent-indigo/5 rounded-full blur-[120px] pointer-events-none" />
 
-            {/* Header */}
-            <header className="px-8 h-[100px] flex items-center justify-between relative z-50">
-                <div className="flex flex-col">
-                    <motion.h1
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: 0.1 }}
-                        className="text-[42px] font-bold tracking-tight text-text-primary uppercase font-tight leading-none"
-                    >
-                        Welcome Back, <span className="text-accent-indigo">{userName}</span>
-                    </motion.h1>
-                </div>
+            <StandupHeader />
 
-                <div className="flex items-center gap-6">
-                    {/* Navigation Dots */}
-                    <div className="flex gap-2 mr-8">
-                        {NAV_OPTIONS.map((_, idx) => (
-                            <div
-                                key={idx}
-                                className={cn(
-                                    "w-1 h-1 rounded-full transition-all duration-300",
-                                    currentIndex === idx ? "bg-accent-indigo w-4" : "bg-text-tertiary/20"
-                                )}
-                            />
-                        ))}
-                    </div>
-
-                    {/* Navigation Arrows */}
-                    <div className="flex gap-2">
-                        <button
-                            onClick={handlePrev}
-                            disabled={currentIndex === 0}
-                            className="w-10 h-10 rounded-full border border-bg-3 dark:border-white/10 flex items-center justify-center hover:bg-bg-2 dark:hover:bg-white/5 transition-colors disabled:opacity-20 text-text-primary"
-                        >
-                            <ChevronLeft className="w-5 h-5" />
-                        </button>
-                        <button
-                            onClick={handleNext}
-                            disabled={currentIndex === NAV_OPTIONS.length - 1}
-                            className="w-10 h-10 rounded-full border border-bg-3 dark:border-white/10 flex items-center justify-center hover:bg-bg-2 dark:hover:bg-white/5 transition-colors disabled:opacity-20 text-text-primary"
-                        >
-                            <ChevronRight className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <div className="border-l border-bg-3 dark:border-white/10 h-6 mx-2" />
-
-                    <ThemeToggle />
-                </div>
-            </header>
-
-            {/* Main Content - Slider Area */}
-            <main className="relative h-[calc(100vh-100px)] flex flex-col justify-center">
-                <div
-                    ref={scrollContainerRef}
-                    className="flex gap-8 px-[60px] overflow-x-auto scrollbar-hide snap-x snap-mandatory pt-10 pb-20 no-scrollbar"
-                >
-                    {NAV_OPTIONS.map((opt, idx) => {
+            {/* Main Content - Match Standups Layout */}
+            <main className="flex-1 flex justify-center p-10 mt-10">
+                <div className="max-w-[1600px] flex flex-wrap justify-center gap-[20px]">
+                    {NAV_OPTIONS.filter(opt => opt.id !== "03" && opt.id !== "06").map((opt, idx) => {
                         const Icon = opt.icon
-                        const isActive = currentIndex === idx
 
                         return (
                             <Link
                                 key={opt.id}
                                 href={opt.href}
-                                className={cn(
-                                    "group relative min-w-[500px] h-[670px] rounded-none overflow-hidden snap-center transition-all duration-700",
-                                    isActive ? "scale-105 opacity-100" : "scale-95 opacity-40 blur-[1px]"
-                                )}
-                                onMouseEnter={() => setCurrentIndex(idx)}
+                                className="w-[372px] h-[585px] rounded-[12px] relative overflow-hidden flex flex-col justify-between p-8 text-white transition-all hover:translate-y-[-10px] shadow-2xl group"
+                                style={{ backgroundColor: '#1A1B20' }}
                             >
-                                {/* Card Background Layer */}
-                                <div className="absolute inset-0 bg-bg-1 dark:bg-[#0A0A0A] border border-bg-3 dark:border-white/5 group-hover:border-accent-indigo/30 transition-colors shadow-xl dark:shadow-none" />
-                                <div className="absolute inset-0 bg-gradient-to-b from-text-primary/[0.01] dark:from-white/[0.02] to-transparent pointer-events-none" />
+                                {opt.imageUrl && (
+                                    <div className="absolute inset-0 z-0">
+                                        <Image
+                                            src={opt.imageUrl}
+                                            alt={opt.title}
+                                            fill
+                                            className="object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-700"
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent opacity-80" />
+                                    </div>
+                                )}
 
-                                {/* Grid Pattern Highlight */}
-                                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] pointer-events-none mix-blend-overlay dark:mix-blend-overlay" />
+                                {/* Static Module Gradient Background (Backup if no image) */}
+                                {!opt.imageUrl && (
+                                    <div className="absolute inset-0 z-0 opacity-40 group-hover:opacity-60 transition-opacity duration-500"
+                                        style={{
+                                            background: `linear-gradient(135deg, ${opt.color}44 0%, #000000 100%)`
+                                        }}
+                                    />
+                                )}
 
-                                {/* Content Wrapper */}
-                                <div className="relative h-full p-10 flex flex-col">
-                                    {/* Top Section */}
-                                    <div className="flex justify-between items-start mb-auto">
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] font-mono text-text-tertiary tracking-tighter mb-2">
-                                                [{opt.id}/{NAV_OPTIONS.length.toString().padStart(2, '0')}] // SYS.ID
+                                {/* Arrow (Top Left) */}
+                                <div className="relative z-10">
+                                    <ArrowRight className="w-8 h-8 opacity-60 group-hover:opacity-100 transition-opacity" strokeWidth={1.5} />
+                                </div>
+
+                                {/* Bottom content */}
+                                <div className="space-y-6 relative z-10 w-full mt-auto">
+                                    <div className="space-y-3">
+                                        {/* Index and Button Row */}
+                                        <div className="flex items-end justify-between">
+                                            <span className="text-[64px] font-thin opacity-80 tracking-tighter drop-shadow-lg leading-none" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                                {opt.id}
                                             </span>
-                                            <div
-                                                className="w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 group-hover:rotate-6"
-                                                style={{ backgroundColor: opt.bg, color: opt.color }}
-                                            >
-                                                <Icon className="w-7 h-7" />
-                                            </div>
+                                            <button className="px-5 py-2 rounded-full border border-white/30 bg-white/10 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider hover:bg-white/20 transition-all shrink-0">
+                                                Abrir
+                                            </button>
                                         </div>
-                                        <div className="w-10 h-10 rounded-full border border-bg-3 dark:border-white/5 flex items-center justify-center text-text-tertiary group-hover:text-text-primary group-hover:bg-accent-indigo/10 dark:group-hover:bg-accent-indigo/20 transition-all">
-                                            <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
+
+                                        <div className="h-[1px] w-full bg-gradient-to-r from-white/70 to-transparent" />
+
+                                        <div>
+                                            <h3 className="text-2xl font-bold tracking-tight leading-none drop-shadow-md uppercase font-tight">{opt.title}</h3>
+                                            <p className="text-sm opacity-60 font-medium drop-shadow-sm mt-2 line-clamp-2 uppercase tracking-tight">{opt.subtitle}</p>
                                         </div>
                                     </div>
 
-                                    {/* Middle Section */}
-                                    <div className="mt-auto space-y-4">
-                                        <motion.div
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            transition={{ delay: 0.2 }}
+                                    {/* Icon / Avatar Area Placeholder */}
+                                    <div className="flex items-center">
+                                        <div
+                                            className="w-10 h-10 rounded-full border-2 border-white/20 flex items-center justify-center shadow-lg"
+                                            style={{ backgroundColor: opt.bg, color: opt.color }}
                                         >
-                                            <span
-                                                className="text-[12px] font-bold tracking-[0.2em] uppercase"
-                                                style={{ color: opt.color }}
-                                            >
-                                                {opt.subtitle}
-                                            </span>
-                                            <h2 className="text-[64px] font-bold tracking-tight text-text-primary mt-4 leading-[0.9] uppercase font-tight group-hover:text-accent-indigo transition-colors selection:bg-accent-indigo selection:text-white">
-                                                {opt.title}
-                                            </h2>
-                                        </motion.div>
-
-                                        <p className="text-text-secondary leading-relaxed text-[15px] max-w-[90%]">
-                                            {opt.description}
-                                        </p>
-                                    </div>
-
-                                </div>
-
-                                {/* Hover Border Beam Effect (Simulated) */}
-                                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none">
-                                    <div className="absolute inset-0 border border-accent-indigo/50 rounded-none overflow-hidden">
-                                        <div className="absolute top-0 left-[-100%] w-full h-[2px] bg-gradient-to-r from-transparent via-accent-indigo to-transparent animate-beam" />
+                                            <Icon className="w-5 h-5" />
+                                        </div>
                                     </div>
                                 </div>
+
+                                {/* Liquid Gradient Effect on Hover (Optional, for premium feel) */}
+                                <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity pointer-events-none bg-gradient-to-br from-white to-transparent" />
                             </Link>
                         )
                     })}
                 </div>
             </main>
 
-            {/* Bottom Controls / Stats */}
-            <div className="absolute bottom-10 inset-x-0 px-8 flex items-center justify-between z-50 pointer-events-none">
-                <div className="flex items-center gap-8 pointer-events-auto">
+            {/* Adjusted Footer Controls */}
+            <div className="fixed bottom-10 inset-x-0 px-8 flex items-center justify-between z-50">
+                <div className="flex items-center gap-8">
                     <div className="flex flex-col">
                         <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-1">System Health</span>
                         <div className="flex items-center gap-2 text-text-primary">
                             <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[11px] font-mono font-bold">ALL SYSTEMS NOMINAL</span>
+                            <span className="text-[11px] font-mono font-bold uppercase tracking-tight">Status: Global Optimal</span>
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-4 pointer-events-auto">
+
+                <div className="flex items-center gap-4">
+                    {/* Management & Network Shortcut Buttons */}
+                    <button
+                        onClick={() => router.push('/tasks')}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-bg-1 dark:bg-white/5 border border-bg-3 dark:border-white/10 text-xs font-bold text-text-primary hover:bg-bg-2 dark:hover:bg-white/10 transition-all hover:scale-105"
+                    >
+                        <CheckSquare className="w-3.5 h-3.5 text-[#8800FF]" />
+                        Tasks
+                    </button>
+                    <button
+                        onClick={() => router.push('/community')}
+                        className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-bg-1 dark:bg-white/5 border border-bg-3 dark:border-white/10 text-xs font-bold text-text-primary hover:bg-bg-2 dark:hover:bg-white/10 transition-all hover:scale-105"
+                    >
+                        <Users className="w-3.5 h-3.5 text-[#FF0054]" />
+                        Community
+                    </button>
+
+                    <div className="w-px h-6 bg-bg-3 dark:bg-white/10 mx-2" />
+
                     {hasWorkspace ? (
                         <button
                             onClick={() => router.push(`/projects?workspaceId=${workspaceId}`)}
@@ -306,9 +249,10 @@ export function DashboardClient({
                             className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white text-black text-xs font-bold hover:scale-105 transition-all shadow-lg shadow-white/10 ring-1 ring-white/20"
                         >
                             <PlusCircle className="w-3.5 h-3.5" />
-                            Criar Workspace
+                            Nova Workspace
                         </button>
                     )}
+
                     <button
                         onClick={() => setIsSettingsOpen(true)}
                         className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-bg-1 dark:bg-white/5 border border-bg-3 dark:border-white/10 text-xs font-bold text-text-primary hover:bg-bg-2 dark:hover:bg-white dark:hover:text-black transition-all"
@@ -316,8 +260,9 @@ export function DashboardClient({
                         <Settings className="w-3.5 h-3.5" />
                         System Settings
                     </button>
-                    <button className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-accent-indigo text-white text-xs font-bold hover:scale-105 transition-all shadow-lg shadow-accent-indigo/20">
-                        <Sparkles className="w-3.5 h-3.5" />
+
+                    <button className="flex items-center gap-2 px-7 py-3 rounded-full bg-accent-indigo text-white text-[13px] font-bold hover:scale-105 transition-all shadow-xl shadow-accent-indigo/25 active:scale-95">
+                        <Sparkles className="w-4 h-4" />
                         Quick Create
                     </button>
                 </div>

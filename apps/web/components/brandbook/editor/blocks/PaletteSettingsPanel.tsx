@@ -124,10 +124,8 @@ export function PaletteSettingsPanel({
                 <span className="text-white font-medium text-[15px]">Pallete block setting</span>
                 <button
                     onClick={onClose}
-                    className="w-[20px] h-[20px] bg-black/40 rounded-full flex items-center justify-center hover:bg-black/60 transition-colors"
-                >
-                    <X className="w-3 h-3 text-white" strokeWidth={3} />
-                </button>
+                    className="w-[18px] h-[18px] bg-black rounded-full hover:opacity-80 transition-opacity"
+                />
             </div>
 
             {/* Content */}

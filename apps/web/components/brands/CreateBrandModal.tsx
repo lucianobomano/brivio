@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useRouter } from "next/navigation" // Added for redirection
 import { motion, AnimatePresence } from "framer-motion"
-import { Loader2, Upload, Plus, X, LayoutTemplate } from "lucide-react"
+import { Loader2, Upload, Plus, X, LayoutTemplate, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
@@ -97,15 +97,17 @@ export function CreateBrandModal({ children, open, onOpenChange, userName = "Cri
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-            <DialogContent className="w-screen h-screen max-w-none m-0 p-0 rounded-none bg-bg-0 border-none flex flex-col items-center justify-center overflow-hidden focus:outline-none">
+            <DialogContent className="w-screen h-screen max-w-none m-0 p-0 rounded-none bg-bg-0 border-none flex flex-col items-center justify-center overflow-hidden focus:outline-none [&>button:last-child]:hidden">
 
                 {/* Header Navigation - Hide during Step 5 (Success) for immersion */}
                 {step !== 5 && (
                     <div className="absolute top-0 left-0 w-full p-8 flex justify-between items-center z-50 text-text-tertiary">
                         <span className="text-xl font-light">Brivio°</span>
-                        <span className="text-sm uppercase tracking-widest">Dashboard</span>
-                        <button onClick={() => setIsOpen(false)} className="absolute top-8 right-8 p-2 text-text-tertiary hover:text-text-primary transition-colors">
-                            <X className="w-6 h-6" />
+                        <button 
+                            onClick={() => setIsOpen(false)} 
+                            className="text-sm uppercase tracking-widest hover:text-text-primary transition-colors focus:outline-none"
+                        >
+                            Dashboard
                         </button>
                     </div>
                 )}
@@ -750,7 +752,7 @@ function Step6_Templates({ onSelect, onSubmit, onBack, isSubmitting, selectedTem
                                                 exit={{ opacity: 0, scale: 0.5 }}
                                                 className="absolute top-4 right-4 w-8 h-8 bg-[#FF0054] rounded-full flex items-center justify-center shadow-xl border-2 border-white z-10"
                                             >
-                                                <Plus className="w-5 h-5 text-white rotate-45" style={{ transform: 'none' }} />
+                                                <Check className="w-5 h-5 text-white" />
                                             </motion.div>
                                         )}
                                     </AnimatePresence>

@@ -3,8 +3,7 @@ import { redirect } from "next/navigation"
 import { Filter, List } from "lucide-react"
 import { BrandCard } from "@/components/brands/BrandCard"
 import { CreateBrandCard } from "@/components/brands/CreateBrandCard"
-import { BrandUtilityBar } from "@/components/brands/BrandUtilityBar"
-import { Logo } from "@/components/layout/Logo"
+import { StandupHeader } from "@/components/standups/StandupHeader"
 
 export default async function BrandsPage() {
     const supabase = await createClient()
@@ -46,25 +45,11 @@ export default async function BrandsPage() {
 
     return (
         <div className="min-h-screen bg-[#EFF0F2] dark:bg-bg-0 selection:bg-[#FF0054] selection:text-white pb-20">
-            {/* Header */}
-            <header className="bg-white dark:bg-bg-0 pt-[50px] pb-[80px] flex flex-col items-center">
-                <div className="flex items-center justify-between max-w-[1140px] w-full">
-                    <Logo className="h-8" />
-
-                    {/* Utility Bar */}
-                    <BrandUtilityBar
-                        avatarUrl={user?.user_metadata?.avatar_url}
-                        userEmail={user?.email}
-                    />
-                </div>
-
-                {/* Custom Separator Line */}
-                <div className="w-full max-w-[1140px] h-[1px] bg-bg-3 mt-[25px] mx-auto" />
-            </header>
+            <StandupHeader />
 
             {/* Search & Filters */}
             <div className="py-8 flex justify-center">
-                <div className="w-full max-w-[1140px]">
+                <div className="w-full max-w-[1600px]">
                     <div className="flex items-center justify-end gap-6">
                         <div className="relative w-full max-w-md">
                             <input
@@ -86,9 +71,9 @@ export default async function BrandsPage() {
             </div>
 
             {/* Cards Grid */}
-            <div className="pb-16 flex justify-center">
-                <div className="w-full max-w-[1140px]">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <div className="pb-16 flex justify-center px-4">
+                <div className="w-full max-w-[1600px]">
+                    <div className="grid grid-cols-[repeat(auto-fill,372px)] justify-center gap-[20px]">
                         {/* Create New Card */}
                         <CreateBrandCard
                             userName={user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0]}

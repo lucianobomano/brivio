@@ -65,6 +65,8 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     const globalStyle = getStyleById(styleId)
     const isHeading = type === 'heading'
 
+    const isToolbarVisible = !isReadOnly && (isHovered || isSettingsOpen || (activeBlockId === block.id && isFocused))
+
     return (
         <div
             className={cn(
@@ -77,7 +79,7 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
         >
             {/* Toolbar using Portal to stay on screen */}
             {!isReadOnly && (
-                <PopoverPrimitive.Root open={isHovered || isSettingsOpen || (activeBlockId === block.id && isFocused)} modal={false}>
+                <PopoverPrimitive.Root open={isToolbarVisible} modal={false}>
                     <PopoverPrimitive.Anchor asChild>
                         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-0 h-0" />
                     </PopoverPrimitive.Anchor>
@@ -242,7 +244,6 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                     <AutoResizeTextarea
                         value={block.content.text || ""}
                         readOnly={isReadOnly}
-                        className="break-words max-w-full"
                         onChange={(e) => onUpdate(block.id, { ...block.content, text: e.target.value })}
                         onFocus={() => {
                             onSelect?.(block.id)
@@ -252,9 +253,9 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                         placeholder={isHeading ? "Heading" : "Type something..."}
                         fixedHeight={block.content.style?.height}
                         className={cn(
-                            "w-full min-h-0 bg-transparent border border-transparent rounded-none shadow-none focus:ring-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors",
+                            "break-words max-w-full w-full min-h-0 bg-transparent border rounded-none shadow-none focus:ring-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors",
                             isHeading ? "placeholder:text-gray-400/50 leading-tight text-gray-900" : "text-gray-600 leading-relaxed",
-                            !isReadOnly && "hover:border-[#FF0054] focus:border-[#FF0054]",
+                            isToolbarVisible ? "border-[#FF0054]" : "border-transparent hover:border-[#FF0054] focus:border-[#FF0054]",
                             block.content.style?.backgroundColor ? "p-4" : "p-0"
                         )}
                         style={{

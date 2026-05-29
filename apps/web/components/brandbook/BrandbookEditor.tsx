@@ -25,6 +25,7 @@ import { MainCanvasWithHistory } from "./editor/MainCanvas"
 import { DeleteConfirmationModal } from "./editor/DeleteConfirmationModal"
 
 const AssetLibrary = dynamic(() => import("./editor/AssetLibrary").then(m => m.AssetLibrary), { ssr: false })
+const ComponentsLibrary = dynamic(() => import("./editor/ComponentsLibrary").then(m => m.ComponentsLibrary), { ssr: false })
 const BrandSettingsPanel = dynamic(() => import("./editor/BrandSettingsPanel").then(m => m.BrandSettingsPanel), { ssr: false })
 const SaveAsTemplateModal = dynamic(() => import("./editor/SaveAsTemplateModal").then(m => m.SaveAsTemplateModal), { ssr: false })
 import { AnimationPanel } from "./editor/AnimationPanel"
@@ -86,6 +87,7 @@ export default function BrandbookEditor({
     const [isPreviewMode, setIsPreviewMode] = useState(isReadOnly)
     const [isSettingsPanelOpen, setIsSettingsPanelOpen] = useState(false)
     const [isAssetLibraryOpen, setIsAssetLibraryOpen] = useState(false)
+    const [isComponentsLibraryOpen, setIsComponentsLibraryOpen] = useState(false)
     const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
     const [responsiveDevice, setResponsiveDevice] = useState<'desktop' | 'widescreen' | 'mobile'>('widescreen')
     const [isResponsiveMenuOpen, setIsResponsiveMenuOpen] = useState(false)
@@ -234,6 +236,33 @@ export default function BrandbookEditor({
         const newValue = !item.isFullscreen
         setItems(prev => prev.map(m => m.id === moduleId ? { ...m, isFullscreen: newValue } : m))
         await updateModule(moduleId, { isFullscreen: newValue }, brandId)
+    }
+
+    const handleSelectComponent = (component: Block) => {
+        if (!activeModule) return
+        
+        const cloneWithNewId = (obj: any): any => {
+            if (Array.isArray(obj)) return obj.map(item => cloneWithNewId(item))
+            if (obj && typeof obj === 'object') {
+                const newObj = { ...obj }
+                if (newObj.id) newObj.id = Math.random().toString(36).substr(2, 9)
+                for (const key in newObj) {
+                    if (key !== 'id') newObj[key] = cloneWithNewId(newObj[key])
+                }
+                return newObj
+            }
+            return obj
+        }
+
+        const newBlock = cloneWithNewId(component)
+        
+        const editorContent = activeModule.content_json as any
+        const newBlocks = [...(editorContent.blocks || []), newBlock]
+        
+        handleUpdateModule(activeModule.id, {
+            ...editorContent,
+            blocks: newBlocks
+        })
     }
 
 
@@ -502,6 +531,12 @@ export default function BrandbookEditor({
 
                                     {/* Library Link */}
                                     <button
+                                        onClick={() => setIsComponentsLibraryOpen(true)}
+                                        className="text-[15px] font-medium text-[#888] hover:text-white transition-colors mr-6"
+                                    >
+                                        Componentes
+                                    </button>
+                                    <button
                                         onClick={() => setIsAssetLibraryOpen(true)}
                                         className="text-[15px] font-medium text-[#888] hover:text-white transition-colors mr-4"
                                     >
@@ -605,6 +640,13 @@ export default function BrandbookEditor({
                     isOpen={isAssetLibraryOpen}
                     onClose={() => setIsAssetLibraryOpen(false)}
                     brandId={brandId}
+                />
+
+                <ComponentsLibrary
+                    isOpen={isComponentsLibraryOpen}
+                    onClose={() => setIsComponentsLibraryOpen(false)}
+                    brandId={brandId}
+                    onSelectComponent={handleSelectComponent}
                 />
 
                 <SaveAsTemplateModal

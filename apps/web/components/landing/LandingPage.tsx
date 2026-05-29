@@ -19,6 +19,7 @@ import {
     TextReveal,
     CustomCursor
 } from './LandingComponents'
+import { cn } from '@/lib/utils'
 
 const FAQItem = ({ question, answer }: { question: string, answer: string }) => {
     const [isOpen, setIsOpen] = useState(false)
@@ -173,7 +174,6 @@ const InteractiveVisionLine = ({
     )
 }
 
-const cn = (...classes: (string | boolean | undefined)[]) => classes.filter(Boolean).join(' ')
 
 export default function LandingPage() {
     const [scrolled, setScrolled] = useState(false)
@@ -226,11 +226,10 @@ export default function LandingPage() {
                     </div>
 
                     <nav className="hidden md:flex items-center space-x-12">
-                        {['Strategy', 'Assets', 'Workflow', 'Pricing'].map((item) => (
-                            <Link key={item} href={`#${item.toLowerCase()}`} className="text-[11px] font-bold tracking-[0.2em] text-white/40 hover:text-white hover:tracking-[0.25em] transition-all uppercase">
-                                {item}
-                            </Link>
-                        ))}
+                        <Link href="#strategy" className="text-[11px] font-bold tracking-[0.2em] text-white/40 hover:text-white hover:tracking-[0.25em] transition-all uppercase">Strategy</Link>
+                        <Link href="#asset-hub" className="text-[11px] font-bold tracking-[0.2em] text-white/40 hover:text-white hover:tracking-[0.25em] transition-all uppercase">Assets</Link>
+                        <Link href="#brandops" className="text-[11px] font-bold tracking-[0.2em] text-white/40 hover:text-white hover:tracking-[0.25em] transition-all uppercase">Workflow</Link>
+                        <Link href="#pricing" className="text-[11px] font-bold tracking-[0.2em] text-white/40 hover:text-white hover:tracking-[0.25em] transition-all uppercase">Pricing</Link>
                     </nav>
 
                     <div className="flex items-center space-x-6">
@@ -692,7 +691,7 @@ export default function LandingPage() {
                     </div>
                 </section>
 
-                <section id="faq" className="py-60 px-6 relative bg-zinc-950/50">
+                <section id="faq-alt" className="py-60 px-6 relative bg-zinc-950/50">
                     <div className="max-w-3xl mx-auto">
                         <div className="text-center mb-32">
                             <span className="text-[10px] font-black tracking-[0.6em] text-accent-indigo uppercase">Support</span>
@@ -743,17 +742,17 @@ export default function LandingPage() {
                     <div>
                         <h4 className="text-[10px] font-bold uppercase tracking-[0.4em] text-accent-indigo mb-10">System</h4>
                         <ul className="space-y-4 text-text-secondary text-sm font-bold">
-                            <li><Link href="#" className="hover:text-white transition-colors">Dashboard</Link></li>
-                            <li><Link href="#" className="hover:text-white transition-colors">Guidelines</Link></li>
-                            <li><Link href="#" className="hover:text-white transition-colors">Vault</Link></li>
+                            <li><Link href="/dashboard" className="hover:text-white transition-colors">Dashboard</Link></li>
+                            <li><Link href="/brandbooks" className="hover:text-white transition-colors">Guidelines</Link></li>
+                            <li><Link href="#asset-hub" className="hover:text-white transition-colors">Vault</Link></li>
                         </ul>
                     </div>
                     <div>
                         <h4 className="text-[10px] font-bold uppercase tracking-[0.4em] text-accent-indigo mb-10">Network</h4>
                         <ul className="space-y-4 text-text-secondary text-sm font-bold">
-                            <li><Link href="#" className="hover:text-white transition-colors">Creators</Link></li>
-                            <li><Link href="#" className="hover:text-white transition-colors">Proposals</Link></li>
-                            <li><Link href="#" className="hover:text-white transition-colors">Library</Link></li>
+                            <li><Link href="/creators" className="hover:text-white transition-colors">Creators</Link></li>
+                            <li><Link href="/proposals" className="hover:text-white transition-colors">Proposals</Link></li>
+                            <li><Link href="/brands" className="hover:text-white transition-colors">Library</Link></li>
                         </ul>
                     </div>
                     <div className="col-span-2">

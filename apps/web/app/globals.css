@@ -53,7 +53,6 @@
     font-family: var(--font-inter);
     /* Updated Global Gradient Background - Subtle version of the 4-color gradient */
     background-image:
-      radial-gradient(circle at 50% 0%, rgba(255, 0, 84, 0.08) 0%, transparent 40%),
       radial-gradient(circle at 0% 50%, rgba(136, 0, 127, 0.05) 0%, transparent 30%),
       radial-gradient(circle at 100% 50%, rgba(49, 28, 153, 0.05) 0%, transparent 30%);
     background-attachment: fixed;
@@ -106,6 +105,18 @@
 
   .bg-gradient-brand-multi {
     @apply bg-gradient-to-r from-[#ff0054] via-[#88007F] via-[#06D6A0] to-[#311C99];
+  }
+
+  .bg-brand-mesh {
+    background: conic-gradient(
+      from 0deg at 50% 50%, 
+      #ff0054 0deg, 
+      #88007F 90deg, 
+      #06D6A0 180deg, 
+      #311C99 270deg, 
+      #ff0054 360deg
+    );
+    background-size: 100% 100%;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
@@ -227,6 +238,24 @@
 .animate-liquid-gradient {
   background-size: 300% 300%;
   animation: liquid 8s ease infinite;
+}
+
+@keyframes hue-shift {
+  from { filter: hue-rotate(0deg); }
+  to { filter: hue-rotate(360deg); }
+}
+
+.animate-hue-dynamic {
+  animation: hue-shift 5s linear infinite;
+}
+
+@keyframes mesh-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.animate-mesh-spin {
+  animation: mesh-spin 10s linear infinite;
 }
 
 /* V3 Advanced Tokens */

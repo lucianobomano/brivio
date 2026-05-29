@@ -12,7 +12,8 @@ import {
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useTheme } from "next-themes"
-import { useRouter } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
+import { CreateBrandModal } from "@/components/brands/CreateBrandModal"
 import { createClient } from "@/lib/supabase/client"
 import {
     DropdownMenu,
@@ -40,6 +41,7 @@ interface AppUser {
 export function StandupHeader() {
     const { theme, setTheme } = useTheme()
     const router = useRouter()
+    const pathname = usePathname()
     const [user, setUser] = useState<AppUser | null>(null)
     const [isPopoverOpen, setIsPopoverOpen] = useState(false)
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
@@ -78,8 +80,12 @@ export function StandupHeader() {
 
     return (
         <>
-            <header className="w-full shrink-0 bg-bg-0 z-30 flex justify-center sticky top-0" style={{ height: "61px", marginTop: "30px" }}>
-                <div className="flex items-center justify-between h-full w-full" style={{ maxWidth: "1520px" }}>
+            <header 
+                className="w-full shrink-0 bg-bg-0 z-30 flex flex-col items-center relative" 
+                style={{ marginTop: "30px" }}
+            >
+                {/* Navigation Bar */}
+                <div className="flex items-center justify-between w-full" style={{ height: "61px", maxWidth: "1520px" }}>
                     {/* Logo */}
                     <div className="flex items-center relative" style={{ width: "143px", height: "40px" }}>
                         <Image
@@ -93,7 +99,7 @@ export function StandupHeader() {
 
                     {/* Right side group */}
                     <div className="flex items-center gap-6">
-                        {/* Add Project Button Group - PRESERVED FOR CONSISTENCY, BUT DISABLED/MOCKED */}
+                        {/* Add Button Group */}
                         <div
                             className="flex items-center"
                             style={{
@@ -105,25 +111,50 @@ export function StandupHeader() {
                             }}
                         >
                             <div className="flex items-center" style={{ gap: "3px" }}>
-                                {/* Add Project Button */}
-                                <button
-                                    onClick={() => toast.info("Creating projects is only available in the Projects Dashboard")}
-                                    className="flex items-center justify-center text-white text-sm font-bold"
-                                    style={{
-                                        width: "143px",
-                                        height: "41px",
-                                        borderRadius: "100px 0 0 100px",
-                                        background: "linear-gradient(135deg, #FF0054, #88007F, #06D6A0, #311C99)",
-                                        padding: "3px",
-                                    }}
-                                >
-                                    <span
-                                        className="flex items-center justify-center w-full h-full bg-[#15171F] text-white text-sm font-bold"
-                                        style={{ borderRadius: "97px 0 0 97px", padding: "0 27px" }}
+                                {/* Main Action Button */}
+                                {pathname === "/brands" ? (
+                                    <CreateBrandModal
+                                        userName={user?.profile?.name || user?.email?.split('@')[0] || "User"}
+                                        brandsCount={0}
                                     >
-                                        Add project
-                                    </span>
-                                </button>
+                                        <button
+                                            className="flex items-center justify-center text-white text-sm font-bold"
+                                            style={{
+                                                width: "143px",
+                                                height: "41px",
+                                                borderRadius: "100px 0 0 100px",
+                                                background: "linear-gradient(135deg, #FF0054, #88007F, #06D6A0, #311C99)",
+                                                padding: "3px",
+                                            }}
+                                        >
+                                            <span
+                                                className="flex items-center justify-center w-full h-full bg-[#15171F] text-white text-sm font-bold"
+                                                style={{ borderRadius: "97px 0 0 97px", padding: "0 27px" }}
+                                            >
+                                                Add brand
+                                            </span>
+                                        </button>
+                                    </CreateBrandModal>
+                                ) : (
+                                    <button
+                                        onClick={() => toast.info("Creating projects is only available in the Projects Dashboard")}
+                                        className="flex items-center justify-center text-white text-sm font-bold"
+                                        style={{
+                                            width: "143px",
+                                            height: "41px",
+                                            borderRadius: "100px 0 0 100px",
+                                            background: "linear-gradient(135deg, #FF0054, #88007F, #06D6A0, #311C99)",
+                                            padding: "3px",
+                                        }}
+                                    >
+                                        <span
+                                            className="flex items-center justify-center w-full h-full bg-[#15171F] text-white text-sm font-bold"
+                                            style={{ borderRadius: "97px 0 0 97px", padding: "0 27px" }}
+                                        >
+                                            Add project
+                                        </span>
+                                    </button>
+                                )}
                                 {/* Dropdown Button */}
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
@@ -187,7 +218,7 @@ export function StandupHeader() {
                                 <button
                                     onClick={() => setTheme("dark")}
                                     className={cn(
-                                        "flex items-center justify-center transition-all",
+                                        "flex items-all justify-center transition-all",
                                         mounted && theme === "dark" ? "bg-[#15161B] rounded-full" : ""
                                     )}
                                     style={{ width: "28px", height: "28px" }}
@@ -242,12 +273,12 @@ export function StandupHeader() {
                         </div>
                     </div>
                 </div>
-            </header>
 
-            {/* Header border with gap - MATCHING PROJECTS STYLE */}
-            <div className="w-full flex justify-center shrink-0 z-20" style={{ marginBottom: "50px", marginTop: "25px" }}>
-                <div style={{ height: "1px", backgroundColor: "#303030", width: "1520px" }} />
-            </div>
+                {/* Header border INSIDE the white container */}
+                <div className="w-full flex justify-center shrink-0 z-20" style={{ marginTop: "25px", marginBottom: "30px" }}>
+                    <div style={{ height: "1px", backgroundColor: theme === "light" ? "#E5E7EB" : "#303030", width: "1520px" }} />
+                </div>
+            </header>
 
             <WorkspaceProvider>
                 <GlobalSettingsView

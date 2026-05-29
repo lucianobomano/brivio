@@ -25,8 +25,8 @@ import {
     ArrowUp,
     ArrowDown,
     Copy,
-    Zap,
-    RotateCcw
+    CopyPlus,
+    Zap
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -492,7 +492,7 @@ export const TextToolbar = ({
                         }
                     />
 
-                    <button onClick={onDuplicate} className="text-gray-400 hover:text-blue-400 p-1" title="Duplicar bloco"><RotateCcw className="w-4 h-4" /></button>
+                    <button onClick={onDuplicate} className="text-gray-400 hover:text-blue-400 p-1" title="Duplicar bloco"><CopyPlus className="w-4 h-4" /></button>
                     <button onClick={onCopy} className="text-gray-400 hover:text-blue-400 p-1" title="Copiar bloco"><Copy className="w-4 h-4" /></button>
                     <button onClick={onAnimate} className="text-gray-400 hover:text-[#FF0054] p-1" title="Animar bloco"><Zap className="w-4 h-4 fill-transparent hover:fill-[#FF0054]" /></button>
                     <button onClick={onDelete} className="text-gray-400 hover:text-red-500 p-1" title="Eliminar"><Trash className="w-4 h-4" /></button>

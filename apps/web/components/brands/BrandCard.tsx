@@ -2,8 +2,9 @@
 
 import Link from "next/link"
 import { format } from "date-fns"
-import { pt } from "date-fns/locale"
+import { ptBR } from "date-fns/locale"
 import { BrandActions } from "./BrandActions"
+import { MoreVertical } from "lucide-react"
 
 interface BrandCardProps {
     brand: {
@@ -16,53 +17,40 @@ interface BrandCardProps {
     }
 }
 
-// Gradientes pré-definidos para avatares
-const avatarGradients = [
-    'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-    'linear-gradient(135deg, #30cfd0 0%, #330867 100%)',
-    'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
-    'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)',
-]
-
-function getGradientForBrand(brandId: string, primaryColor?: string | null) {
-    if (primaryColor) {
-        return `linear-gradient(135deg, ${primaryColor} 0%, ${primaryColor}dd 100%)`
-    }
-    const hash = brandId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return avatarGradients[hash % avatarGradients.length]
-}
-
 export function BrandCard({ brand }: BrandCardProps) {
-    const formattedDate = format(new Date(brand.updated_at), "d 'Dez' yyyy", { locale: pt })
+    const formattedDate = brand.updated_at 
+        ? format(new Date(brand.updated_at), "d 'Dez' yyyy", { locale: ptBR })
+        : '---'
 
     return (
-        <div className="relative group">
-            <Link href={`/brand/${brand.id}/brandbook`}>
-                <div className="w-[265px] h-[360px] rounded-2xl bg-white p-6 flex flex-col items-center justify-center hover:shadow-2xl transition-all duration-300">
-                    {/* Brand Avatar */}
-                    <div
-                        className="w-[75px] h-[75px] rounded-full mb-4 group-hover:scale-110 transition-transform duration-300"
-                        style={{ background: getGradientForBrand(brand.id, brand.primary_color) }}
-                    />
+        <div className="relative w-[372px] h-[585px] rounded-[16px] bg-white overflow-hidden group border border-gray-100 shadow-sm transition-all duration-500">
+            {/* Clickable Area for the brand */}
+            <Link href={`/brand/${brand.id}/brandbook`} className="absolute inset-0 z-10" />
 
-                    {/* Brand Name */}
-                    <h3 className="text-lg font-semibold text-gray-900 text-center mb-2 px-4">
+            {/* Menu Actions (Top Right) */}
+            <div className="absolute top-6 right-6 z-20">
+                <BrandActions brand={brand} />
+            </div>
+
+            {/* Content Container - Centered */}
+            <div className="h-full flex flex-col items-center justify-center p-8 text-center">
+                {/* Brand Logo - Animation only on hover */}
+                <div className="relative mb-8">
+                    <div className="w-[120px] h-[120px] rounded-full bg-brand-mesh shadow-lg opacity-90 group-hover:opacity-100 group-hover:animate-mesh-spin group-hover:animate-hue-dynamic transition-all duration-700 ease-in-out" />
+                    {/* Subtle outer ring */}
+                    <div className="absolute -inset-2 rounded-full border border-gray-50 opacity-50 group-hover:scale-110 transition-transform duration-700" />
+                </div>
+
+                {/* Brand Info */}
+                <div className="space-y-1">
+                    <h3 className="text-[22px] font-semibold text-[#1A1B20] tracking-tight">
                         {brand.name}
                     </h3>
-
-                    {/* Updated Date */}
-                    <p className="text-sm text-gray-500">
+                    <p className="text-[13px] font-medium text-gray-400 capitalize">
                         Actualizado em {formattedDate}
                     </p>
                 </div>
-            </Link>
-
-            {/* Menu Actions */}
-            <BrandActions brand={brand} />
+            </div>
         </div>
     )
 }

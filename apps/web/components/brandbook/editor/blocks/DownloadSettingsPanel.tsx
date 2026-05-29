@@ -78,7 +78,7 @@ export const DownloadSettingsPanel = ({ onClose, settings, onUpdate, onUpload, o
 
     return (
         <div
-            className="w-[280px] max-h-[500px] flex flex-col bg-[#111216] rounded-lg shadow-2xl border border-[#333] z-[200] overflow-hidden"
+            className="w-[280px] max-h-[500px] flex flex-col bg-[#111216] rounded-lg shadow-2xl border border-[#333] z-[9999] overflow-hidden"
             style={{
                 transform: `translate(${position.x}px, ${position.y}px)`,
                 position: 'relative'

@@ -176,7 +176,7 @@ export function ColumnSettingsPanel({
                 side="left"
                 align="start"
                 className="w-[300px] p-0 bg-[#15161B] border-none shadow-2xl rounded-lg overflow-hidden flex flex-col"
-                style={{ zIndex: 100, transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`, maxHeight: '680px' }}
+                style={{ zIndex: 9999, transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`, maxHeight: '680px' }}
             >
                 {/* Header: Pink background, "Column settings", Circle icon */}
                 <div

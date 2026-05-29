@@ -74,7 +74,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
 
     return (
         <div
-            className="w-[320px] bg-[#111116] rounded-lg overflow-hidden shadow-2xl border border-[#222] text-sm font-sans z-[100] flex flex-col max-h-[500px]"
+            className="w-[320px] bg-[#111116] rounded-lg overflow-hidden shadow-2xl border border-[#222] text-sm font-sans z-[9999] flex flex-col max-h-[500px]"
             onClick={e => e.stopPropagation()}
             style={{
                 transform: `translate(${position.x}px, ${position.y}px)`,
@@ -95,10 +95,9 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                         e.stopPropagation()
                         onClose()
                     }}
-                    className="w-5 h-5 rounded-full bg-[#15161B]/50 hover:bg-[#15161B]/80 transition-colors flex items-center justify-center shrink-0"
+                    className="w-5 h-5 rounded-full bg-black hover:bg-black/80 transition-colors flex items-center justify-center shrink-0"
                     onMouseDown={(e) => e.stopPropagation()} // Prevent drag when clicking close
                 >
-                    <X className="w-3 h-3 text-white" />
                 </button>
             </div>
 

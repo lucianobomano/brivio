@@ -366,10 +366,8 @@ export function SectionSettingsPanel({
                 <span className="text-white font-semibold text-[16px]">Edit section</span>
                 <button
                     onClick={onClose}
-                    className="w-[20px] h-[20px] bg-black rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
-                >
-                    <X className="w-3 h-3 text-white" strokeWidth={3} />
-                </button>
+                    className="w-[18px] h-[18px] bg-black rounded-full hover:opacity-80 transition-opacity"
+                />
             </div>
 
             {/* Scroll Area */}

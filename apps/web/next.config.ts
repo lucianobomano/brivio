@@ -1,3 +1,5 @@
+import { withVisualEdit as withBefreeVisualEdit } from 'befree-visual-edit/next';
+
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -39,6 +41,7 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: '200mb',
     },
+    optimizePackageImports: ['lucide-react', 'react-icons'],
   },
   typescript: {
     ignoreBuildErrors: true,
@@ -48,4 +51,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withBefreeVisualEdit(nextConfig);

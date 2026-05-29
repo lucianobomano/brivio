@@ -12,6 +12,7 @@ import { ArrowUp, ArrowDown, Clipboard, Check } from "lucide-react"
 import { useBrandDesign } from "./BrandDesignContext"
 import { EditorHistoryProvider, useEditorHistoryOptional } from "./EditorHistoryContext"
 import { EditorToast } from "./EditorToast"
+import { SaveComponentModal } from "./SaveComponentModal"
 
 // Helper Component for Section Divider
 const SectionDivider = ({ onClick, onPaste, onClear, hasClipboard }: { onClick: () => void, onPaste?: () => void, onClear?: () => void, hasClipboard?: boolean }) => (
@@ -208,6 +209,8 @@ export function MainCanvas({
     const [addingContext, setAddingContext] = useState<{ parentId?: string, columnId?: string, insertIndex?: number } | null>(null)
     const [panelInitialPos, setPanelInitialPos] = useState<{ top: number, left: number } | null>(null)
     const [clipboard, setClipboard] = useState<Block | null>(null)
+    const [isSaveComponentOpen, setIsSaveComponentOpen] = useState(false)
+    const [blockToSave, setBlockToSave] = useState<Block | null>(null)
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -613,8 +616,13 @@ export function MainCanvas({
         handleDeleteBlock(blockId)
     }
 
-    const handleSaveAsComponent = () => {
-        alert("Funcionalidade de salvar componente em desenvolvimento.")
+    const handleSaveAsComponent = (blockId: string) => {
+        const block = blocks.find(b => b.id === blockId)
+        if (block) {
+            setBlockToSave(block)
+            setIsSaveComponentOpen(true)
+            onSelectBlock(null) // Close settings panel
+        }
     }
 
     const handleUpdateSectionSettings = (blockId: string, newSettings: SectionSettings) => {
@@ -691,6 +699,15 @@ export function MainCanvas({
                     onPaste={() => handlePasteBlock(addingContext?.parentId, addingContext?.columnId)}
                     onClearClipboard={handleClearClipboard}
                 />
+                <SaveComponentModal
+                    isOpen={isSaveComponentOpen}
+                    onClose={() => {
+                        setIsSaveComponentOpen(false)
+                        setBlockToSave(null)
+                    }}
+                    block={blockToSave}
+                    brandId={brandId}
+                />
             </div>
         )
     }
@@ -744,7 +761,7 @@ export function MainCanvas({
                                                             onUpdate={(newSettings) => handleUpdateSectionSettings(block.id, newSettings)}
                                                             onClose={() => onSelectBlock(null)}
                                                             onCut={() => handleCutBlock(block.id)}
-                                                            onSaveAsComponent={() => handleSaveAsComponent()}
+                                                            onSaveAsComponent={() => handleSaveAsComponent(block.id)}
                                                             onDuplicate={() => handleDuplicateBlock(block.id)}
                                                             onCopy={() => handleCopyBlock(block.id)}
                                                             onDelete={() => handleDeleteBlock(block.id)}
@@ -831,6 +848,16 @@ export function MainCanvas({
                     </div>
                 </div>
             </div>
+
+            <SaveComponentModal
+                isOpen={isSaveComponentOpen}
+                onClose={() => {
+                    setIsSaveComponentOpen(false)
+                    setBlockToSave(null)
+                }}
+                block={blockToSave}
+                brandId={brandId}
+            />
 
             <AddSectionDialog
                 isOpen={isAddSectionOpen}

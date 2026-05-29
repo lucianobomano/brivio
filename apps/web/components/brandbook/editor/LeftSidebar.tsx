@@ -100,7 +100,7 @@ function PageSettingsPopover({
         <Popover open={isOpen} onOpenChange={onOpenChange}>
             <PopoverTrigger asChild>
                 <button
-                    className="p-1 hover:bg-black/5 rounded-sm text-gray-400 hover:text-gray-900 transition-colors"
+                    className="p-1 hover:bg-black/5 rounded-sm text-black/40 hover:text-black transition-colors"
                     onClick={(e) => { e.stopPropagation(); }}
                 >
                     <MoreVertical className="w-3.5 h-3.5" />
@@ -221,7 +221,7 @@ function SidebarItem({ module, isActive, onSelect, isReadOnly, customStyle, ...a
                 "group relative flex items-center justify-between py-1.5 px-3 pl-8 cursor-pointer transition-colors text-sm mb-[1px] min-h-[32px]",
                 isActive
                     ? "text-[#ff0054] font-bold"
-                    : "text-gray-600 hover:text-gray-900",
+                    : "text-black hover:text-black",
                 isReadOnly && "cursor-default"
             )}
         >
@@ -309,9 +309,9 @@ export function LeftSidebar({
         letterSpacing: `${menuStyle.spacing}em`,
         lineHeight: menuStyle.height,
         fontSize: `${menuStyle.size}px`,
-        color: menuStyle.color,
+        color: '#000000',
         textTransform: menuStyle.casing === 'capitalize' ? 'capitalize' : (menuStyle.casing === 'uppercase' ? 'uppercase' : (menuStyle.casing === 'lowercase' ? 'lowercase' : 'none'))
-    } as React.CSSProperties : {}
+    } as React.CSSProperties : { color: '#000000' }
 
     // Modules categorized
     const modulesByCategory = React.useMemo(() => {
@@ -377,7 +377,7 @@ export function LeftSidebar({
                 <button
                     onClick={onToggleCollapse}
                     className={cn(
-                        "absolute top-1/2 -translate-y-1/2 w-6 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center text-gray-400 hover:text-[#FF0054] shadow-md z-[2000] transition-all duration-300",
+                        "absolute top-1/2 -translate-y-1/2 w-6 h-12 bg-white border border-gray-200 rounded-full flex items-center justify-center text-black/40 hover:text-[#FF0054] shadow-md z-[2000] transition-all duration-300",
                         isCollapsed ? "left-2" : "-right-3"
                     )}
                 >
@@ -395,12 +395,12 @@ export function LeftSidebar({
                         <div className="px-4 pb-4">
                             <div className="flex items-center gap-2">
                                 <div className="relative flex-1">
-                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-black/40" />
                                     <input
                                         type="text"
                                         placeholder="Pesquisar"
                                         style={{ color: sidebarTextStyle.color }}
-                                        className="w-full bg-[#EAEAEA] border-none rounded-md py-2 pl-9 pr-4 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-[#FF0054]"
+                                        className="w-full bg-[#EAEAEA] border-none rounded-md py-2 pl-9 pr-4 text-sm placeholder:text-black/40 focus:outline-none focus:ring-1 focus:ring-[#FF0054]"
                                     />
                                 </div>
                                 {!isReadOnly && (
@@ -430,7 +430,7 @@ export function LeftSidebar({
                                         <AccordionItem key={category.id} value={category.id} className="border-none">
                                             <AccordionTrigger
                                                 style={{ color: sidebarTextStyle.color }}
-                                                className="px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-70 hover:opacity-100"
+                                                className="px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100"
                                             >
                                                 {category.label}
                                             </AccordionTrigger>
@@ -446,7 +446,7 @@ export function LeftSidebar({
                                                                 <AccordionItem key={subCategory.id} value={subCategory.id} className="border-none ml-2">
                                                                     <AccordionTrigger
                                                                         style={{ color: sidebarTextStyle.color }}
-                                                                        className="px-2 py-1 text-[11px] font-semibold hover:no-underline rounded-sm transition-colors opacity-70 hover:opacity-100"
+                                                                        className="px-2 py-1 text-[11px] font-semibold hover:no-underline rounded-sm transition-colors opacity-90 hover:opacity-100"
                                                                     >
                                                                         {subCategory.label}
                                                                     </AccordionTrigger>
@@ -467,7 +467,7 @@ export function LeftSidebar({
                                 <AccordionItem value="others" className="border-none">
                                     <AccordionTrigger
                                         style={{ color: sidebarTextStyle.color }}
-                                        className="px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-70 hover:opacity-100"
+                                        className="px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100"
                                     >
                                         Outras páginas
                                     </AccordionTrigger>

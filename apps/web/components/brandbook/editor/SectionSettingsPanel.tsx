@@ -152,6 +152,20 @@ export function SectionSettingsPanel({
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
     const [isUploading, setIsUploading] = useState(false)
 
+    // Ensure panel stays within viewport
+    const [safeTop, setSafeTop] = useState(initialTop)
+    const [safeHeight, setSafeHeight] = useState(760)
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const windowHeight = window.innerHeight
+            const panelHeight = Math.min(760, windowHeight - 40) // 20px padding top/bottom
+            const maxTop = windowHeight - panelHeight - 20
+            setSafeHeight(panelHeight)
+            setSafeTop(Math.max(20, Math.min(initialTop, maxTop)))
+        }
+    }, [initialTop])
+
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
             if (!isDragging) return
@@ -523,13 +537,13 @@ export function SectionSettingsPanel({
 
     return createPortal(
         <div
-            className="fixed z-[900] bg-[#1F1F25] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-white/10 animate-in fade-in zoom-in-95 duration-200"
+            className="fixed z-[9999] bg-[#1F1F25] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-white/10 animate-in fade-in zoom-in-95 duration-200"
             style={{
-                top: initialTop,
+                top: safeTop,
                 left: initialLeft,
                 transform: `translate(${position.x}px, ${position.y}px)`,
                 width: '270px',
-                height: '760px'
+                height: `${safeHeight}px`
             }}
         >
             {/* Header */}
@@ -540,10 +554,8 @@ export function SectionSettingsPanel({
                 <span className="text-white font-semibold text-[16px]">Edit section</span>
                 <button
                     onClick={onClose}
-                    className="w-[20px] h-[20px] bg-black rounded-full flex items-center justify-center hover:opacity-80 transition-opacity"
-                >
-                    <X className="w-3 h-3 text-white" strokeWidth={3} />
-                </button>
+                    className="w-[18px] h-[18px] bg-black rounded-full hover:opacity-80 transition-opacity"
+                />
             </div>
 
             {/* Scroll Area */}
@@ -941,12 +953,12 @@ export function SectionSettingsPanel({
                         />
                     </div>
                     <div className="flex gap-[6px] w-full">
-                        {['XS', 'S', 'M', 'L', 'XL'].map((size) => (
+                        {['XS', 'S', 'M', 'L', 'XL', '100vh'].map((size) => (
                             <button
                                 key={size}
                                 onClick={() => handleHeightChange(size)}
                                 className={cn(
-                                    "flex-1 h-[35px] flex items-center justify-center border rounded-[2px] cursor-pointer text-xs font-medium transition-colors",
+                                    "flex-1 h-[35px] flex items-center justify-center border rounded-[2px] cursor-pointer text-[10px] font-medium transition-colors uppercase",
                                     selectedHeight === size
                                         ? "border-[#FF0054] text-[#FF0054]"
                                         : "border-[#15161B] text-[#97A1B3] hover:border-[#FF0054] hover:text-[#FF0054]"
@@ -963,7 +975,7 @@ export function SectionSettingsPanel({
                         <div className="flex items-center">
                             <input
                                 type="text"
-                                value={!['XS', 'S', 'M', 'L', 'XL', ''].includes(selectedHeight) ? selectedHeight.replace('px', '') : ''}
+                                value={!['XS', 'S', 'M', 'L', 'XL', '100vh', ''].includes(selectedHeight) ? selectedHeight.replace('px', '') : ''}
                                 onChange={(e) => {
                                     const val = e.target.value
                                     if (val === '') {

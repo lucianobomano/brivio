@@ -179,10 +179,8 @@ export function VideoSettingsPanel({
                 <span className="font-semibold text-[15px] select-none">Edit video</span>
                 <button
                     onClick={onClose}
-                    className="w-[20px] h-[20px] bg-black rounded-full flex items-center justify-center hover:bg-black/80 transition-colors"
-                >
-                    <div className="w-full h-full rounded-full bg-black" />
-                </button>
+                    className="w-[18px] h-[18px] bg-black rounded-full hover:opacity-80 transition-opacity"
+                />
             </div>
 
             <div className="p-5 flex flex-col gap-5">

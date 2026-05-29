@@ -60,7 +60,7 @@ export const AudioSettingsPanel = ({ onClose, settings, onUpdate, onUploadAudio,
 
     return (
         <div
-            className="w-[300px] h-[500px] flex flex-col bg-[#15161B] rounded-lg shadow-2xl border border-[#333] z-[200] overflow-hidden"
+            className="w-[300px] h-[500px] flex flex-col bg-[#15161B] rounded-lg shadow-2xl border border-[#333] z-[9999] overflow-hidden"
             style={{
                 transform: `translate(${position.x}px, ${position.y}px)`,
                 position: 'relative'
