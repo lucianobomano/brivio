@@ -46,9 +46,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  turbopack: {},
 };
 
 export default withBefreeVisualEdit(nextConfig);
