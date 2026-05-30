@@ -22,7 +22,6 @@ import { motion, AnimatePresence } from "framer-motion"
 
 const MENU_ITEMS = [
     { label: "Home", icon: HomeIcon, href: "/dashboard" },
-    { label: "Dashboard", icon: LayoutDashboard, href: "/projects" }, // Assuming dashboard is /projects without view or view=dashboard
     { label: "Projectos", icon: FolderKanban, href: "/projects?view=padrao" },
     { label: "Tarefas", icon: CheckSquare, href: "/tasks" },
     { label: "Roadmap", icon: MapPin, href: "/roadmap" },
@@ -68,10 +67,8 @@ export function BottomNavigation() {
                     const isProjectsPath = pathname === "/projects"
 
                     let isActive = false
-                    if (item.label === "Dashboard") {
-                        isActive = isProjectsPath && (viewParam === "dashboard" || !viewParam)
-                    } else if (item.label === "Projectos") {
-                        isActive = isProjectsPath && viewParam !== "dashboard" && !!viewParam
+                    if (item.label === "Projectos") {
+                        isActive = isProjectsPath
                     } else {
                         isActive = pathname === item.href
                     }

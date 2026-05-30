@@ -74,7 +74,7 @@ export function GlobalSettingsView({ isOpen, onClose, initialTab = "profile" }: 
                             <Settings className="w-5 h-5" />
                         </div>
                         <div>
-                            <h2 className="text-xl font-black text-white tracking-tight">Definições Globais</h2>
+                            <h2 className="text-xl font-black text-text-primary tracking-tight">Definições Globais</h2>
                             <p className="text-xs text-text-secondary font-medium uppercase tracking-wider opacity-60">Configura o teu ecossistema Brivio</p>
                         </div>
                     </div>

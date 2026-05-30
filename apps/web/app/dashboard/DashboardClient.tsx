@@ -205,17 +205,7 @@ export function DashboardClient({
             </main>
 
             {/* Adjusted Footer Controls */}
-            <div className="fixed bottom-10 inset-x-0 px-8 flex items-center justify-between z-50">
-                <div className="flex items-center gap-8">
-                    <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-text-tertiary uppercase tracking-widest mb-1">System Health</span>
-                        <div className="flex items-center gap-2 text-text-primary">
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[11px] font-mono font-bold uppercase tracking-tight">Status: Global Optimal</span>
-                        </div>
-                    </div>
-                </div>
-
+            <div className="fixed bottom-10 inset-x-0 px-8 flex items-center justify-center z-50">
                 <div className="flex items-center gap-4">
                     {/* Management & Network Shortcut Buttons */}
                     <button

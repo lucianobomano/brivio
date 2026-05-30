@@ -1,10 +1,20 @@
 import { createClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { getRoadmapStats } from "@/app/actions/roadmap"
+import { getProjectNotes } from "@/app/actions/notes"
 import { ClientRoadmapView } from "./ClientRoadmapView"
 
-export default async function ClientRoadmapPage({ params }: { params: Promise<{ assetId: string }> }) {
+export default async function ClientRoadmapPage({ 
+    params,
+    searchParams
+}: { 
+    params: Promise<{ assetId: string }>,
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>
+}) {
     const { assetId } = await params
+    const resolvedSearchParams = await searchParams
+    const initialLayout = typeof resolvedSearchParams.layout === 'string' ? resolvedSearchParams.layout : 'default'
+    
     const supabase = await createClient()
 
     // Fetch project details
@@ -19,6 +29,7 @@ export default async function ClientRoadmapPage({ params }: { params: Promise<{ 
     }
 
     const roadmapStats = await getRoadmapStats(assetId)
+    const { notes } = await getProjectNotes(assetId)
 
     // If no roadmap data, show empty state instead of 404
     const emptyRoadmap = {
@@ -37,6 +48,8 @@ export default async function ClientRoadmapPage({ params }: { params: Promise<{ 
             roadmap={stats.phases}
             globalProgress={stats.globalProgress}
             currentPhaseName={stats.currentPhaseName}
+            initialLayout={initialLayout as any}
+            initialNotes={notes || []}
         />
     )
 }

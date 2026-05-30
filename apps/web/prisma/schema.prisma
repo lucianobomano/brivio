@@ -392,6 +392,7 @@ model Project {
   likes        ProjectLike[]
   comments     ProjectComment[]
   sprints      Sprint[]
+  notes        ProjectNote[]
 
   @@map("projects")
 }
@@ -836,3 +837,16 @@ model SavedComponent {
   @@map("saved_components")
 }
 
+
+model ProjectNote {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  project_id     String    @db.Uuid
+  content        String
+  author_name    String?   @default("Cliente")
+  is_from_client Boolean   @default(true)
+  created_at     DateTime? @default(now()) @db.Timestamptz(6)
+
+  project        Project   @relation(fields: [project_id], references: [id], onDelete: Cascade)
+
+  @@map("project_notes")
+}

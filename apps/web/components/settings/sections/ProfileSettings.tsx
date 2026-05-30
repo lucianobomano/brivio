@@ -41,7 +41,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
     return (
         <form onSubmit={handleSave} className="space-y-10">
             <div>
-                <h3 className="text-2xl font-black text-white mb-2">O Meu Perfil</h3>
+                <h3 className="text-2xl font-black text-text-primary mb-2">O Meu Perfil</h3>
                 <p className="text-text-secondary">Gere a tua identidade pública e informações de contacto.</p>
             </div>
 
@@ -60,7 +60,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                     </button>
                 </div>
                 <div className="space-y-2">
-                    <h4 className="font-bold text-white">Foto de Perfil</h4>
+                    <h4 className="font-bold text-text-primary">Foto de Perfil</h4>
                     <p className="text-xs text-text-secondary leading-relaxed max-w-[300px]">
                         Recomendamos uma imagem quadrada de pelo menos 400x400px.
                     </p>
@@ -83,7 +83,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                         <Input
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                            className="bg-bg-2 border-bg-3 h-12 pl-12 rounded-xl focus:ring-accent-indigo/20 text-white font-medium"
+                            className="bg-bg-2 border-bg-3 h-12 pl-12 rounded-xl focus:ring-accent-indigo/20 text-text-primary font-medium"
                         />
                     </div>
                 </div>
@@ -94,7 +94,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                         <Input
                             value={user?.email || ""}
                             disabled
-                            className="bg-bg-2 border-bg-3 h-12 pl-12 rounded-xl text-white font-medium cursor-not-allowed"
+                            className="bg-bg-2 border-bg-3 h-12 pl-12 rounded-xl text-text-primary font-medium cursor-not-allowed"
                         />
                     </div>
                 </div>
@@ -106,7 +106,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                     value={formData.bio}
                     onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
                     placeholder="Conta um pouco sobre ti..."
-                    className="bg-bg-2 border-bg-3 min-h-[120px] rounded-xl p-4 focus:ring-accent-indigo/20 text-white font-medium leading-relaxed"
+                    className="bg-bg-2 border-bg-3 min-h-[120px] rounded-xl p-4 focus:ring-accent-indigo/20 text-text-primary font-medium leading-relaxed"
                 />
             </div>
 

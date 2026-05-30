@@ -758,3 +758,30 @@ export async function updateRoadmapTaskDetails(
         return { success: false }
     }
 }
+
+/**
+ * Completes all tasks in a specific stage.
+ */
+export async function completeStageTasks(projectId: string, stageId: string) {
+    try {
+        const supabase = await createClient()
+        const { error } = await supabase
+            .from('tasks')
+            .update({
+                completed: true,
+                status: 'done',
+                updated_at: new Date().toISOString()
+            })
+            .eq('project_id', projectId)
+            .eq('stage_id', stageId)
+
+        if (error) throw error
+
+        revalidatePath('/roadmap')
+        revalidatePath('/share/[assetId]/roadmap')
+        return { success: true }
+    } catch (error: unknown) {
+        console.error('[completeStageTasks] Error:', error)
+        return { success: false, error: 'Failed to complete stage tasks' }
+    }
+}

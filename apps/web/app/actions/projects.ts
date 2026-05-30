@@ -357,16 +357,16 @@ export async function createNewProject(data: {
 
     const insertData: Record<string, string | number | string[] | undefined | null> = {
         name: data.name,
-        brand_id: data.brand_id,
-        workspace_id: data.workspace_id,
-        description: data.description,
-        category: data.category,
+        brand_id: data.brand_id || null,
+        workspace_id: data.workspace_id || null,
+        description: data.description || null,
+        category: data.category || null,
         priority: data.priority,
-        start_date: data.start_date,
-        due_date: data.due_date,
-        cover_url: data.cover_url,
+        start_date: data.start_date || null,
+        due_date: data.due_date || null,
+        cover_url: data.cover_url || null,
         tags: data.tags,
-        budget_type: data.budget_type,
+        budget_type: data.budget_type || null,
         budget_amount: data.budget_amount,
         currency: data.currency,
         created_by: user.id
@@ -588,20 +588,20 @@ export async function updateProject(id: string, data: {
         updated_at: new Date().toISOString()
     }
 
-    if (data.name !== undefined) updateData.name = data.name
-    if (data.brand_id !== undefined) updateData.brand_id = data.brand_id
-    if (data.description !== undefined) updateData.description = data.description
-    if (data.category !== undefined) updateData.category = data.category
+    if (data.name !== undefined) updateData.name = data.name || null
+    if (data.brand_id !== undefined) updateData.brand_id = data.brand_id || null
+    if (data.description !== undefined) updateData.description = data.description || null
+    if (data.category !== undefined) updateData.category = data.category || null
     if (data.priority !== undefined) updateData.priority = data.priority
-    if (data.start_date !== undefined) updateData.start_date = data.start_date
-    if (data.due_date !== undefined) updateData.due_date = data.due_date
-    if (data.cover_url !== undefined) updateData.cover_url = data.cover_url
+    if (data.start_date !== undefined) updateData.start_date = data.start_date || null
+    if (data.due_date !== undefined) updateData.due_date = data.due_date || null
+    if (data.cover_url !== undefined) updateData.cover_url = data.cover_url || null
     if (data.tags !== undefined) updateData.tags = data.tags
-    if (data.budget_type !== undefined) updateData.budget_type = data.budget_type
+    if (data.budget_type !== undefined) updateData.budget_type = data.budget_type || null
     if (data.budget_amount !== undefined) updateData.budget_amount = data.budget_amount
     if (data.currency !== undefined) updateData.currency = data.currency
     if (data.position !== undefined) updateData.position = data.position
-    if (data.stage_id !== undefined) updateData.stage_id = data.stage_id
+    if (data.stage_id !== undefined) updateData.stage_id = data.stage_id || null
 
     const { error } = await supabase
         .from('projects')

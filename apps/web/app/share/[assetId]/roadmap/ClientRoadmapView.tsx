@@ -3,6 +3,7 @@
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
+    Check,
     CheckCircle2,
     Circle,
     ShieldCheck,
@@ -21,12 +22,16 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
+import { ProjectNotesPanel } from "@/components/roadmap/ProjectNotesPanel"
 
 interface ClientRoadmapViewProps {
     project: any
     roadmap: any[]
     globalProgress: number
+    globalProgress: number
     currentPhaseName: string
+    initialLayout: LayoutStyle
+    initialNotes?: any[]
 }
 
 type LayoutStyle = 'default' | 'numbered' | 'minimal' | 'cards' | 'timeline'
@@ -43,12 +48,14 @@ export function ClientRoadmapView({
     project,
     roadmap,
     globalProgress,
-    currentPhaseName
+    currentPhaseName,
+    initialLayout,
+    initialNotes = []
 }: ClientRoadmapViewProps) {
     const brand = project.brands
-    const [layoutStyle, setLayoutStyle] = React.useState<LayoutStyle>('default')
+    const [layoutStyle, setLayoutStyle] = React.useState<LayoutStyle>(initialLayout)
     const [expandedStage, setExpandedStage] = React.useState<string | null>(null)
-    const [isLayoutMenuOpen, setIsLayoutMenuOpen] = React.useState(false)
+    const [isNotesOpen, setIsNotesOpen] = React.useState(false)
 
     // Custom cursor and auto-scroll state for numbered circles
     const scrollContainerRef = React.useRef<HTMLDivElement>(null)
@@ -106,7 +113,9 @@ export function ClientRoadmapView({
     // Calculate stats
     const totalTasks = roadmap.reduce((acc, stage) => acc + stage.tasks.length, 0)
     const completedTasks = roadmap.reduce((acc, stage) => acc + stage.tasks.filter((t: any) => t.completed).length, 0)
-    const completedStages = roadmap.filter(s => s.progress === 100).length
+    const completedStages = roadmap.filter(s => s.progress === 100).length;
+    const currentPhase = roadmap.find(stage => stage.progress < 100) || roadmap[roadmap.length - 1];
+    const currentPhaseId = currentPhase?.id;
 
     return (
         <div className="min-h-screen bg-[#FAFAFA] text-[#1D1D1F] font-inter-tight selection:bg-accent-indigo/10">
@@ -128,43 +137,6 @@ export function ClientRoadmapView({
                     </div>
 
                     <div className="flex items-center gap-4">
-                        {/* Layout Selector */}
-                        <Popover open={isLayoutMenuOpen} onOpenChange={setIsLayoutMenuOpen}>
-                            <PopoverTrigger asChild>
-                                <Button variant="outline" className="h-10 px-4 bg-white border-[#E5E5EA] rounded-xl gap-2">
-                                    <Palette className="w-4 h-4 text-amber-500" />
-                                    <span className="text-[11px] font-bold uppercase tracking-wider">
-                                        {LAYOUT_OPTIONS.find(l => l.id === layoutStyle)?.name}
-                                    </span>
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[280px] p-2 bg-white border-[#E5E5EA] rounded-2xl shadow-2xl">
-                                <div className="space-y-1">
-                                    {LAYOUT_OPTIONS.map(layout => (
-                                        <button
-                                            key={layout.id}
-                                            onClick={() => {
-                                                setLayoutStyle(layout.id)
-                                                setIsLayoutMenuOpen(false)
-                                            }}
-                                            className={cn(
-                                                "w-full flex items-center gap-3 p-3 rounded-xl transition-all text-left",
-                                                layoutStyle === layout.id
-                                                    ? "bg-accent-indigo/10 border border-accent-indigo/30"
-                                                    : "hover:bg-[#F9F9FB]"
-                                            )}
-                                        >
-                                            <span className="text-xl">{layout.icon}</span>
-                                            <div>
-                                                <p className="text-[13px] font-bold text-[#1D1D1F]">{layout.name}</p>
-                                                <p className="text-[10px] text-[#86868B]">{layout.description}</p>
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            </PopoverContent>
-                        </Popover>
-
                         <div className="bg-gradient-to-r from-accent-indigo/10 to-accent-mint/10 px-4 py-2 rounded-xl flex items-center gap-2 border border-accent-indigo/20">
                             <ShieldCheck className="w-4 h-4 text-accent-indigo" />
                             <span className="text-[10px] font-black uppercase tracking-tighter text-[#1D1D1F]">Acesso Seguro</span>
@@ -263,7 +235,7 @@ export function ClientRoadmapView({
 
                             {roadmap.map((stage, idx) => {
                                 const isCompleted = stage.progress === 100;
-                                const isCurrent = stage.progress > 0 && stage.progress < 100;
+                                const isCurrent = stage.id === currentPhaseId;
                                 const isFuture = stage.progress === 0;
                                 const isExpanded = expandedStage === stage.id;
 
@@ -430,7 +402,7 @@ export function ClientRoadmapView({
 
                                     {roadmap.map((stage, idx) => {
                                         const isCompleted = stage.progress === 100;
-                                        const isCurrent = stage.progress > 0 && stage.progress < 100;
+                                        const isCurrent = stage.id === currentPhaseId;
 
                                         return (
                                             <Popover key={stage.id}>
@@ -452,6 +424,20 @@ export function ClientRoadmapView({
                                                                     : "bg-white shadow-xl border-none"
                                                             )}
                                                         >
+                                                            {isCurrent && (
+                                                                <motion.div
+                                                                    initial={{ opacity: 0, y: 10 }}
+                                                                    animate={{ opacity: 1, y: 0 }}
+                                                                    style={{ position: 'absolute', bottom: 'calc(100% + 12px)', left: '50%', transform: 'translateX(-50%)' }}
+                                                                    className="flex flex-col items-center z-20 pointer-events-none ml-[-105px]"
+                                                                >
+                                                                    <div className="bg-[#FF0055] text-white text-[14px] font-semibold h-[45px] px-6 rounded-full shadow-xl whitespace-nowrap flex items-center justify-center gap-2">
+                                                                        <span className="w-[8px] h-[8px] rounded-full bg-white animate-pulse" />
+                                                                        O seu projeto está aqui
+                                                                    </div>
+                                                                    <div className="w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[10px] border-t-[#FF0055]" />
+                                                                </motion.div>
+                                                            )}
                                                             {/* Progress Ring for stages in progress */}
                                                             {!isCompleted && (
                                                                 <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none overflow-visible">
@@ -478,7 +464,7 @@ export function ClientRoadmapView({
                                                             <span className={cn(
                                                                 "text-[80px] font-black leading-none transition-colors duration-500",
                                                                 isCompleted ? "text-white" : "text-[#1D1D1F]"
-                                                            )}>{idx + 1}</span>
+                                                            )}>{isCompleted ? <Check className="w-20 h-20 text-white" strokeWidth={3} /> : idx + 1}</span>
 
                                                         </motion.div>
 
@@ -500,7 +486,7 @@ export function ClientRoadmapView({
                                                 </PopoverTrigger>
 
                                                 <PopoverContent
-                                                    className="w-[320px] p-0 bg-white border-[#E5E5EA] rounded-2xl shadow-2xl overflow-visible"
+                                                    className="w-[320px] p-0 bg-white border-[#E5E5EA] rounded-2xl shadow-2xl overflow-visible text-[#1D1D1F]"
                                                     sideOffset={20}
                                                     side="top"
                                                 >
@@ -517,7 +503,7 @@ export function ClientRoadmapView({
                                                     <div className="p-4 border-b border-[#F2F2F7] flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
                                                             <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stage.color }} />
-                                                            <span className="font-bold text-[14px]">{stage.name}</span>
+                                                            <span className="font-bold text-[14px] text-[#1D1D1F]">{stage.name}</span>
                                                         </div>
                                                         <span className="text-[12px] text-[#86868B]">{stage.tasks.filter((t: any) => t.completed).length}/{stage.tasks.length}</span>
                                                     </div>
@@ -529,7 +515,7 @@ export function ClientRoadmapView({
                                                                     : <Circle className="w-4 h-4 text-[#E5E5EA] flex-shrink-0" />
                                                                 }
                                                                 <span className={cn(
-                                                                    "text-[13px]",
+                                                                    "text-[13px] text-[#1D1D1F]",
                                                                     task.completed && "line-through text-[#86868B]"
                                                                 )}>{task.title}</span>
                                                             </div>
@@ -619,7 +605,7 @@ export function ClientRoadmapView({
                         >
                             {roadmap.map((stage, idx) => {
                                 const isCompleted = stage.progress === 100;
-                                const isCurrent = stage.progress > 0 && stage.progress < 100;
+                                const isCurrent = stage.id === currentPhaseId;
 
                                 return (
                                     <motion.div
@@ -687,7 +673,7 @@ export function ClientRoadmapView({
                             <div className="flex items-start gap-0 min-w-max py-8">
                                 {roadmap.map((stage, idx) => {
                                     const isCompleted = stage.progress === 100;
-                                    const isCurrent = stage.progress > 0 && stage.progress < 100;
+                                    const isCurrent = stage.id === currentPhaseId;
                                     const isExpanded = expandedStage === stage.id;
 
                                     return (
@@ -764,6 +750,7 @@ export function ClientRoadmapView({
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: 0.5 }}
+                    onClick={() => setIsNotesOpen(true)}
                     className="h-14 w-14 bg-white border border-[#E5E5EA] rounded-full shadow-xl hover:scale-110 transition-transform flex items-center justify-center"
                 >
                     <MessageCircle className="w-5 h-5 text-[#1D1D1F]" />
@@ -778,6 +765,14 @@ export function ClientRoadmapView({
                     <ArrowUpRight className="w-4 h-4" />
                 </motion.button>
             </div>
+            
+            <ProjectNotesPanel 
+                projectId={project.id} 
+                initialNotes={initialNotes} 
+                isClientView={true} 
+                isOpen={isNotesOpen}
+                onClose={() => setIsNotesOpen(false)}
+            />
         </div>
     )
 }

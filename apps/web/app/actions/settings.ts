@@ -140,8 +140,22 @@ export async function getUserData() {
         .eq('id', authUser.id)
         .single()
 
-    if (error) return null
-    return data as UserProfile
+    const metadata = authUser.user_metadata || {}
+
+    if (error && !data) {
+        return {
+            id: authUser.id,
+            name: metadata.full_name || metadata.name || authUser.email?.split('@')[0] || 'User',
+            email: authUser.email!,
+            avatar_url: metadata.avatar_url || metadata.picture,
+        } as UserProfile
+    }
+
+    return {
+        ...data,
+        name: data?.name || metadata.full_name || metadata.name || authUser.email?.split('@')[0] || 'User',
+        avatar_url: data?.avatar_url || metadata.avatar_url || metadata.picture
+    } as UserProfile
 }
 
 export async function searchDesigners(query: string) {

@@ -1,9 +1,10 @@
-import { Navbar } from "@/components/layout/Navbar"
+import { StandupHeader } from "@/components/standups/StandupHeader"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { RoadmapClient } from "./RoadmapClient"
 import { getProjectRoadmap, RoadmapStage } from "@/app/actions/roadmap"
 import { getProjectPipeline_v2 } from "@/app/actions/projects"
+import { getProjectNotes } from "@/app/actions/notes"
 
 interface ProjectBase {
     id: string
@@ -32,21 +33,25 @@ export default async function RoadmapPage({
 
     let roadmapData: RoadmapStage[] = []
     let selectedProject: ProjectBase | null = null
+    let initialNotes: any[] = []
 
     if (selectedProjectId) {
         roadmapData = await getProjectRoadmap(selectedProjectId)
         selectedProject = projects.find(p => p.id === selectedProjectId) || null
+        const notesRes = await getProjectNotes(selectedProjectId)
+        initialNotes = notesRes.notes || []
     }
 
     return (
         <div className="flex flex-col min-h-screen bg-bg-0">
-            <Navbar />
+            <StandupHeader />
             <div className="flex-1">
                 <RoadmapClient
                     initialProjects={projects}
                     initialRoadmap={roadmapData}
                     selectedProjectId={selectedProjectId}
                     selectedProject={selectedProject}
+                    initialNotes={initialNotes}
                 />
             </div>
         </div>

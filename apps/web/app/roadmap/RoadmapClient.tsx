@@ -21,7 +21,9 @@ import {
     ArrowRight,
     Check,
     Trash2,
-    ChevronDown
+    ChevronDown,
+    ArrowLeft,
+    MessageSquare
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -44,6 +46,7 @@ import {
     toggleRoadmapTask,
     deleteRoadmapTask,
     updateRoadmapTask,
+    completeStageTasks,
     RoadmapStage
 } from "@/app/actions/roadmap"
 import { ROADMAP_TEMPLATES } from "@/lib/roadmap-templates"
@@ -59,6 +62,7 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
+import { ProjectNotesPanel } from "@/components/roadmap/ProjectNotesPanel"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -90,17 +94,20 @@ interface RoadmapClientProps {
     initialRoadmap: RoadmapStage[]
     selectedProjectId: string | null
     selectedProject: ProjectBase | null
+    initialNotes?: any[]
 }
 
 export function RoadmapClient({
     initialProjects,
     initialRoadmap,
     selectedProjectId,
-    selectedProject
+    selectedProject,
+    initialNotes = []
 }: RoadmapClientProps) {
     const [roadmap, setRoadmap] = React.useState<RoadmapStage[]>(initialRoadmap)
     const [isLoading, setIsLoading] = React.useState(false)
     const [currentSelectedProject, setCurrentSelectedProject] = React.useState(selectedProject)
+    const [isNotesOpen, setIsNotesOpen] = React.useState(false)
 
     // Sync state with props when project changes
     React.useEffect(() => {
@@ -190,7 +197,7 @@ export function RoadmapClient({
 
     const handleGenerateLink = () => {
         if (!selectedProjectId) return
-        const link = `${window.location.origin}/share/${selectedProjectId}/roadmap`
+        const link = `${window.location.origin}/share/${selectedProjectId}/roadmap?layout=${layoutStyle}`
         navigator.clipboard.writeText(link)
         toast.success("Link do cliente copiado!", {
             description: "Você já pode enviar este link para o seu cliente."
@@ -243,6 +250,25 @@ export function RoadmapClient({
             }
         } catch {
             toast.error("Erro inesperado")
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    const handleCompleteStage = async (stageId: string) => {
+        if (!selectedProjectId) return
+
+        setIsLoading(true)
+        try {
+            const result = await completeStageTasks(selectedProjectId, stageId)
+            if (result.success) {
+                toast.success("Fase concluída com sucesso!")
+                window.location.reload()
+            } else {
+                toast.error(result.error || "Erro ao concluir fase")
+            }
+        } catch {
+            toast.error("Erro inesperado ao concluir fase")
         } finally {
             setIsLoading(false)
         }
@@ -416,15 +442,13 @@ export function RoadmapClient({
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
                 <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-accent-indigo/10 flex items-center justify-center">
-                            <Target className="w-5 h-5 text-accent-indigo" />
-                        </div>
-                        <h1 className="text-3xl font-bold tracking-tight text-text-primary">
-                            Roadmap do Projeto
-                        </h1>
-                    </div>
-                    <div className="flex items-center gap-4">
+
+                    <div className="flex items-center gap-3 -ml-[185px]">
+                        <Link href="/projects" title="Voltar aos Projetos">
+                            <Button variant="outline" className="bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2 flex items-center justify-center w-11 h-11 shadow-sm border-2 p-0 shrink-0">
+                                <ArrowLeft className="w-4 h-4 text-text-tertiary" />
+                            </Button>
+                        </Link>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                                 <Button variant="outline" className="bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2 flex items-center gap-2 px-4 shadow-sm border-2 h-11">
@@ -470,8 +494,8 @@ export function RoadmapClient({
 
                         {selectedProject && (
                             <>
-                                <div className="px-3 py-1 bg-bg-2 rounded-full border border-bg-3">
-                                    <span className="text-[11px] font-bold uppercase tracking-widest text-text-tertiary">
+                                <div className="px-4 h-11 bg-bg-2 rounded-full border border-bg-3 shrink-0 flex items-center justify-center">
+                                    <span className="text-[11px] font-bold uppercase tracking-widest text-text-tertiary whitespace-nowrap">
                                         {overallProgress}% Concluído
                                     </span>
                                 </div>
@@ -505,6 +529,21 @@ export function RoadmapClient({
                                 >
                                     <Palette className="w-3 h-3 mr-1.5" />
                                     Layout
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsNotesOpen(true)}
+                                    className="text-accent-indigo hover:text-accent-indigo/80 font-bold uppercase text-[10px] tracking-widest relative"
+                                    title="Notas do Projeto"
+                                >
+                                    <MessageSquare className="w-3 h-3 mr-1.5" />
+                                    Notas
+                                    {initialNotes.length > 0 && (
+                                        <span className="absolute -top-1 -right-2 w-3.5 h-3.5 bg-[#FF0055] text-white text-[9px] font-black flex items-center justify-center rounded-full shadow-lg">
+                                            {initialNotes.length}
+                                        </span>
+                                    )}
                                 </Button>
                             </>
                         )}
@@ -556,7 +595,7 @@ export function RoadmapClient({
                         asChild
                         className="bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2 h-11 px-6 font-bold uppercase text-[11px] tracking-widest"
                     >
-                        <Link href={`/share/${selectedProjectId}/roadmap`} target="_blank">
+                        <Link href={`/share/${selectedProjectId}/roadmap?layout=${layoutStyle}`} target="_blank">
                             <ExternalLink className="w-4 h-4 mr-2" />
                             Visualizar
                         </Link>
@@ -838,7 +877,7 @@ export function RoadmapClient({
                                                         "text-[80px] font-black leading-none transition-colors duration-500",
                                                         stage.progress === 100 ? "text-white" : "text-text-primary"
                                                     )}>
-                                                        {idx + 1}
+                                                        {stage.progress === 100 ? <Check className="w-20 h-20 text-white" strokeWidth={3} /> : idx + 1}
                                                     </span>
 
                                                 </motion.div>
@@ -877,14 +916,26 @@ export function RoadmapClient({
                                                         <div className="w-4 h-4 rounded-full" style={{ backgroundColor: stage.color }} />
                                                         <h4 className="text-[16px] font-bold text-text-primary">{stage.name}</h4>
                                                     </div>
-                                                    <Button variant="ghost" size="sm" onClick={() => {
-                                                        setEditingStage(stage)
-                                                        setNewStageName(stage.name)
-                                                        setNewStageColor(stage.color)
-                                                        setIsStageModalOpen(true)
-                                                    }}>
-                                                        <Edit3 className="w-4 h-4" />
-                                                    </Button>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            disabled={stage.progress === 100 || isLoading}
+                                                            onClick={() => handleCompleteStage(stage.id)}
+                                                            className={cn(stage.progress === 100 ? "text-accent-mint" : "text-text-tertiary hover:text-accent-indigo")}
+                                                            title={stage.progress === 100 ? "Fase concluída" : "Concluir Fase"}
+                                                        >
+                                                            <CheckCircle2 className="w-4 h-4" />
+                                                        </Button>
+                                                        <Button variant="ghost" size="sm" onClick={() => {
+                                                            setEditingStage(stage)
+                                                            setNewStageName(stage.name)
+                                                            setNewStageColor(stage.color)
+                                                            setIsStageModalOpen(true)
+                                                        }}>
+                                                            <Edit3 className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
                                                 </div>
                                                 <div className="grid grid-cols-3 gap-3 text-center">
                                                     <div className="p-2 bg-bg-2 rounded-xl">
@@ -976,7 +1027,7 @@ export function RoadmapClient({
                                         <PopoverTrigger asChild>
                                             <div className="flex items-center gap-6 p-6 bg-bg-1 border border-bg-3 rounded-2xl hover:border-accent-indigo/30 transition-all cursor-pointer">
                                                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black" style={{ backgroundColor: stage.color + '20', color: stage.color }}>
-                                                    {idx + 1}
+                                                    {stage.progress === 100 ? <Check className="w-8 h-8" strokeWidth={3} /> : idx + 1}
                                                 </div>
                                                 <div className="flex-1">
                                                     <h3 className="text-[18px] font-bold text-text-primary mb-2">{stage.name}</h3>
@@ -1195,7 +1246,7 @@ export function RoadmapClient({
                                                             ? "bg-accent-indigo/20 border-accent-indigo text-accent-indigo animate-pulse"
                                                             : "bg-bg-2 border-bg-3 text-text-tertiary"
                                                 )}>
-                                                    <span className="text-3xl font-black">{idx + 1}</span>
+                                                    <span className="text-3xl font-black">{stage.progress === 100 ? <Check className="w-10 h-10 text-white" strokeWidth={4} /> : idx + 1}</span>
                                                 </div>
                                                 <div className="mt-4 text-center max-w-[120px]">
                                                     <h4 className="text-[13px] font-bold text-text-primary group-hover:text-accent-indigo transition-colors">{stage.name}</h4>
@@ -1288,120 +1339,137 @@ export function RoadmapClient({
 
             {/* Stage Create/Edit Modal */}
             <Dialog open={isStageModalOpen} onOpenChange={setIsStageModalOpen}>
-                <DialogContent className="bg-bg-1 border-bg-3 rounded-[24px]">
-                    <DialogHeader>
-                        <DialogTitle>
+                <DialogContent className="bg-[#15161B] border-bg-3 rounded-[24px] overflow-hidden p-0 flex flex-col gap-0 [&>button.absolute]:hidden">
+                    <DialogHeader className="h-[60px] bg-[#FF0054] flex flex-row items-center justify-between px-6 m-0 shrink-0">
+                        <DialogTitle className="text-[16px] font-bold text-white m-0 mt-1">
                             {editingStage ? "Editar Fase" : "Nova Fase do Roadmap"}
                         </DialogTitle>
+                        <button
+                            onClick={() => setIsStageModalOpen(false)}
+                            className="w-[22px] h-[22px] rounded-full bg-[#15161B] shrink-0 mt-1 cursor-pointer hover:scale-105 transition-transform"
+                            aria-label="Close modal"
+                        />
                     </DialogHeader>
-                    <div className="space-y-6 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="name">Nome da Fase</Label>
-                            <Input
-                                id="name"
-                                value={newStageName}
-                                onChange={(e) => setNewStageName(e.target.value)}
-                                placeholder="ex: Discovery, Design, Desenvolvimento..."
-                                className="bg-bg-2 border-bg-3 rounded-xl"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="color">Cor Identificadora</Label>
-                            <div className="flex gap-3">
+                    <div className="p-6">
+                        <div className="space-y-6 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="name">Nome da Fase</Label>
                                 <Input
-                                    id="color"
-                                    type="color"
-                                    value={newStageColor}
-                                    onChange={(e) => setNewStageColor(e.target.value)}
-                                    className="w-12 h-12 p-1 rounded-lg bg-bg-2 border-bg-3"
-                                />
-                                <Input
-                                    value={newStageColor}
-                                    onChange={(e) => setNewStageColor(e.target.value)}
-                                    className="flex-1 bg-bg-2 border-bg-3 rounded-xl"
+                                    id="name"
+                                    value={newStageName}
+                                    onChange={(e) => setNewStageName(e.target.value)}
+                                    placeholder="ex: Discovery, Design, Desenvolvimento..."
+                                    className="bg-bg-2 border-bg-3 rounded-[5px]"
                                 />
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="color">Cor Identificadora</Label>
+                                <div className="flex gap-3">
+                                    <Input
+                                        id="color"
+                                        type="color"
+                                        value={newStageColor}
+                                        onChange={(e) => setNewStageColor(e.target.value)}
+                                        className="w-12 h-12 p-1 rounded-[5px] bg-bg-2 border-bg-3"
+                                    />
+                                    <Input
+                                        value={newStageColor}
+                                        onChange={(e) => setNewStageColor(e.target.value)}
+                                        className="flex-1 bg-bg-2 border-bg-3 rounded-[5px]"
+                                    />
+                                </div>
+                            </div>
                         </div>
+                        <DialogFooter className="mt-6">
+                            <Button
+                                variant="ghost"
+                                onClick={() => setIsStageModalOpen(false)}
+                                className="rounded-[5px]"
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={handleSaveStage}
+                                disabled={isLoading || !newStageName.trim()}
+                                className="bg-accent-indigo hover:bg-accent-indigo/90 text-white rounded-[5px] px-8"
+                            >
+                                {isLoading ? "Salvando..." : editingStage ? "Salvar Alterações" : "Criar Fase"}
+                            </Button>
+                        </DialogFooter>
                     </div>
-                    <DialogFooter>
-                        <Button
-                            variant="ghost"
-                            onClick={() => setIsStageModalOpen(false)}
-                            className="rounded-xl"
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            onClick={handleSaveStage}
-                            disabled={isLoading || !newStageName.trim()}
-                            className="bg-accent-indigo hover:bg-accent-indigo/90 text-white rounded-xl px-8"
-                        >
-                            {isLoading ? "Salvando..." : editingStage ? "Salvar Alterações" : "Criar Fase"}
-                        </Button>
-                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
             {/* Template Selection Modal */}
             <Dialog open={isTemplateModalOpen} onOpenChange={setIsTemplateModalOpen}>
-                <DialogContent className="bg-bg-1 border-bg-3 rounded-[24px] max-w-[700px]">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-bold text-text-primary flex items-center gap-3">
-                            <Sparkles className="w-5 h-5 text-accent-mint" />
-                            Escolher Template de Roadmap
+                <DialogContent className="bg-[#15161B] border-bg-3 rounded-[24px] max-w-[700px] max-h-[780px] overflow-hidden p-0 flex flex-col gap-0 [&>button.absolute]:hidden">
+                    <DialogHeader className="h-[60px] bg-[#FF0054] flex flex-row items-center justify-between px-6 m-0 shrink-0">
+                        <DialogTitle className="text-[16px] font-bold text-white m-0 mt-1">
+                            Escolha um template
                         </DialogTitle>
+                        <button
+                            onClick={() => setIsTemplateModalOpen(false)}
+                            className="w-[22px] h-[22px] rounded-full bg-[#15161B] shrink-0 mt-1 cursor-pointer hover:scale-105 transition-transform"
+                            aria-label="Close template modal"
+                        />
                     </DialogHeader>
 
-                    <div className="grid grid-cols-2 gap-4 py-6">
-                        {ROADMAP_TEMPLATES.map(template => (
-                            <motion.button
-                                key={template.id}
-                                onClick={() => handleApplyTemplate(template.id)}
-                                disabled={isLoading}
-                                className="p-6 bg-bg-2 border border-bg-3 rounded-xl text-left hover:border-accent-mint/50 hover:bg-bg-2/80 transition-all group"
-                                whileHover={{ scale: 1.02 }}
-                                whileTap={{ scale: 0.98 }}
-                            >
-                                <div className="text-3xl mb-3">{template.icon}</div>
-                                <h3 className="text-[15px] font-bold text-text-primary mb-1 group-hover:text-accent-mint transition-colors">
-                                    {template.name}
-                                </h3>
-                                <p className="text-[12px] text-text-tertiary mb-4">
-                                    {template.description}
-                                </p>
-                                {template.stages.length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {template.stages.map((stage, i) => (
-                                            <div
-                                                key={i}
-                                                className="px-2 py-0.5 bg-bg-0 rounded text-[9px] font-bold uppercase tracking-wider text-text-tertiary border border-bg-3"
-                                            >
-                                                {stage.name}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </motion.button>
-                        ))}
-                    </div>
+                    <div className="overflow-y-auto custom-scrollbar p-6 flex-1 flex flex-col">
+                        <div className="grid grid-cols-2 gap-4 mb-6">
+                            {ROADMAP_TEMPLATES.map(template => (
+                                <motion.button
+                                    key={template.id}
+                                    onClick={() => handleApplyTemplate(template.id)}
+                                    disabled={isLoading}
+                                    className="p-6 bg-[#2E313C] border border-bg-3 rounded-xl text-left hover:border-accent-mint/50 hover:bg-[#2E313C]/80 transition-all group"
+                                    whileHover={{ scale: 1.02 }}
+                                    whileTap={{ scale: 0.98 }}
+                                >
+                                    <div className="text-3xl mb-3">{template.icon}</div>
+                                    <h3 className="text-[15px] font-bold text-text-primary mb-1 group-hover:text-accent-mint transition-colors">
+                                        {template.name}
+                                    </h3>
+                                    <p className="text-[12px] text-text-tertiary mb-4">
+                                        {template.description}
+                                    </p>
+                                    {template.stages.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {template.stages.map((stage, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="px-2 py-0.5 bg-[#FF0054]/10 rounded text-[9px] font-bold uppercase tracking-wider text-[#FF0054] border border-[#FF0054]"
+                                                >
+                                                    {stage.name}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </motion.button>
+                            ))}
+                        </div>
 
-                    <p className="text-[11px] text-text-tertiary text-center pb-2">
-                        ⚠️ Aplicar um template irá substituir todas as fases existentes
-                    </p>
+                        <p className="text-[11px] text-text-tertiary text-center pb-2 mt-auto">
+                            ⚠️ Aplicar um template irá substituir todas as fases existentes
+                        </p>
+                    </div>
                 </DialogContent>
             </Dialog>
 
             {/* Layout Selection Modal */}
             <Dialog open={isLayoutModalOpen} onOpenChange={setIsLayoutModalOpen}>
-                <DialogContent className="bg-bg-1 border-bg-3 rounded-[24px] max-w-[800px]">
-                    <DialogHeader>
-                        <DialogTitle className="text-xl font-bold text-text-primary flex items-center gap-3">
-                            <Palette className="w-5 h-5 text-amber-500" />
+                <DialogContent className="bg-[#15161B] border-bg-3 rounded-[24px] max-w-[800px] overflow-hidden p-0 flex flex-col gap-0 [&>button.absolute]:hidden">
+                    <DialogHeader className="h-[60px] bg-[#FF0054] flex flex-row items-center justify-between px-6 m-0 shrink-0">
+                        <DialogTitle className="text-[16px] font-bold text-white m-0 mt-1">
                             Escolher Layout do Roadmap
                         </DialogTitle>
+                        <button
+                            onClick={() => setIsLayoutModalOpen(false)}
+                            className="w-[22px] h-[22px] rounded-full bg-[#15161B] shrink-0 mt-1 cursor-pointer hover:scale-105 transition-transform"
+                            aria-label="Close modal"
+                        />
                     </DialogHeader>
 
-                    <div className="grid grid-cols-3 gap-4 py-6">
+                    <div className="grid grid-cols-3 gap-4 p-6">
                         {/* Default Layout */}
                         <motion.button
                             onClick={() => {
@@ -1409,8 +1477,8 @@ export function RoadmapClient({
                                 setIsLayoutModalOpen(false)
                             }}
                             className={cn(
-                                "p-5 bg-bg-2 border rounded-xl text-left transition-all group",
-                                layoutStyle === 'default' ? "border-amber-500 ring-2 ring-amber-500/20" : "border-bg-3 hover:border-amber-500/50"
+                                "p-5 bg-[#2E313C] border rounded-[5px] text-left transition-all group",
+                                layoutStyle === 'default' ? "border-[#FF0054] ring-2 ring-[#FF0054]/20" : "border-bg-3 hover:border-[#FF0054]/50"
                             )}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -1427,8 +1495,8 @@ export function RoadmapClient({
                                 setIsLayoutModalOpen(false)
                             }}
                             className={cn(
-                                "p-5 bg-bg-2 border rounded-xl text-left transition-all group",
-                                layoutStyle === 'numbered' ? "border-amber-500 ring-2 ring-amber-500/20" : "border-bg-3 hover:border-amber-500/50"
+                                "p-5 bg-[#2E313C] border rounded-[5px] text-left transition-all group",
+                                layoutStyle === 'numbered' ? "border-[#FF0054] ring-2 ring-[#FF0054]/20" : "border-bg-3 hover:border-[#FF0054]/50"
                             )}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -1445,8 +1513,8 @@ export function RoadmapClient({
                                 setIsLayoutModalOpen(false)
                             }}
                             className={cn(
-                                "p-5 bg-bg-2 border rounded-xl text-left transition-all group",
-                                layoutStyle === 'minimal' ? "border-amber-500 ring-2 ring-amber-500/20" : "border-bg-3 hover:border-amber-500/50"
+                                "p-5 bg-[#2E313C] border rounded-[5px] text-left transition-all group",
+                                layoutStyle === 'minimal' ? "border-[#FF0054] ring-2 ring-[#FF0054]/20" : "border-bg-3 hover:border-[#FF0054]/50"
                             )}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -1463,8 +1531,8 @@ export function RoadmapClient({
                                 setIsLayoutModalOpen(false)
                             }}
                             className={cn(
-                                "p-5 bg-bg-2 border rounded-xl text-left transition-all group",
-                                layoutStyle === 'cards' ? "border-amber-500 ring-2 ring-amber-500/20" : "border-bg-3 hover:border-amber-500/50"
+                                "p-5 bg-[#2E313C] border rounded-[5px] text-left transition-all group",
+                                layoutStyle === 'cards' ? "border-[#FF0054] ring-2 ring-[#FF0054]/20" : "border-bg-3 hover:border-[#FF0054]/50"
                             )}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -1481,8 +1549,8 @@ export function RoadmapClient({
                                 setIsLayoutModalOpen(false)
                             }}
                             className={cn(
-                                "p-5 bg-bg-2 border rounded-xl text-left transition-all group",
-                                layoutStyle === 'timeline' ? "border-amber-500 ring-2 ring-amber-500/20" : "border-bg-3 hover:border-amber-500/50"
+                                "p-5 bg-[#2E313C] border rounded-[5px] text-left transition-all group",
+                                layoutStyle === 'timeline' ? "border-[#FF0054] ring-2 ring-[#FF0054]/20" : "border-bg-3 hover:border-[#FF0054]/50"
                             )}
                             whileHover={{ scale: 1.02 }}
                             whileTap={{ scale: 0.98 }}
@@ -1535,6 +1603,17 @@ export function RoadmapClient({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Notas do Projeto */}
+            {selectedProjectId && (
+                <ProjectNotesPanel
+                    projectId={selectedProjectId}
+                    initialNotes={initialNotes}
+                    isClientView={false}
+                    isOpen={isNotesOpen}
+                    onClose={() => setIsNotesOpen(false)}
+                />
+            )}
         </div>
     )
 }

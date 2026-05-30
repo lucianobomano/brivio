@@ -46,7 +46,7 @@ export function StandupHeader() {
     const [isPopoverOpen, setIsPopoverOpen] = useState(false)
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
     const [mounted, setMounted] = useState(false)
-    const popoverTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
 
     useEffect(() => {
         setMounted(true)
@@ -55,28 +55,27 @@ export function StandupHeader() {
             const { data: { user: authUser } } = await supabase.auth.getUser()
             if (authUser) {
                 const { data: profile } = await supabase
-                    .from('profiles')
+                    .from('users')
                     .select('*')
                     .eq('id', authUser.id)
                     .single()
 
+                const metadata = authUser.user_metadata || {}
                 setUser({
                     id: authUser.id,
                     email: authUser.email!,
-                    profile: profile || { name: authUser.email?.split('@')[0] || 'User' }
+                    profile: {
+                        ...(profile || {}),
+                        name: profile?.name || metadata.full_name || metadata.name || authUser.email?.split('@')[0] || 'User',
+                        avatar_url: profile?.avatar_url || metadata.avatar_url || metadata.picture
+                    }
                 })
             }
         }
         fetchUser()
     }, [])
 
-    const handleMouseEnter = () => {
-        if (popoverTimeoutRef.current) clearTimeout(popoverTimeoutRef.current)
-        setIsPopoverOpen(true)
-    }
-    const handleMouseLeave = () => {
-        popoverTimeoutRef.current = setTimeout(() => setIsPopoverOpen(false), 300)
-    }
+
 
     return (
         <>
@@ -101,11 +100,11 @@ export function StandupHeader() {
                     <div className="flex items-center gap-6">
                         {/* Add Button Group */}
                         <div
-                            className="flex items-center"
+                            className="flex items-center transition-colors"
                             style={{
                                 width: "500px",
                                 height: "61px",
-                                backgroundColor: "#15171F",
+                                backgroundColor: mounted && theme === "light" ? "#F3F4F6" : "#15171F",
                                 padding: "10px 14px",
                                 borderRadius: "12px"
                             }}
@@ -128,7 +127,10 @@ export function StandupHeader() {
                                             }}
                                         >
                                             <span
-                                                className="flex items-center justify-center w-full h-full bg-[#15171F] text-white text-sm font-bold"
+                                                className={cn(
+                                                    "flex items-center justify-center w-full h-full text-sm font-bold transition-colors",
+                                                    mounted && theme === "light" ? "bg-white text-black" : "bg-[#15171F] text-white"
+                                                )}
                                                 style={{ borderRadius: "97px 0 0 97px", padding: "0 27px" }}
                                             >
                                                 Add brand
@@ -148,7 +150,10 @@ export function StandupHeader() {
                                         }}
                                     >
                                         <span
-                                            className="flex items-center justify-center w-full h-full bg-[#15171F] text-white text-sm font-bold"
+                                            className={cn(
+                                                "flex items-center justify-center w-full h-full text-sm font-bold transition-colors",
+                                                mounted && theme === "light" ? "bg-white text-black" : "bg-[#15171F] text-white"
+                                            )}
                                             style={{ borderRadius: "97px 0 0 97px", padding: "0 27px" }}
                                         >
                                             Add project
@@ -169,10 +174,13 @@ export function StandupHeader() {
                                             }}
                                         >
                                             <span
-                                                className="flex items-center justify-center w-full h-full bg-[#15171F]"
+                                                className={cn(
+                                                    "flex items-center justify-center w-full h-full transition-colors",
+                                                    mounted && theme === "light" ? "bg-white" : "bg-[#15171F]"
+                                                )}
                                                 style={{ borderRadius: "0 97px 97px 0", padding: "0 15px" }}
                                             >
-                                                <ChevronDown className="w-6 h-6 text-white" />
+                                                <ChevronDown className={cn("w-6 h-6 transition-colors", mounted && theme === "light" ? "text-black" : "text-white")} />
                                             </span>
                                         </button>
                                     </DropdownMenuTrigger>
@@ -196,11 +204,11 @@ export function StandupHeader() {
 
                             {/* Theme Toggle (Inline) */}
                             <div
-                                className="flex items-center ml-4"
+                                className="flex items-center ml-4 transition-colors"
                                 style={{
                                     width: "71px",
                                     height: "41px",
-                                    backgroundColor: "#2E313C",
+                                    backgroundColor: mounted && theme === "light" ? "#E5E7EB" : "#2E313C",
                                     borderRadius: "100px",
                                     padding: "6px 8px",
                                 }}
@@ -209,7 +217,7 @@ export function StandupHeader() {
                                     onClick={() => setTheme("light")}
                                     className={cn(
                                         "flex items-center justify-center transition-all",
-                                        mounted && theme === "light" ? "bg-[#15161B] rounded-full" : ""
+                                        mounted && theme === "light" ? "bg-white shadow-sm rounded-full" : ""
                                     )}
                                     style={{ width: "28px", height: "28px" }}
                                 >
@@ -218,8 +226,8 @@ export function StandupHeader() {
                                 <button
                                     onClick={() => setTheme("dark")}
                                     className={cn(
-                                        "flex items-all justify-center transition-all",
-                                        mounted && theme === "dark" ? "bg-[#15161B] rounded-full" : ""
+                                        "flex items-center justify-center transition-all",
+                                        mounted && theme === "dark" ? "bg-[#15161B] shadow-sm rounded-full" : ""
                                     )}
                                     style={{ width: "28px", height: "28px" }}
                                 >
@@ -231,22 +239,20 @@ export function StandupHeader() {
                             <div className="flex items-center ml-auto" style={{ gap: "16px" }}>
                                 <Home
                                     onClick={() => router.push("/dashboard")}
-                                    className="w-[30px] h-[30px] text-[#515151] cursor-pointer hover:text-white transition-colors"
+                                    className={cn("w-[30px] h-[30px] text-[#515151] cursor-pointer transition-colors", mounted && theme === "light" ? "hover:text-black" : "hover:text-white")}
                                 />
                                 <Settings
                                     onClick={() => setIsSettingsOpen(true)}
-                                    className="w-[30px] h-[30px] text-[#515151] cursor-pointer hover:text-white transition-colors"
+                                    className={cn("w-[30px] h-[30px] text-[#515151] cursor-pointer transition-colors", mounted && theme === "light" ? "hover:text-black" : "hover:text-white")}
                                 />
-                                <LayoutGrid className="w-[30px] h-[30px] text-[#515151] cursor-pointer hover:text-white transition-colors" />
+                                <LayoutGrid className={cn("w-[30px] h-[30px] text-[#515151] cursor-pointer transition-colors", mounted && theme === "light" ? "hover:text-black" : "hover:text-white")} />
                                 {/* Global User Profile Popover */}
                                 <div className="relative">
                                     <div
-                                        onMouseEnter={handleMouseEnter}
-                                        onMouseLeave={handleMouseLeave}
-                                        onClick={() => { }}
-                                        className="cursor-pointer"
+                                        onClick={() => setIsPopoverOpen(!isPopoverOpen)}
+                                        className="cursor-pointer flex items-center gap-1 group"
                                     >
-                                        <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#FF0054] to-[#88007F] p-0.5 shadow-lg shadow-accent-indigo/20 hover:scale-105 transition-transform active:scale-95 overflow-hidden">
+                                        <div className="w-[30px] h-[30px] rounded-full bg-gradient-to-br from-[#FF0054] to-[#88007F] p-0.5 shadow-lg shadow-accent-indigo/20 group-hover:scale-105 transition-transform group-active:scale-95 overflow-hidden">
                                             <div className="w-full h-full rounded-full bg-bg-0 overflow-hidden flex items-center justify-center relative">
                                                 {user?.profile?.avatar_url ? (
                                                     <Image
@@ -262,6 +268,7 @@ export function StandupHeader() {
                                                 )}
                                             </div>
                                         </div>
+                                        <ChevronDown className={cn("w-4 h-4 text-[#515151] transition-transform duration-200", isPopoverOpen && "rotate-180")} />
                                     </div>
                                     <UserProfilePopover
                                         isOpen={isPopoverOpen}
