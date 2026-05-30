@@ -258,5 +258,6 @@ export function FocusClient({
                 </AnimatePresence>
             </div>
         </div>
+    </div>
     )
 }
