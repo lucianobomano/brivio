@@ -28,13 +28,17 @@ interface ClientRoadmapViewProps {
     project: any
     roadmap: any[]
     globalProgress: number
-    globalProgress: number
     currentPhaseName: string
     initialLayout: LayoutStyle
+    initialBg?: string
     initialNotes?: any[]
 }
 
 type LayoutStyle = 'default' | 'numbered' | 'minimal' | 'cards' | 'timeline'
+
+const BG_CLASSES: Record<string, string> = {
+    'default': 'bg-[#FAFAFA]',
+}
 
 const LAYOUT_OPTIONS: { id: LayoutStyle; name: string; icon: string; description: string }[] = [
     { id: 'default', name: 'Timeline', icon: '📋', description: 'Cards expansíveis' },
@@ -50,10 +54,12 @@ export function ClientRoadmapView({
     globalProgress,
     currentPhaseName,
     initialLayout,
+    initialBg = 'default',
     initialNotes = []
 }: ClientRoadmapViewProps) {
     const brand = project.brands
     const [layoutStyle, setLayoutStyle] = React.useState<LayoutStyle>(initialLayout)
+    const [bgStyle] = React.useState<string>(initialBg)
     const [expandedStage, setExpandedStage] = React.useState<string | null>(null)
     const [isNotesOpen, setIsNotesOpen] = React.useState(false)
 
@@ -117,8 +123,37 @@ export function ClientRoadmapView({
     const currentPhase = roadmap.find(stage => stage.progress < 100) || roadmap[roadmap.length - 1];
     const currentPhaseId = currentPhase?.id;
 
+    const getBackgroundStyle = (bg: string) => {
+        if (!bg || bg === 'default') return {};
+        if (bg.startsWith('/') || bg.startsWith('http')) {
+            return {
+                backgroundImage: `url('${bg}')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundAttachment: 'fixed'
+            };
+        }
+        if (bg.startsWith('linear-gradient')) {
+            return { backgroundImage: bg, backgroundAttachment: 'fixed' };
+        }
+        return {};
+    }
+
     return (
-        <div className="min-h-screen bg-[#FAFAFA] text-[#1D1D1F] font-inter-tight selection:bg-accent-indigo/10">
+        <div className="min-h-screen text-[#1D1D1F] font-inter-tight selection:bg-accent-indigo/10 relative z-0">
+            {/* Background Layer with 30% Blur Effect */}
+            <div 
+                className={cn(
+                    "fixed inset-0 -z-20 transition-all duration-700",
+                    !bgStyle || bgStyle === 'default' ? BG_CLASSES['default'] : "scale-110"
+                )} 
+                style={getBackgroundStyle(bgStyle)}
+            />
+            
+            {/* Glass/Blur overlay if custom background is used */}
+            {bgStyle && bgStyle !== 'default' && (
+                <div className="fixed inset-0 -z-10 bg-white/40 backdrop-blur-[30px] transition-all duration-700" />
+            )}
             {/* Header / Brand Bar */}
             <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-2xl border-b border-[#E5E5EA]/50">
                 <div className="max-w-[1100px] mx-auto px-6 h-20 flex items-center justify-between">
@@ -164,10 +199,10 @@ export function ClientRoadmapView({
 
                     <h1 className="text-[42px] md:text-[56px] font-bold tracking-tight mb-6 leading-[1.1]">
                         <span className="bg-gradient-to-r from-[#1D1D1F] via-[#3d3d3f] to-[#1D1D1F] bg-clip-text text-transparent">
-                            Acompanhe o progresso
+                            Olá, {brand?.name || "Cliente"}!
                         </span>
                         <br />
-                        <span className="text-[#86868B]">do seu projeto em tempo real.</span>
+                        <span className="text-[#86868B] text-[32px] md:text-[42px]">Acompanhe o progresso em tempo real.</span>
                     </h1>
 
                     {/* Progress Section - Hidden in numbered circles layout */}

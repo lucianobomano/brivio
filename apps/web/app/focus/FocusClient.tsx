@@ -6,11 +6,8 @@ import {
     MoveUpRight,
     MoreVertical,
     LayoutGrid,
-    CheckCircle2,
-    ArrowLeft,
-    ArrowRight
+    CheckCircle2
 } from "lucide-react"
-import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { FocusBoardView } from "./FocusBoardView"
 import { RoadmapStage } from "@/app/actions/roadmap"
@@ -52,54 +49,6 @@ export function FocusClient({
     const roadmap = React.useMemo(() => initialRoadmap, [initialRoadmap])
     const router = useRouter()
 
-    // Custom cursor and auto-scroll state
-    const scrollContainerRef = React.useRef<HTMLDivElement>(null)
-    const [cursorPosition, setCursorPosition] = React.useState<{ x: number; y: number } | null>(null)
-    const [scrollDirection, setScrollDirection] = React.useState<'left' | 'right' | null>(null)
-    const scrollIntervalRef = React.useRef<NodeJS.Timeout | null>(null)
-
-    // Handle mouse move for custom cursor and auto-scroll
-    const handleMouseMove = React.useCallback((e: React.MouseEvent<HTMLDivElement>) => {
-        const container = scrollContainerRef.current
-        if (!container) return
-
-        const rect = container.getBoundingClientRect()
-        const x = e.clientX
-        const edgeThreshold = 150 // pixels from edge to trigger scroll
-
-        setCursorPosition({ x: e.clientX, y: e.clientY })
-
-        if (x < rect.left + edgeThreshold) {
-            setScrollDirection('left')
-        } else if (x > rect.right - edgeThreshold) {
-            setScrollDirection('right')
-        } else {
-            setScrollDirection(null)
-        }
-    }, [])
-
-    // Auto-scroll effect
-    React.useEffect(() => {
-        if (scrollDirection && scrollContainerRef.current) {
-            const container = scrollContainerRef.current
-            const scrollSpeed = 8
-
-            scrollIntervalRef.current = setInterval(() => {
-                if (scrollDirection === 'left') {
-                    container.scrollLeft -= scrollSpeed
-                } else {
-                    container.scrollLeft += scrollSpeed
-                }
-            }, 16)
-        }
-
-        return () => {
-            if (scrollIntervalRef.current) {
-                clearInterval(scrollIntervalRef.current)
-            }
-        }
-    }, [scrollDirection])
-
     // IF PROJECT IS SELECTED, SHOW FOCUS MODE (BOARD VIEW)
     if (selectedProject) {
         return (
@@ -113,9 +62,9 @@ export function FocusClient({
 
     // GALLERY VIEW (DEFAULT IF NO PROJECT SELECTED)
     return (
-        <div className="py-12">
-            <div>
-                <div className="flex items-center gap-4 mb-12 px-[180px]">
+        <div className="px-8 py-12">
+            <div className="max-w-[1400px] mx-auto">
+                <div className="flex items-center gap-4 mb-12">
                     <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-accent-indigo to-accent-mint flex items-center justify-center">
                         <Zap className="w-6 h-6 text-white" />
                     </div>
@@ -125,29 +74,15 @@ export function FocusClient({
                     </div>
                 </div>
 
-                <div 
-                    className="relative overflow-x-hidden min-h-[500px]"
-                    onMouseMove={handleMouseMove}
-                    onMouseLeave={() => setScrollDirection(null)}
-                    style={{ cursor: cursorPosition ? 'none' : 'default' }}
-                >
-                    <div 
-                        ref={scrollContainerRef}
-                        className="flex items-center gap-[40px] px-[180px] min-w-max pb-20 pt-10"
-                        style={{
-                            overflowX: 'auto',
-                            scrollbarWidth: 'none',
-                            msOverflowStyle: 'none'
-                        }}
-                    >
-                        {projects.map((project) => {
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {projects.map((project) => {
                         const pendingTasks = project.tasks?.filter(t => !t.completed) || []
                         const totalTime = pendingTasks.reduce((acc, t) => acc + (t.estimated_time || 0), 0)
                         const displayTasks = pendingTasks.slice(0, 4)
 
                         return (
                             <Link key={project.id} href={`/focus?projectId=${project.id}`}>
-                                <div className="w-[350px] h-[333px] rounded-xl border border-bg-3 bg-bg-1 hover:border-accent-indigo/30 transition-all relative group cursor-pointer flex flex-col shadow-sm">
+                                <div className="w-full h-[333px] rounded-xl border border-bg-3 bg-bg-1 hover:border-accent-indigo/30 transition-all relative group cursor-pointer flex flex-col shadow-sm">
                                     {/* Header */}
                                     <div className="flex items-center justify-between p-4 pb-2">
                                         <div className="flex items-center space-x-2">
@@ -223,41 +158,13 @@ export function FocusClient({
                     })}
 
                     <Link href="/projects">
-                        <div className="w-[350px] h-[333px] rounded-xl border-2 border-dashed border-bg-3 bg-transparent hover:border-accent-indigo/30 transition-all flex flex-col items-center justify-center cursor-pointer group">
+                        <div className="w-full h-[333px] rounded-xl border-2 border-dashed border-bg-3 bg-transparent hover:border-accent-indigo/30 transition-all flex flex-col items-center justify-center cursor-pointer group">
                             <LayoutGrid className="w-8 h-8 text-text-tertiary group-hover:text-accent-indigo mb-3 opacity-30 group-hover:opacity-100 transition-all" />
                             <span className="text-[10px] text-text-tertiary group-hover:text-accent-indigo font-bold tracking-widest uppercase">Gerir Projectos</span>
                         </div>
                     </Link>
                 </div>
-
-                {/* Custom Cursor for Horizontal Scroll */}
-                <AnimatePresence>
-                    {cursorPosition && scrollDirection && (
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.8 }}
-                            transition={{ duration: 0.15 }}
-                            style={{
-                                position: 'fixed',
-                                left: cursorPosition.x,
-                                top: cursorPosition.y,
-                                transform: 'translate(-50%, -50%)',
-                                pointerEvents: 'none',
-                                zIndex: 9999
-                            }}
-                            className="w-12 h-12 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20 shadow-2xl"
-                        >
-                            {scrollDirection === 'left' ? (
-                                <ArrowLeft className="w-5 h-5 text-white" />
-                            ) : (
-                                <ArrowRight className="w-5 h-5 text-white" />
-                            )}
-                        </motion.div>
-                    )}
-                </AnimatePresence>
             </div>
         </div>
-    </div>
     )
 }

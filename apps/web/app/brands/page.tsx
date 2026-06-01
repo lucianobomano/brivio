@@ -48,7 +48,7 @@ export default async function BrandsPage() {
             <StandupHeader />
 
             {/* Search & Filters */}
-            <div className="py-8 flex justify-center">
+            <div className="py-8 flex justify-center px-[40px]">
                 <div className="w-full max-w-[1600px]">
                     <div className="flex items-center justify-end gap-6">
                         <div className="relative w-full max-w-md">
@@ -71,9 +71,9 @@ export default async function BrandsPage() {
             </div>
 
             {/* Cards Grid */}
-            <div className="pb-16 flex justify-center px-4">
+            <div className="pb-16 flex justify-center px-[40px]">
                 <div className="w-full max-w-[1600px]">
-                    <div className="grid grid-cols-[repeat(auto-fill,372px)] justify-center gap-[20px]">
+                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-[20px]">
                         {/* Create New Card */}
                         <CreateBrandCard
                             userName={user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0]}

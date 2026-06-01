@@ -14,6 +14,7 @@ export default async function ClientRoadmapPage({
     const { assetId } = await params
     const resolvedSearchParams = await searchParams
     const initialLayout = typeof resolvedSearchParams.layout === 'string' ? resolvedSearchParams.layout : 'default'
+    const initialBg = typeof resolvedSearchParams.bg === 'string' ? resolvedSearchParams.bg : 'default'
     
     const supabase = await createClient()
 
@@ -49,6 +50,7 @@ export default async function ClientRoadmapPage({
             globalProgress={stats.globalProgress}
             currentPhaseName={stats.currentPhaseName}
             initialLayout={initialLayout as any}
+            initialBg={initialBg}
             initialNotes={notes || []}
         />
     )

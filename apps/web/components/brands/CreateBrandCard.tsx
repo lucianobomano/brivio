@@ -47,7 +47,7 @@ export function CreateBrandCard({ userName, brandsCount = 0 }: CreateBrandCardPr
                 onClick={() => setIsOpen(true)}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={handleMouseLeave}
-                className="relative w-[372px] h-[585px] rounded-[12px] overflow-hidden cursor-pointer group bg-[#311C99]"
+                className="relative w-full aspect-[372/585] rounded-[12px] overflow-hidden cursor-pointer group bg-[#311C99]"
             >
                 {/* Fluid Gradient Background Container */}
                 <div className="absolute inset-0 group-hover:scale-105 transition-transform duration-700 ease-out">

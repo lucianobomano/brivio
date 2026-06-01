@@ -23,7 +23,8 @@ import {
     Trash2,
     ChevronDown,
     ArrowLeft,
-    MessageSquare
+    MessageSquare,
+    ImageIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -83,6 +84,34 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+const BG_CLASSES_ADMIN: Record<string, string> = {
+    'default': '',
+}
+
+type GalleryItem = { type: 'gradient' | 'image', value: string, label?: string };
+
+const galleryItems: GalleryItem[] = [
+    { type: 'gradient', value: "linear-gradient(135deg, #FF0054 0%, #88007F 100%)", label: "Pink Purple" },
+    { type: 'gradient', value: "linear-gradient(135deg, #06D6A0 0%, #311C99 100%)", label: "Green Blue" },
+    { type: 'gradient', value: "linear-gradient(135deg, #FFD166 0%, #EF476F 100%)", label: "Yellow Red" },
+    { type: 'gradient', value: "linear-gradient(135deg, #118AB2 0%, #073B4C 100%)", label: "Blue Dark" },
+    { type: 'image', value: "/images/gallery/Frame 604.png", label: "Frame 604" },
+    { type: 'image', value: "/images/gallery/Frame 605.png", label: "Frame 605" },
+    { type: 'image', value: "/images/gallery/Frame 606.png", label: "Frame 606" },
+    { type: 'image', value: "/images/gallery/Frame 607.png", label: "Frame 607" },
+    { type: 'image', value: "/images/gallery/Frame 608.png", label: "Frame 608" },
+    { type: 'image', value: "/images/gallery/Frame 609.png", label: "Frame 609" },
+    { type: 'image', value: "/images/gallery/Frame 610.png", label: "Frame 610" },
+    { type: 'image', value: "/images/gallery/Frame 611.png", label: "Frame 611" },
+    { type: 'image', value: "/images/gallery/Frame 612.png", label: "Frame 612" },
+    { type: 'image', value: "/images/gallery/Frame 613.png", label: "Frame 613" },
+    { type: 'image', value: "/images/gallery/Frame 614.png", label: "Frame 614" },
+    { type: 'image', value: "/images/gallery/Frame 615.png", label: "Frame 615" },
+    { type: 'image', value: "/images/gallery/Frame 616.png", label: "Frame 616" },
+    { type: 'image', value: "/images/gallery/Frame 617.png", label: "Frame 617" },
+    { type: 'image', value: "/images/gallery/Frame 618.png", label: "Frame 618" },
+];
+
 interface ProjectBase {
     id: string
     name: string
@@ -118,15 +147,34 @@ export function RoadmapClient({
     const [isStageModalOpen, setIsStageModalOpen] = React.useState(false)
     const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState(false)
     const [isLayoutModalOpen, setIsLayoutModalOpen] = React.useState(false)
+    const [isBgModalOpen, setIsBgModalOpen] = React.useState(false)
     const [editingStage, setEditingStage] = React.useState<RoadmapStage | null>(null)
     const [newStageName, setNewStageName] = React.useState("")
     const [newStageColor, setNewStageColor] = React.useState("#ff0054")
     const [viewMode, setViewMode] = React.useState<'vertical' | 'horizontal'>('vertical')
     const [layoutStyle, setLayoutStyle] = React.useState<'default' | 'numbered' | 'minimal' | 'cards' | 'timeline'>('numbered')
+    const [bgStyle, setBgStyle] = React.useState<string>('default')
     const [editingTask, setEditingTask] = React.useState<{ id: string, title: string, stageId: string } | null>(null)
     const [newTaskTitle, setNewTaskTitle] = React.useState("")
     const [isTaskModalOpen, setIsTaskModalOpen] = React.useState(false)
     const [taskStageId, setTaskStageId] = React.useState<string | null>(null)
+
+    // Sync layout and bg with localStorage
+    React.useEffect(() => {
+        if (typeof window !== 'undefined' && selectedProjectId) {
+            const savedLayout = localStorage.getItem(`brivio_roadmap_layout_${selectedProjectId}`)
+            if (savedLayout) setLayoutStyle(savedLayout as any)
+            const savedBg = localStorage.getItem(`brivio_roadmap_bg_${selectedProjectId}`)
+            if (savedBg) setBgStyle(savedBg)
+        }
+    }, [selectedProjectId])
+
+    React.useEffect(() => {
+        if (typeof window !== 'undefined' && selectedProjectId) {
+            localStorage.setItem(`brivio_roadmap_layout_${selectedProjectId}`, layoutStyle)
+            localStorage.setItem(`brivio_roadmap_bg_${selectedProjectId}`, bgStyle)
+        }
+    }, [layoutStyle, bgStyle, selectedProjectId])
 
     // Custom cursor and auto-scroll state for numbered circles
     const scrollContainerRef = React.useRef<HTMLDivElement>(null)
@@ -197,7 +245,7 @@ export function RoadmapClient({
 
     const handleGenerateLink = () => {
         if (!selectedProjectId) return
-        const link = `${window.location.origin}/share/${selectedProjectId}/roadmap?layout=${layoutStyle}`
+        const link = `${window.location.origin}/share/${selectedProjectId}/roadmap?layout=${layoutStyle}&bg=${encodeURIComponent(bgStyle)}`
         navigator.clipboard.writeText(link)
         toast.success("Link do cliente copiado!", {
             description: "Você já pode enviar este link para o seu cliente."
@@ -437,13 +485,43 @@ export function RoadmapClient({
         }
     }
 
-    return (
-        <div className="max-w-[1200px] mx-auto px-6 py-12">
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                <div className="space-y-4">
+    const getBackgroundStyle = (bg: string) => {
+        if (!bg || bg === 'default') return {};
+        if (bg.startsWith('/') || bg.startsWith('http')) {
+            return {
+                backgroundImage: `url('${bg}')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundAttachment: 'fixed'
+            };
+        }
+        if (bg.startsWith('linear-gradient')) {
+            return { backgroundImage: bg, backgroundAttachment: 'fixed' };
+        }
+        return {};
+    }
 
-                    <div className="flex items-center gap-3 -ml-[185px]">
+    return (
+        <div className="relative min-h-[calc(100vh-80px)] w-full z-0">
+            {/* Background Layer with Blur Effect */}
+            <div 
+                className={cn(
+                    "fixed inset-0 -z-20 transition-all duration-700",
+                    !bgStyle || bgStyle === 'default' ? BG_CLASSES_ADMIN['default'] : "scale-110"
+                )} 
+                style={getBackgroundStyle(bgStyle)}
+            />
+            
+            {/* Darker Glass/Blur overlay for admin panel */}
+            {bgStyle && bgStyle !== 'default' && (
+                <div className="fixed inset-0 -z-10 bg-black/60 backdrop-blur-[30px] transition-all duration-700" />
+            )}
+
+            <div className="max-w-[1200px] mx-auto px-6 py-12 relative">
+            {/* Header Section */}
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 xl:gap-6 mb-12 w-full">
+                <div className="space-y-4 w-full xl:w-auto min-w-0">
+                    <div className="flex flex-wrap items-center gap-3">
                         <Link href="/projects" title="Voltar aos Projetos">
                             <Button variant="outline" className="bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2 flex items-center justify-center w-11 h-11 shadow-sm border-2 p-0 shrink-0">
                                 <ArrowLeft className="w-4 h-4 text-text-tertiary" />
@@ -492,114 +570,122 @@ export function RoadmapClient({
                             </DropdownMenuContent>
                         </DropdownMenu>
 
-                        {selectedProject && (
-                            <>
-                                <div className="px-4 h-11 bg-bg-2 rounded-full border border-bg-3 shrink-0 flex items-center justify-center">
-                                    <span className="text-[11px] font-bold uppercase tracking-widest text-text-tertiary whitespace-nowrap">
-                                        {overallProgress}% Concluído
-                                    </span>
-                                </div>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
+                    {selectedProject && (
+                        <>
+                            <div className="relative group">
                                 <Button
                                     variant="ghost"
-                                    size="sm"
+                                    size="icon"
                                     onClick={() => {
                                         setEditingStage(null)
                                         setNewStageName("")
                                         setIsStageModalOpen(true)
                                     }}
-                                    className="text-accent-indigo hover:text-accent-indigo/80 font-bold uppercase text-[10px] tracking-widest"
+                                    className="w-11 h-11 rounded-xl text-accent-indigo hover:text-accent-indigo/80 hover:bg-bg-2"
                                 >
-                                    <Plus className="w-3 h-3 mr-1.5" />
+                                    <Plus className="w-5 h-5" />
+                                </Button>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
                                     Nova Fase
-                                </Button>
+                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                                </div>
+                            </div>
+                            <div className="relative group">
                                 <Button
                                     variant="ghost"
-                                    size="sm"
+                                    size="icon"
                                     onClick={() => setIsTemplateModalOpen(true)}
-                                    className="text-accent-mint hover:text-accent-mint/80 font-bold uppercase text-[10px] tracking-widest"
+                                    className="w-11 h-11 rounded-xl text-accent-mint hover:text-accent-mint/80 hover:bg-bg-2"
                                 >
-                                    <Sparkles className="w-3 h-3 mr-1.5" />
+                                    <Sparkles className="w-5 h-5" />
+                                </Button>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
                                     Templates
-                                </Button>
+                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                                </div>
+                            </div>
+                            <div className="relative group">
                                 <Button
                                     variant="ghost"
-                                    size="sm"
+                                    size="icon"
                                     onClick={() => setIsLayoutModalOpen(true)}
-                                    className="text-amber-500 hover:text-amber-400 font-bold uppercase text-[10px] tracking-widest"
+                                    className="w-11 h-11 rounded-xl text-amber-500 hover:text-amber-400 hover:bg-bg-2"
                                 >
-                                    <Palette className="w-3 h-3 mr-1.5" />
-                                    Layout
+                                    <Palette className="w-5 h-5" />
                                 </Button>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
+                                    Layout
+                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                                </div>
+                            </div>
+                            <div className="relative group">
                                 <Button
                                     variant="ghost"
-                                    size="sm"
-                                    onClick={() => setIsNotesOpen(true)}
-                                    className="text-accent-indigo hover:text-accent-indigo/80 font-bold uppercase text-[10px] tracking-widest relative"
-                                    title="Notas do Projeto"
+                                    size="icon"
+                                    onClick={() => setIsBgModalOpen(true)}
+                                    className="w-11 h-11 rounded-xl text-fuchsia-500 hover:text-fuchsia-400 hover:bg-bg-2"
                                 >
-                                    <MessageSquare className="w-3 h-3 mr-1.5" />
-                                    Notas
+                                    <ImageIcon className="w-5 h-5" />
+                                </Button>
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
+                                    Fundo
+                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                                </div>
+                            </div>
+                            <div className="relative group">
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => setIsNotesOpen(true)}
+                                    className="w-11 h-11 rounded-xl text-accent-indigo hover:text-accent-indigo/80 hover:bg-bg-2 relative"
+                                >
+                                    <MessageSquare className="w-5 h-5" />
                                     {initialNotes.length > 0 && (
-                                        <span className="absolute -top-1 -right-2 w-3.5 h-3.5 bg-[#FF0055] text-white text-[9px] font-black flex items-center justify-center rounded-full shadow-lg">
+                                        <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-[#FF0055] text-white text-[9px] font-black flex items-center justify-center rounded-full shadow-lg">
                                             {initialNotes.length}
                                         </span>
                                     )}
                                 </Button>
-                            </>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                    {/* View Toggle */}
-                    <div className="flex items-center bg-bg-2 rounded-xl border border-bg-3 p-1">
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
+                                    Notas
+                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                                </div>
+                            </div>
+                        </>
+                    )}
+                    <div className="relative group">
                         <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setViewMode('vertical')}
-                            className={cn(
-                                "h-9 px-3 rounded-lg",
-                                viewMode === 'vertical'
-                                    ? "bg-bg-1 shadow-sm text-text-primary"
-                                    : "text-text-tertiary hover:text-text-primary"
-                            )}
+                            onClick={handleGenerateLink}
+                            size="icon"
+                            className="w-11 h-11 bg-[#FF0055] hover:bg-[#FF0055]/90 text-white rounded-xl shadow-lg shadow-[#FF0055]/20"
                         >
-                            <Rows3 className="w-4 h-4 mr-1.5" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Vertical</span>
+                            <Share2 className="w-5 h-5" />
                         </Button>
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setViewMode('horizontal')}
-                            className={cn(
-                                "h-9 px-3 rounded-lg",
-                                viewMode === 'horizontal'
-                                    ? "bg-bg-1 shadow-sm text-text-primary"
-                                    : "text-text-tertiary hover:text-text-primary"
-                            )}
-                        >
-                            <Columns3 className="w-4 h-4 mr-1.5" />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Horizontal</span>
-                        </Button>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
+                            Gerar Link
+                            <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                        </div>
                     </div>
-
-                    <Button
-                        onClick={handleGenerateLink}
-                        className="bg-accent-indigo hover:bg-accent-indigo/90 text-white rounded-xl shadow-lg shadow-accent-indigo/20 font-bold uppercase text-[11px] tracking-widest h-11 px-6"
-                    >
-                        <Share2 className="w-4 h-4 mr-2" />
-                        Gerar Link de Cliente
-                    </Button>
-                    <Button
-                        variant="outline"
-                        asChild
-                        className="bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2 h-11 px-6 font-bold uppercase text-[11px] tracking-widest"
-                    >
-                        <Link href={`/share/${selectedProjectId}/roadmap?layout=${layoutStyle}`} target="_blank">
-                            <ExternalLink className="w-4 h-4 mr-2" />
+                    <div className="relative group">
+                        <Button
+                            variant="outline"
+                            asChild
+                            size="icon"
+                            className="w-11 h-11 bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2"
+                        >
+                            <Link href={`/share/${selectedProjectId}/roadmap?layout=${layoutStyle}&bg=${encodeURIComponent(bgStyle)}`} target="_blank">
+                                <ExternalLink className="w-5 h-5 text-text-primary" />
+                            </Link>
+                        </Button>
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
                             Visualizar
-                        </Link>
-                    </Button>
+                            <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -1563,6 +1649,72 @@ export function RoadmapClient({
                 </DialogContent>
             </Dialog>
 
+            {/* Background Selection Modal */}
+            <Dialog open={isBgModalOpen} onOpenChange={setIsBgModalOpen}>
+                <DialogContent className="bg-[#15161B] border-bg-3 rounded-[24px] max-w-[800px] overflow-hidden p-0 flex flex-col gap-0 [&>button.absolute]:hidden">
+                    <DialogHeader className="h-[60px] bg-accent-indigo flex flex-row items-center justify-between px-6 m-0 shrink-0">
+                        <DialogTitle className="text-[16px] font-bold text-white m-0 mt-1">
+                            Personalização do Fundo
+                        </DialogTitle>
+                        <button
+                            onClick={() => setIsBgModalOpen(false)}
+                            className="w-[22px] h-[22px] rounded-full bg-[#15161B] shrink-0 mt-1 cursor-pointer hover:scale-105 transition-transform"
+                            aria-label="Close modal"
+                        />
+                    </DialogHeader>
+
+                    <div className="p-6 max-h-[600px] overflow-y-auto">
+                        <div className="grid grid-cols-4 gap-4">
+                            <button
+                                onClick={() => {
+                                    setBgStyle('default')
+                                    setIsBgModalOpen(false)
+                                }}
+                                className={cn(
+                                    "h-24 rounded-[8px] w-full transition-all relative overflow-hidden group border border-[#313131] bg-[#FAFAFA]",
+                                    bgStyle === 'default' ? "ring-2 ring-accent-indigo ring-offset-2 ring-offset-[#15161B]" : "hover:opacity-80"
+                                )}
+                            >
+                                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+                                    <div className="text-xl">⬜</div>
+                                    <span className="text-[10px] font-bold text-[#1D1D1F] uppercase tracking-wider">Claro Padrão</span>
+                                </div>
+                                {bgStyle === 'default' && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                        <Check className="text-white" size={20} strokeWidth={3} />
+                                    </div>
+                                )}
+                            </button>
+                            {galleryItems.map((item, idx) => (
+                                <button
+                                    key={idx}
+                                    onClick={() => {
+                                        setBgStyle(item.value)
+                                        setIsBgModalOpen(false)
+                                    }}
+                                    className={cn(
+                                        "h-24 rounded-[8px] w-full transition-all relative overflow-hidden group border border-[#313131]",
+                                        bgStyle === item.value ? "ring-2 ring-accent-indigo ring-offset-2 ring-offset-[#15161B]" : "hover:opacity-80"
+                                    )}
+                                >
+                                    {item.type === 'gradient' ? (
+                                        <div className="w-full h-full" style={{ background: item.value }} />
+                                    ) : (
+                                        <img src={item.value} alt={item.label} className="w-full h-full object-cover" />
+                                    )}
+
+                                    {bgStyle === item.value && (
+                                        <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                                            <Check className="text-white" size={20} strokeWidth={3} />
+                                        </div>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
             {/* Task Management Modal */}
             <Dialog open={isTaskModalOpen} onOpenChange={setIsTaskModalOpen}>
                 <DialogContent className="bg-bg-1 border-bg-3 rounded-2xl sm:max-w-[425px]">
@@ -1614,6 +1766,7 @@ export function RoadmapClient({
                     onClose={() => setIsNotesOpen(false)}
                 />
             )}
+            </div>
         </div>
     )
 }

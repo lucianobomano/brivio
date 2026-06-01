@@ -126,8 +126,8 @@ export function DashboardClient({
             <StandupHeader />
 
             {/* Main Content - Match Standups Layout */}
-            <main className="flex-1 flex justify-center p-10 mt-10">
-                <div className="max-w-[1600px] flex flex-wrap justify-center gap-[20px]">
+            <main className="flex-1 flex justify-center p-4 md:p-10 mt-10 w-full">
+                <div className="max-w-[1600px] w-full flex justify-center gap-2 md:gap-[20px]">
                     {NAV_OPTIONS.filter(opt => opt.id !== "03" && opt.id !== "06").map((opt, idx) => {
                         const Icon = opt.icon
 
@@ -135,7 +135,7 @@ export function DashboardClient({
                             <Link
                                 key={opt.id}
                                 href={opt.href}
-                                className="w-[372px] h-[585px] rounded-[12px] relative overflow-hidden flex flex-col justify-between p-8 text-white transition-all hover:translate-y-[-10px] shadow-2xl group"
+                                className="w-full max-w-[372px] flex-1 min-w-0 aspect-[372/585] rounded-[12px] relative overflow-hidden flex flex-col justify-between p-4 md:p-8 text-white transition-all hover:translate-y-[-10px] shadow-2xl group"
                                 style={{ backgroundColor: '#1A1B20' }}
                             >
                                 {opt.imageUrl && (

@@ -237,7 +237,7 @@ export function AssetsClient() {
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 w-full h-full flex justify-center pt-[50px] relative">
+            <main className="flex-1 w-full h-full flex justify-center pt-[50px] relative px-[40px]">
 
                 {/* Upload Modal Overlay */}
                 <AnimatePresence>
@@ -413,7 +413,7 @@ export function AssetsClient() {
                 <div className="w-full flex flex-col items-center gap-8 pb-32">
 
                     {/* Controls Row */}
-                    <div className="w-[1545px] flex justify-between items-end px-4">
+                    <div className="w-full max-w-[1545px] flex justify-between items-end px-4">
                         {/* Search Bar */}
                         <div className="relative w-[300px]">
                             <span className="text-sm font-medium text-text-secondary mb-2 block">Pesquisar</span>
@@ -451,7 +451,7 @@ export function AssetsClient() {
 
                     {/* Breadcrumbs (Optional but good for navigation) */}
                     {currentFolderId && (
-                        <div className="w-[1545px] px-4 flex items-center gap-2 text-sm text-text-secondary">
+                        <div className="w-full max-w-[1545px] px-4 flex items-center gap-2 text-sm text-text-secondary">
                             <button onClick={() => setCurrentFolderId(undefined)} className="hover:text-text-primary">All Assets</button>
                             {breadcrumbs.map((crumb, i) => (
                                 <React.Fragment key={crumb.id}>
@@ -472,11 +472,11 @@ export function AssetsClient() {
                     )}
 
                     {/* Grid */}
-                    <div className="w-[1545px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+                    <div className="w-full max-w-[1545px] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                         {/* New Folder Button */}
                         <button
                             onClick={() => setIsCreateFolderOpen(true)}
-                            className="w-[375px] h-[400px] rounded-[12px] group relative overflow-hidden flex flex-col items-center justify-center transition-transform hover:scale-[1.02] active:scale-95 shadow-2xl"
+                            className="w-full h-[320px] xl:h-[400px] rounded-[12px] group relative overflow-hidden flex flex-col items-center justify-center transition-transform hover:scale-[1.02] active:scale-95 shadow-2xl"
                         >
                             <div
                                 className="absolute inset-0 animate-liquid-gradient"
@@ -503,7 +503,7 @@ export function AssetsClient() {
                                         setIsLibraryOpen(true)
                                     }}
                                     className={cn(
-                                        "w-[375px] h-[400px] rounded-[12px] relative flex flex-col items-center justify-between p-8 transition-colors group cursor-pointer border",
+                                        "w-full h-[320px] xl:h-[400px] rounded-[12px] relative flex flex-col items-center justify-between p-6 xl:p-8 transition-colors group cursor-pointer border",
                                         isSelected
                                             ? "border-[#FF0054] bg-[#FF0054]/5"
                                             : "border-transparent hover:border-white/5",
@@ -549,7 +549,7 @@ export function AssetsClient() {
                                     </div>
 
                                     {/* Folder Icon */}
-                                    <div className="mt-4 filter drop-shadow-2xl transition-transform group-hover:-translate-y-2 relative w-[315px] h-[251px]">
+                                    <div className="mt-4 filter drop-shadow-2xl transition-transform group-hover:-translate-y-2 relative w-full max-w-[315px] aspect-[315/251]">
                                         <img
                                             src="/images/custom-folder-icon.png"
                                             alt="Folder"
@@ -579,7 +579,7 @@ export function AssetsClient() {
                                     key={asset.id}
                                     onClick={() => handleToggleAssetSelection(asset.id)}
                                     className={cn(
-                                        "w-[375px] h-[400px] rounded-[12px] relative flex flex-col items-center justify-between p-8 transition-colors group cursor-pointer border",
+                                        "w-full h-[320px] xl:h-[400px] rounded-[12px] relative flex flex-col items-center justify-between p-6 xl:p-8 transition-colors group cursor-pointer border",
                                         isSelected
                                             ? "border-[#FF0054] bg-[#FF0054]/5"
                                             : "border-transparent hover:border-white/5",
@@ -625,7 +625,7 @@ export function AssetsClient() {
                                     </div>
 
                                     {/* Asset Preview */}
-                                    <div className="mt-4 filter drop-shadow-2xl transition-transform group-hover:-translate-y-2 relative w-[315px] h-[251px] flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-lg overflow-hidden">
+                                    <div className="mt-4 filter drop-shadow-2xl transition-transform group-hover:-translate-y-2 relative w-full max-w-[315px] aspect-[315/251] flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-lg overflow-hidden">
                                         {asset.type === 'image' && asset.file_url ? (
                                             <img
                                                 src={asset.file_url}

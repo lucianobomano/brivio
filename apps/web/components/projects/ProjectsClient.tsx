@@ -408,8 +408,8 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                 {/* Secondary Navigation (Filters and Views) - Hidden on Dashboard and when NOT on Tasks tab within a project */}
                 {(!activeProject || activeProjectTab === "tarefas") && (
                     <div className="px-10 mb-6 shrink-0">
-                        <div className="flex items-center justify-between gap-6">
-                            <div className="flex items-center gap-4">
+                        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 xl:gap-6 w-full min-w-0">
+                            <div className="flex items-center gap-4 w-full overflow-hidden min-w-0">
                                 {activeProject && (
                                     <Button
                                         variant="ghost"
@@ -421,7 +421,7 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                         Voltar
                                     </Button>
                                 )}
-                                <div className="bg-bg-1 border border-bg-3 p-1.5 rounded-[8px] flex items-center shadow-sm">
+                                <div className="bg-bg-1 border border-bg-3 p-1.5 rounded-[8px] flex items-center shadow-sm w-full min-w-0 overflow-hidden">
                                     <Tabs
                                         value={view}
                                         onValueChange={(v) => {
@@ -432,9 +432,9 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                             }
                                             setView(v as typeof view)
                                         }}
-                                        className="bg-transparent border-none"
+                                        className="bg-transparent border-none w-full min-w-0"
                                     >
-                                        <TabsList className="bg-transparent p-0 border-none h-11 gap-1 flex justify-start overflow-x-auto no-scrollbar">
+                                        <TabsList className="bg-transparent p-0 border-none h-11 gap-1 flex justify-start overflow-x-auto no-scrollbar w-full">
                                             <TabsTrigger value="dashboard" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
                                                 <BoardIcon className="w-3.5 h-3.5" />
                                                 Dashboard
@@ -476,7 +476,7 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                 </div>
                             </div>
 
-                            <div className="flex-1 flex items-center justify-end gap-3">
+                            <div className="flex-1 flex items-center justify-end gap-3 w-full shrink-0">
                                 <div className="relative max-w-md w-full">
                                     <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
                                     <input

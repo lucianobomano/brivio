@@ -80,7 +80,7 @@ export function StandupHeader() {
     return (
         <>
             <header 
-                className="w-full shrink-0 bg-bg-0 z-30 flex flex-col items-center relative" 
+                className="w-full shrink-0 bg-bg-0 z-30 flex flex-col items-center relative px-[40px]" 
                 style={{ marginTop: "30px" }}
             >
                 {/* Navigation Bar */}
@@ -283,7 +283,7 @@ export function StandupHeader() {
 
                 {/* Header border INSIDE the white container */}
                 <div className="w-full flex justify-center shrink-0 z-20" style={{ marginTop: "25px", marginBottom: "30px" }}>
-                    <div style={{ height: "1px", backgroundColor: theme === "light" ? "#E5E7EB" : "#303030", width: "1520px" }} />
+                    <div style={{ height: "1px", backgroundColor: theme === "light" ? "#E5E7EB" : "#303030", width: "100%", maxWidth: "1520px" }} />
                 </div>
             </header>
 
