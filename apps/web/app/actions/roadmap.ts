@@ -785,3 +785,64 @@ export async function completeStageTasks(projectId: string, stageId: string) {
         return { success: false, error: 'Failed to complete stage tasks' }
     }
 }
+
+export async function archiveRoadmapTask(taskId: string, projectId: string) {
+    try {
+        const supabase = await createClient()
+        const { error } = await supabase
+            .from('tasks')
+            .update({
+                status: 'archived',
+                completed: true,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', taskId)
+
+        if (error) throw error
+
+        revalidatePath('/roadmap')
+        revalidatePath(`/projects/${projectId}`)
+        return { success: true }
+    } catch (error: any) {
+        console.error("Error archiving task:", error)
+        return { success: false, error: error.message }
+    }
+}
+
+export async function duplicateRoadmapTask(taskId: string, projectId: string) {
+    try {
+        const supabase = await createClient()
+        const { data: original, error: fetchError } = await supabase
+            .from('tasks')
+            .select('*')
+            .eq('id', taskId)
+            .single()
+
+        if (fetchError || !original) {
+            throw fetchError || new Error("Task not found")
+        }
+
+        const { id: _, created_at: _c, updated_at: _u, ...rest } = original
+        const duplicateData = {
+            ...rest,
+            title: `${original.title} (cópia)`,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        }
+
+        const { data: duplicated, error: insertError } = await supabase
+            .from('tasks')
+            .insert(duplicateData)
+            .select()
+            .single()
+
+        if (insertError) throw insertError
+
+        revalidatePath('/roadmap')
+        revalidatePath(`/projects/${projectId}`)
+        return { success: true, task: duplicated }
+    } catch (error: any) {
+        console.error("Error duplicating task:", error)
+        return { success: false, error: error.message }
+    }
+}

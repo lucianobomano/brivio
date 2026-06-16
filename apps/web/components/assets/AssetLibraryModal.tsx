@@ -106,6 +106,7 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
     const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set())
 
     const [viewMode, setViewMode] = useState<'all' | 'favorites'>('all')
+    const [storageUsedBytes, setStorageUsedBytes] = useState(0)
 
     // Sync currentFolderId with initialFolderId when modal opens
     useEffect(() => {
@@ -194,6 +195,17 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
         const treeRes = await getAllFolders(scope)
         if (treeRes.success) {
             setAllFolders(treeRes.folders || [])
+        }
+
+        // 3. Fetch Storage Usage
+        try {
+            const { getStorageUsage } = await import('@/app/actions/assets')
+            const usageRes = await getStorageUsage(scope)
+            if (usageRes.success && usageRes.totalBytes !== undefined) {
+                setStorageUsedBytes(usageRes.totalBytes)
+            }
+        } catch (e) {
+            console.error("Failed to fetch storage usage", e)
         }
     }, [brandId, workspaceId, currentFolderId, viewMode])
 
@@ -341,8 +353,8 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
             if (currentFolderId) {
                 formData.append("folderId", currentFolderId)
             }
-            formData.append("metadata_size", formatSize(file.size));
-
+            formData.append('metadata_size', formatSize(file.size))
+            formData.append('metadata_bytes', file.size.toString())
             // Calculate Dimensions (if image)
             if (file.type.startsWith('image/')) {
                 const img = new Image();
@@ -615,6 +627,19 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
         // Optional: toast.success("Settings saved") - simpler to be silent
     }
 
+    const formatStorage = (bytes: number) => {
+        if (bytes === 0) return '0 B'
+        const k = 1024
+        const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
+        const i = Math.floor(Math.log(bytes) / Math.log(k))
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+    }
+
+    const storageLimitGB = 1 // Plano gratuito
+    const storageLimitBytes = storageLimitGB * 1024 * 1024 * 1024
+    const storagePercentage = Math.min(100, Math.max(0, (storageUsedBytes / storageLimitBytes) * 100))
+    const formattedStorageUsed = formatStorage(storageUsedBytes)
+
     return (
         <AnimatePresence>
             {isOpen && (
@@ -838,11 +863,14 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
                                 <div className="bg-[#111] border border-[#222] rounded-2xl p-4 flex items-center justify-between shadow-lg">
                                     <div className="flex flex-col">
                                         <div className="flex items-baseline gap-1">
-                                            <span className="text-[14px] font-bold text-white">8.25 MB</span>
-                                            <span className="text-[11px] text-[#555]">/ 5GB</span>
+                                            <span className="text-[14px] font-bold text-white">{formattedStorageUsed}</span>
+                                            <span className="text-[11px] text-[#555]">/ {storageLimitGB}GB</span>
                                         </div>
                                         <div className="w-full bg-[#222] h-1 rounded-full mt-2 overflow-hidden">
-                                            <div className="bg-[#ff0054] h-full w-[15%]" />
+                                            <div 
+                                                className={cn("h-full transition-all duration-1000", storagePercentage > 90 ? "bg-red-500" : "bg-[#ff0054]")} 
+                                                style={{ width: `${storagePercentage}%` }} 
+                                            />
                                         </div>
                                     </div>
                                     <button className="text-[11px] font-bold text-white hover:bg-[#ff0054] transition-all px-3 py-1.5 bg-[#222] rounded-xl ml-4">

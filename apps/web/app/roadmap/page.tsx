@@ -5,6 +5,7 @@ import { RoadmapClient } from "./RoadmapClient"
 import { getProjectRoadmap, RoadmapStage } from "@/app/actions/roadmap"
 import { getProjectPipeline_v2 } from "@/app/actions/projects"
 import { getProjectNotes } from "@/app/actions/notes"
+import { AuthLayoutInner } from "@/components/layout/AuthLayoutInner"
 
 interface ProjectBase {
     id: string
@@ -42,18 +43,26 @@ export default async function RoadmapPage({
         initialNotes = notesRes.notes || []
     }
 
+    const userData = {
+        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Creator',
+        email: user.email || '',
+        avatar: user.user_metadata?.avatar_url,
+    }
+
     return (
-        <div className="flex flex-col min-h-screen bg-bg-0">
-            <StandupHeader />
-            <div className="flex-1">
-                <RoadmapClient
-                    initialProjects={projects}
-                    initialRoadmap={roadmapData}
-                    selectedProjectId={selectedProjectId}
-                    selectedProject={selectedProject}
-                    initialNotes={initialNotes}
-                />
+        <AuthLayoutInner user={userData} showSidebar={false}>
+            <div className="flex flex-col min-h-screen bg-bg-0">
+                <StandupHeader />
+                <div className="flex-1">
+                    <RoadmapClient
+                        initialProjects={projects}
+                        initialRoadmap={roadmapData}
+                        selectedProjectId={selectedProjectId}
+                        selectedProject={selectedProject}
+                        initialNotes={initialNotes}
+                    />
+                </div>
             </div>
-        </div>
+        </AuthLayoutInner>
     )
 }

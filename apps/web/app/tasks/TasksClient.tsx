@@ -50,7 +50,36 @@ import { Maximize2, MoveUpRight } from "lucide-react"
 
 export default function TasksClientPage({ user, initialLists }: TasksClientPageProps) {
     const router = useRouter()
-    const lists = initialLists
+    const [lists, setLists] = useState<TaskListWithTasks[]>(initialLists || [])
+    const [currentUser, setCurrentUser] = useState(user)
+
+    useEffect(() => {
+        if (!user || !user.id) {
+            import("@/lib/supabase/client").then(({ createClient }) => {
+                const supabase = createClient()
+                supabase.auth.getUser().then(({ data: { user: sbUser } }) => {
+                    if (sbUser) {
+                        setCurrentUser({
+                            id: sbUser.id,
+                            name: sbUser.user_metadata?.full_name || sbUser.email?.split('@')[0] || 'Creator'
+                        })
+                    }
+                })
+            })
+        }
+    }, [user])
+
+    useEffect(() => {
+        if (currentUser?.id && (!initialLists || initialLists.length === 0)) {
+            import("@/app/actions/tasks").then(({ getTaskLists }) => {
+                getTaskLists(currentUser.id).then((data) => {
+                    setLists(data)
+                })
+            })
+        } else if (initialLists) {
+            setLists(initialLists)
+        }
+    }, [initialLists, currentUser])
 
     const [greeting, setGreeting] = useState("Good Morning")
     const [currentHour, setCurrentHour] = useState(12)
@@ -85,7 +114,7 @@ export default function TasksClientPage({ user, initialLists }: TasksClientPageP
 
                     <div>
                         <h1 className="text-xl font-semibold text-white">
-                            {greeting}, {user.name}
+                            {greeting}, {currentUser?.name || "Creator"}
                         </h1>
                         <p className="text-sm text-gray-500">
                             Nice! Brivio* it in your {currentHour < 12 ? "morning" : currentHour < 18 ? "afternoon" : "evening"}
@@ -205,7 +234,7 @@ export default function TasksClientPage({ user, initialLists }: TasksClientPageP
                         })}
 
                         {/* Create List Card */}
-                        <CreateListModal userId={user.id} onListCreated={handleListCreated}>
+                        <CreateListModal userId={currentUser?.id || user.id} onListCreated={handleListCreated}>
                             <div className="w-full h-[333px] rounded-xl border-2 border-dashed border-[#2a2a2e] bg-transparent hover:border-[#3a3a3e] transition-colors flex flex-col items-center justify-center cursor-pointer group">
                                 <Plus className="w-8 h-8 text-gray-600 group-hover:text-gray-400 mb-3" />
                                 <span className="text-sm text-gray-600 group-hover:text-gray-400 font-medium tracking-wide">CREATE LIST</span>

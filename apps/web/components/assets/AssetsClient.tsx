@@ -161,6 +161,17 @@ export function AssetsClient() {
             formData.append('file', file)
             formData.append('workspaceId', workspaceId)
             if (currentFolderId) formData.append('folderId', currentFolderId)
+            
+            const formatSize = (bytes: number) => {
+                if (bytes === 0) return '0 Bytes'
+                const k = 1024
+                const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+                const i = Math.floor(Math.log(bytes) / Math.log(k))
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+            }
+
+            formData.append('metadata_size', formatSize(file.size))
+            formData.append('metadata_bytes', file.size.toString())
 
             // Optional: Get dimensions for images if possible (skipping for simplicity now)
 

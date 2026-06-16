@@ -301,7 +301,7 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
                 `}} />
                 {/* Header: bg color #ff0054, altura de 60px, roundness superior esquerda e direita de 8px */}
                 <div className="h-[60px] bg-[#ff0054] px-8 flex items-center justify-between shrink-0">
-                    <h2 className="text-[20px] font-bold text-white">Add project</h2>
+                    <h2 className="text-[20px] font-bold text-white">Criar projeto</h2>
                     {/* Círculo de 22x22px na cor #15161B com a função de fechar o modal */}
                     <button
                         onClick={handleClose}

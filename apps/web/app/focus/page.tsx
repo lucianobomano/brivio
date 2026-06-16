@@ -4,7 +4,7 @@ import { redirect } from "next/navigation"
 import { FocusClient } from "./FocusClient"
 import { getProjectRoadmap } from "@/app/actions/roadmap"
 import { getProjectPipeline_v2 } from "@/app/actions/projects"
-import { WorkspaceProvider } from "@/components/providers/WorkspaceProvider"
+import { AuthLayoutInner } from "@/components/layout/AuthLayoutInner"
 
 interface PageProps {
     searchParams: { projectId?: string }
@@ -61,8 +61,14 @@ export default async function FocusPage({ searchParams: searchParamsPromise }: P
 
     const targetWorkspaceId = members?.[0]?.workspace_id
 
+    const userData = {
+        name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Creator',
+        email: user.email || '',
+        avatar: user.user_metadata?.avatar_url,
+    }
+
     return (
-        <WorkspaceProvider initialWorkspaceId={targetWorkspaceId}>
+        <AuthLayoutInner user={userData} showSidebar={false} workspaceId={targetWorkspaceId}>
             <div className="flex flex-col min-h-screen bg-bg-0">
                 {!selectedProjectId && <StandupHeader />}
                 <div className="flex-1">
@@ -73,6 +79,6 @@ export default async function FocusPage({ searchParams: searchParamsPromise }: P
                     />
                 </div>
             </div>
-        </WorkspaceProvider>
+        </AuthLayoutInner>
     )
 }

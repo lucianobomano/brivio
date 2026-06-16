@@ -3,7 +3,6 @@
 import * as React from "react"
 import {
     Home as HomeIcon,
-    LayoutDashboard,
     FolderKanban,
     CheckSquare,
     MapPin,
@@ -19,9 +18,10 @@ import Link from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
+import { useSpaNavigation } from "@/components/providers/SpaNavigationProvider"
 
 const MENU_ITEMS = [
-    { label: "Home", icon: HomeIcon, href: "/dashboard" },
+    { label: "Grupo", icon: HomeIcon, href: "/dashboard" },
     { label: "Projectos", icon: FolderKanban, href: "/projects?view=padrao" },
     { label: "Tarefas", icon: CheckSquare, href: "/tasks" },
     { label: "Roadmap", icon: MapPin, href: "/roadmap" },
@@ -38,6 +38,7 @@ export function BottomNavigation() {
     const pathname = usePathname()
     const searchParams = useSearchParams()
     const [hoveredLabel, setHoveredLabel] = React.useState<string | null>(null)
+    const { activeView, navigateTo } = useSpaNavigation()
 
     return (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-40 transition-all duration-500">
@@ -63,14 +64,24 @@ export function BottomNavigation() {
                 </div>
 
                 {MENU_ITEMS.map((item) => {
-                    const viewParam = searchParams.get("view")
-                    const isProjectsPath = pathname === "/projects"
-
+                    const itemPath = item.href.split("?")[0]
                     let isActive = false
                     if (item.label === "Projectos") {
-                        isActive = isProjectsPath
+                        isActive = activeView === "projects"
+                    } else if (item.label === "Grupo") {
+                        isActive = activeView === "dashboard"
+                    } else if (item.label === "Tarefas") {
+                        isActive = activeView === "tasks"
+                    } else if (item.label === "Roadmap") {
+                        isActive = activeView === "roadmap"
+                    } else if (item.label === "Foco") {
+                        isActive = activeView === "focus"
+                    } else if (item.label === "Sprints") {
+                        isActive = activeView === "sprints"
+                    } else if (item.label === "Stand-ups") {
+                        isActive = activeView === "standups"
                     } else {
-                        isActive = pathname === item.href
+                        isActive = activeView === itemPath.replace("/", "") as any
                     }
 
                     const Icon = item.icon
@@ -81,46 +92,45 @@ export function BottomNavigation() {
                         <Link
                             key={item.label}
                             href={item.href}
+                            onClick={(e) => {
+                                e.preventDefault()
+                                navigateTo(item.href)
+                            }}
                             onMouseEnter={() => setHoveredLabel(item.label)}
                             onMouseLeave={() => setHoveredLabel(null)}
-                            className="relative flex items-center z-10"
+                            className="relative flex items-center justify-center z-10 w-[60px] h-[60px]"
                         >
+                            {/* Tooltip Balloon */}
+                            <AnimatePresence>
+                                {isHovered && (
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 8, x: "-50%", scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
+                                        exit={{ opacity: 0, y: 8, x: "-50%", scale: 0.95 }}
+                                        transition={{ duration: 0.15, ease: "easeOut" }}
+                                        className="absolute bottom-[76px] left-1/2 z-50 pointer-events-none"
+                                    >
+                                        <div className="relative bg-[#16171C] text-white text-[13px] font-medium py-1.5 px-3.5 rounded-xl border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.5)] whitespace-nowrap">
+                                            {item.label}
+                                            {/* Pin pointing down */}
+                                            <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#16171C] border-r border-b border-white/10" />
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+
                             <motion.div
-                                layout
                                 className={cn(
-                                    "flex items-center gap-3 h-[60px] rounded-full transition-all duration-300 overflow-hidden group",
+                                    "flex items-center justify-center w-[60px] h-[60px] rounded-full transition-all duration-300 group",
                                     showBg
                                         ? "bg-[#ff0054] text-white shadow-[0_8px_20px_rgba(255,0,84,0.3)]"
-                                        : "bg-[#EFF0F2] dark:bg-[#3E3E3E] text-[#515151]/60 dark:text-[#97A1B3]/60 hover:text-text-primary",
-                                    (!isHovered) ? "w-[60px] justify-center px-0" : "px-5"
+                                        : "bg-[#EFF0F2] dark:bg-[#3E3E3E] text-[#515151]/60 dark:text-[#97A1B3]/60 hover:text-text-primary"
                                 )}
-                                transition={{
-                                    type: "spring",
-                                    stiffness: 400,
-                                    damping: 35
-                                }}
                             >
                                 <Icon
                                     strokeWidth={2.5}
-                                    className={cn(
-                                        "w-[26px] h-[26px] shrink-0 transition-all duration-300",
-                                        showBg ? "opacity-100" : "opacity-100" // Opacity is handled by the text color class above
-                                    )}
+                                    className="w-[26px] h-[26px] shrink-0"
                                 />
-
-                                <AnimatePresence mode="popLayout" initial={false}>
-                                    {isHovered && (
-                                        <motion.span
-                                            initial={{ opacity: 0, x: -10, width: 0 }}
-                                            animate={{ opacity: 1, x: 0, width: "auto" }}
-                                            exit={{ opacity: 0, x: -10, width: 0 }}
-                                            transition={{ duration: 0.2, ease: "easeOut" }}
-                                            className="text-[26px] font-normal leading-none whitespace-nowrap"
-                                        >
-                                            {item.label}
-                                        </motion.span>
-                                    )}
-                                </AnimatePresence>
                             </motion.div>
                         </Link>
                     )

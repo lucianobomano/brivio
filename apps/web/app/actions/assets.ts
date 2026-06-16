@@ -238,6 +238,7 @@ export async function uploadAsset(formData: FormData) {
 
     const metadataSize = formData.get("metadata_size") as string
     const metadataDimensions = formData.get("metadata_dimensions") as string
+    const metadataBytes = formData.get("metadata_bytes") as string
 
     if (!file || (!brandId && !workspaceId)) {
         return { success: false, error: "Missing file or scope (brandId/workspaceId)" }
@@ -276,6 +277,7 @@ export async function uploadAsset(formData: FormData) {
                 is_downloadable: true,
                 metadata: {
                     size: metadataSize,
+                    bytes: metadataBytes ? parseInt(metadataBytes, 10) : undefined,
                     dimensions: metadataDimensions
                 }
             })
@@ -965,4 +967,53 @@ export async function getAllFolderContentsRecursive(folderId: string, brandId?: 
     }
 
     return { success: true, files: allFiles, folders: allFolders, rootName }
+}
+
+export async function getStorageUsage(scope: { brandId?: string, workspaceId?: string }) {
+    const supabase = await createClient()
+    const { brandId, workspaceId } = scope
+
+    if (!brandId && !workspaceId) {
+        return { success: false, error: "No scope provided" }
+    }
+
+    let query = supabase
+        .from('assets')
+        .select('metadata')
+        .is('deleted_at', null)
+
+    if (brandId) query = query.eq('brand_id', brandId)
+    if (workspaceId) query = query.eq('workspace_id', workspaceId)
+
+    const { data: assets, error } = await query
+
+    if (error) {
+        console.error("Error fetching assets for storage:", error)
+        return { success: false, error: error.message }
+    }
+
+    let totalBytes = 0
+
+    assets?.forEach(asset => {
+        const metadata = asset.metadata as Record<string, any>
+        if (!metadata) return
+        
+        if (metadata.bytes) {
+            totalBytes += Number(metadata.bytes)
+        } else if (metadata.size) {
+            // Fallback: parse string like "101.62 KB"
+            const sizeStr = metadata.size as string
+            const match = sizeStr.match(/([\d.]+)\s*(KB|MB|GB|B)/i)
+            if (match) {
+                const val = parseFloat(match[1])
+                const unit = match[2].toUpperCase()
+                if (unit === 'KB') totalBytes += val * 1024
+                else if (unit === 'MB') totalBytes += val * 1024 * 1024
+                else if (unit === 'GB') totalBytes += val * 1024 * 1024 * 1024
+                else if (unit === 'B') totalBytes += val
+            }
+        }
+    })
+
+    return { success: true, totalBytes }
 }

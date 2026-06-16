@@ -8,10 +8,12 @@ import {
     Pencil,
     Trash2,
     User,
-    FileCheck
+    FileCheck,
+    Archive,
+    Copy
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { updateProjectStatusLabel } from "@/app/actions/projects"
+import { updateProjectStatusLabel, archiveProject, deleteProject, duplicateProject } from "@/app/actions/projects"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -29,8 +31,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import { cn } from "@/lib/utils"
 import { format, parseISO, differenceInDays } from "date-fns"
 import { pt } from "date-fns/locale"
+import { toast } from "sonner"
 
-import { RoadmapStage } from "@/app/actions/roadmap"
+import { RoadmapStage, archiveRoadmapTask, duplicateRoadmapTask, deleteRoadmapTask } from "@/app/actions/roadmap"
 import { useCurrency } from "@/components/CurrencyUtils"
 
 interface Task {
@@ -56,6 +59,179 @@ interface ProjectStandardViewProps {
     onAddTask?: (stageId: string) => void
     isTaskMode?: boolean
     groupingField?: 'stage_id' | 'category'
+    onViewTask?: (task: any) => void
+    onEdit?: (project: Project) => void
+    projectId?: string
+}
+
+function RowActionsPopover({
+    item,
+    isTaskMode,
+    projectId,
+    onEdit,
+    onRefresh
+}: {
+    item: any
+    isTaskMode: boolean
+    projectId?: string
+    onEdit: () => void
+    onRefresh: () => void
+}) {
+    const [isOpen, setIsOpen] = React.useState(false)
+    const [isLoading, setIsLoading] = React.useState(false)
+
+    const handleArchive = async () => {
+        setIsLoading(true)
+        try {
+            if (isTaskMode) {
+                if (!projectId) {
+                    toast.error("Erro: Projeto não encontrado")
+                    return
+                }
+                const res = await archiveRoadmapTask(item.id, projectId)
+                if (res.success) {
+                    toast.success("Tarefa arquivada com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao arquivar tarefa")
+                }
+            } else {
+                const res = await archiveProject(item.id)
+                if (res.success) {
+                    toast.success("Projeto arquivado com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao arquivar projeto")
+                }
+            }
+        } catch (err) {
+            toast.error("Ocorreu um erro")
+        } finally {
+            setIsLoading(false)
+            setIsOpen(false)
+        }
+    }
+
+    const handleDuplicate = async () => {
+        setIsLoading(true)
+        try {
+            if (isTaskMode) {
+                if (!projectId) {
+                    toast.error("Erro: Projeto não encontrado")
+                    return
+                }
+                const res = await duplicateRoadmapTask(item.id, projectId)
+                if (res.success) {
+                    toast.success("Tarefa duplicada com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao duplicar tarefa")
+                }
+            } else {
+                const res = await duplicateProject(item.id)
+                if (res.success) {
+                    toast.success("Projeto duplicado com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao duplicar projeto")
+                }
+            }
+        } catch (err) {
+            toast.error("Ocorreu um erro")
+        } finally {
+            setIsLoading(false)
+            setIsOpen(false)
+        }
+    }
+
+    const handleDelete = async () => {
+        setIsLoading(true)
+        try {
+            if (isTaskMode) {
+                if (!projectId) {
+                    toast.error("Erro: Projeto não encontrado")
+                    return
+                }
+                const res = await deleteRoadmapTask(item.id, projectId)
+                if (res.success) {
+                    toast.success("Tarefa eliminada com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error("Erro ao eliminar tarefa")
+                }
+            } else {
+                const res = await deleteProject(item.id)
+                if (res.success) {
+                    toast.success("Projeto eliminado com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao eliminar projeto")
+                }
+            }
+        } catch (err) {
+            toast.error("Ocorreu um erro")
+        } finally {
+            setIsLoading(false)
+            setIsOpen(false)
+        }
+    }
+
+    return (
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:bg-bg-2 rounded-lg text-text-tertiary hover:text-text-primary transition-all"
+                >
+                    <Pencil className="w-4 h-4" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                side="bottom"
+                align="end"
+                className="w-48 bg-bg-1 border border-bg-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-1.5 rounded-xl z-[100]"
+            >
+                <div className="flex flex-col gap-1 w-full">
+                    <button
+                        onClick={() => {
+                            onEdit()
+                            setIsOpen(false)
+                        }}
+                        disabled={isLoading}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-bg-2 text-text-primary transition-all"
+                    >
+                        <Pencil className="w-4 h-4 text-accent-indigo" />
+                        Editar
+                    </button>
+                    <button
+                        onClick={handleArchive}
+                        disabled={isLoading}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-bg-2 text-text-primary transition-all"
+                    >
+                        <Archive className="w-4 h-4 text-amber-500" />
+                        Arquivar
+                    </button>
+                    <button
+                        onClick={handleDuplicate}
+                        disabled={isLoading}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-bg-2 text-text-primary transition-all"
+                    >
+                        <Copy className="w-4 h-4 text-blue-500" />
+                        Duplicar
+                    </button>
+                    <button
+                        onClick={handleDelete}
+                        disabled={isLoading}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-red-500/10 text-red-500 transition-all"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        Eliminar
+                    </button>
+                </div>
+            </PopoverContent>
+        </Popover>
+    )
 }
 
 const PROJECT_STATUSES = [
@@ -79,7 +255,10 @@ export function ProjectStandardView({
     onViewProject,
     onAddTask,
     isTaskMode = false,
-    groupingField = 'stage_id'
+    groupingField = 'stage_id',
+    onViewTask,
+    onEdit,
+    projectId
 }: ProjectStandardViewProps) {
     const { formatPrice } = useCurrency()
     const [collapsedStages, setCollapsedStages] = React.useState<Record<string, boolean>>({})
@@ -180,6 +359,7 @@ export function ProjectStandardView({
                                                     <th className="border border-bg-3 text-center text-[11px] font-bold uppercase tracking-widest text-text-tertiary bg-bg-1">{isTaskMode ? "Subtarefas" : "Tarefas"}</th>
                                                     <th className="border border-bg-3 text-center text-[11px] font-bold uppercase tracking-widest text-text-tertiary bg-bg-1">{isTaskMode ? "Preço" : "Orçamento"}</th>
                                                     <th className="border border-bg-3 text-center text-[11px] font-bold uppercase tracking-widest text-text-tertiary bg-bg-1">{isTaskMode ? "Categoria" : "Cliente"}</th>
+                                                    <th className="border border-bg-3 text-center text-[11px] font-bold uppercase tracking-widest text-text-tertiary bg-bg-1" style={{ width: "60px", minWidth: "60px" }}>Ações</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -281,6 +461,23 @@ export function ProjectStandardView({
                                                         <td className="border border-bg-3 bg-bg-0 px-4 text-center">
                                                             <span className="text-[16px] font-normal text-text-secondary">{isTaskMode ? ((item as Task).type || "Geral") : ((item as Project).brand?.name || "N/A")}</span>
                                                         </td>
+
+                                                        {/* Actions */}
+                                                        <td className="border border-bg-3 bg-bg-0 px-2 text-center">
+                                                            <RowActionsPopover
+                                                                item={item}
+                                                                isTaskMode={isTaskMode}
+                                                                projectId={projectId}
+                                                                onEdit={() => {
+                                                                    if (isTaskMode) {
+                                                                        onViewTask?.(item)
+                                                                    } else {
+                                                                        onEdit?.(item as Project)
+                                                                    }
+                                                                }}
+                                                                onRefresh={onRefresh}
+                                                            />
+                                                        </td>
                                                     </tr>
                                                 ))}
 
@@ -308,6 +505,7 @@ export function ProjectStandardView({
                                                         <td className="bg-bg-0"></td>
                                                         <td className="bg-bg-0"></td>
                                                         <td className="bg-bg-0"></td>
+                                                        <td className="bg-bg-0"></td>
                                                     </tr>
                                                 ) : (
                                                     <tr className="h-[60px]">
@@ -327,6 +525,7 @@ export function ProjectStandardView({
                                                                 Add projecto
                                                             </button>
                                                         </td>
+                                                        <td className="bg-bg-0"></td>
                                                         <td className="bg-bg-0"></td>
                                                         <td className="bg-bg-0"></td>
                                                         <td className="bg-bg-0"></td>

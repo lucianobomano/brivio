@@ -616,3 +616,102 @@ export async function updateProject(id: string, data: {
     revalidatePath('/projects')
     return { success: true }
 }
+
+export async function archiveProject(id: string) {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('projects')
+        .update({
+            status: 'archived',
+            status_label: 'Arquivado',
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', id)
+
+    if (error) {
+        console.error("Error archiving project:", error)
+        return { success: false, error: error.message }
+    }
+
+    revalidatePath('/projects')
+    return { success: true }
+}
+
+export async function deleteProject(id: string) {
+    const supabase = await createClient()
+    const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', id)
+
+    if (error) {
+        console.error("Error deleting project:", error)
+        return { success: false, error: error.message }
+    }
+
+    revalidatePath('/projects')
+    return { success: true }
+}
+
+export async function duplicateProject(id: string) {
+    const supabase = await createClient()
+    const { data: original, error: fetchError } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+    if (fetchError || !original) {
+        console.error("Error fetching project to duplicate:", fetchError)
+        return { success: false, error: fetchError?.message || "Project not found" }
+    }
+
+    // Clone project
+    const { id: _, created_at: _c, updated_at: _u, views: _v, ...rest } = original
+    const duplicateData = {
+        ...rest,
+        name: `${original.name} (cópia)`,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+    }
+
+    const { data: newProject, error: insertError } = await supabase
+        .from('projects')
+        .insert(duplicateData)
+        .select()
+        .single()
+
+    if (insertError || !newProject) {
+        console.error("Error inserting duplicated project:", insertError)
+        return { success: false, error: insertError?.message || "Failed to create duplicate project" }
+    }
+
+    // Fetch original project tasks
+    const { data: originalTasks } = await supabase
+        .from('tasks')
+        .select('*')
+        .eq('project_id', id)
+
+    if (originalTasks && originalTasks.length > 0) {
+        const tasksToInsert = originalTasks.map((t: any) => {
+            const { id: _, created_at: _tc, updated_at: _tu, ...taskRest } = t
+            return {
+                ...taskRest,
+                project_id: newProject.id,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }
+        })
+
+        const { error: tasksInsertError } = await supabase
+            .from('tasks')
+            .insert(tasksToInsert)
+
+        if (tasksInsertError) {
+            console.error("Error duplicating project tasks:", tasksInsertError)
+        }
+    }
+
+    revalidatePath('/projects')
+    return { success: true, data: newProject }
+}

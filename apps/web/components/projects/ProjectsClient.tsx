@@ -160,12 +160,62 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
         }
     }, [searchParams, view])
 
-    const [projects, setProjects] = React.useState(initialProjects)
+    // Listen to browser back/forward navigation for instant view changes
+    React.useEffect(() => {
+        const handlePopState = () => {
+            const params = new URLSearchParams(window.location.search)
+            const urlView = params.get("view") as typeof view | null
+            if (urlView) {
+                setView(urlView)
+            } else {
+                setView("dashboard")
+            }
+        }
+        window.addEventListener("popstate", handlePopState)
+        return () => window.removeEventListener("popstate", handlePopState)
+    }, [])
+
+    const [projects, setProjects] = React.useState<Project[]>(initialProjects || [])
+    const [stages, setStages] = React.useState<Stage[]>(initialStages || [])
+
+    React.useEffect(() => {
+        if (!initialProjects || initialProjects.length === 0) {
+            import("@/app/actions/projects").then(({ getProjectPipeline_v2 }) => {
+                getProjectPipeline_v2().then((data) => {
+                    setProjects(data as Project[])
+                })
+            })
+        } else {
+            setProjects(initialProjects)
+        }
+    }, [initialProjects])
+
+    React.useEffect(() => {
+        if (!initialStages || initialStages.length === 0) {
+            import("@/lib/supabase/client").then(({ createClient }) => {
+                const supabase = createClient()
+                supabase.from('workspace_members')
+                    .select('workspace_id')
+                    .limit(1)
+                    .then(({ data }) => {
+                        const wId = data?.[0]?.workspace_id
+                        if (wId) {
+                            supabase.from('project_stages')
+                                .select('*')
+                                .eq('workspace_id', wId)
+                                .order('position', { ascending: true })
+                                .then(({ data: stg }) => {
+                                    if (stg) setStages(stg as Stage[])
+                                })
+                        }
+                    })
+            })
+        }
+    }, [initialStages])
     const [searchQuery, setSearchQuery] = React.useState("")
     const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false)
     const [isStageModalOpen, setIsStageModalOpen] = React.useState(false)
     const [editingStage, setEditingStage] = React.useState<Stage | null>(null)
-    const [stages, setStages] = React.useState<Stage[]>(initialStages)
     const [activeProject, setActiveProject] = React.useState<Project | null>(null)
     const [activeProjectTab, setActiveProjectTab] = React.useState<string>("overview")
     const [roadmap, setRoadmap] = React.useState<RoadmapStage[]>([])
@@ -361,7 +411,7 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
             <UnifiedHeader
                 user={user}
                 onAddClick={() => setIsCreateModalOpen(true)}
-                addLabel="Add project"
+                addLabel="Novo Projeto"
                 onSecondaryAddClick={() => setIsStageModalOpen(true)}
                 secondaryAddLabel="Criar Etapa"
                 onSettingsClick={() => setIsSettingsOpen(true)}
@@ -425,12 +475,16 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                     <Tabs
                                         value={view}
                                         onValueChange={(v) => {
-                                            if (v === 'dashboard') {
-                                                router.push('/projects')
-                                            } else {
-                                                router.push(`/projects?view=${v}`)
-                                            }
                                             setView(v as typeof view)
+                                            const params = new URLSearchParams(window.location.search)
+                                            if (v === "dashboard") {
+                                                params.delete("view")
+                                            } else {
+                                                params.set("view", v)
+                                            }
+                                            const newSearch = params.toString()
+                                            const newUrl = `${window.location.pathname}${newSearch ? "?" + newSearch : ""}`
+                                            window.history.pushState(null, "", newUrl)
                                         }}
                                         className="bg-transparent border-none w-full min-w-0"
                                     >
@@ -441,7 +495,7 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                             </TabsTrigger>
                                             <TabsTrigger value="padrao" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
                                                 <LayoutGrid className="w-3.5 h-3.5" />
-                                                Home
+                                                Grupo
                                             </TabsTrigger>
                                             <TabsTrigger value="list" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
                                                 <Table className="w-3.5 h-3.5" />
@@ -487,10 +541,15 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                         className="w-full bg-bg-1 border border-bg-3 rounded-[8px] pl-12 pr-6 h-12 text-[11px] font-bold text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent-indigo/50 transition-all shadow-sm"
                                     />
                                 </div>
-                                <Button variant="outline" className="h-12 px-6 border-bg-3 hover:bg-bg-2 rounded-[8px] text-[11px] font-black uppercase tracking-widest text-text-secondary flex items-center gap-2 bg-bg-1 shadow-sm group">
-                                    <Filter className="w-4 h-4 group-hover:rotate-12 transition-transform" />
-                                    Filters
-                                </Button>
+                                {!activeProject && (
+                                    <Button
+                                        onClick={() => setIsCreateModalOpen(true)}
+                                        className="h-12 px-6 bg-accent-indigo hover:bg-accent-indigo/90 text-white rounded-[8px] text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm shrink-0"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                        Novo Projeto
+                                    </Button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -705,6 +764,7 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                                             projects={[]}
                                                             stages={roadmap}
                                                             onViewProject={() => { }}
+                                                            onViewTask={(task) => setTaskForDetails(task)}
                                                         />
                                                     )
                                                 case "padrao":
@@ -714,6 +774,7 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                                             projects={[]}
                                                             stages={roadmap}
                                                             onViewProject={() => { }}
+                                                            onViewTask={(task) => setTaskForDetails(task)}
                                                             onAddTask={(stageId) => {
                                                                 setSelectedStageIdForTask(stageId)
                                                                 setIsTaskCreateModalOpen(true)

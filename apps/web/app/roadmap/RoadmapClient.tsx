@@ -133,16 +133,49 @@ export function RoadmapClient({
     selectedProject,
     initialNotes = []
 }: RoadmapClientProps) {
-    const [roadmap, setRoadmap] = React.useState<RoadmapStage[]>(initialRoadmap)
+    const [roadmap, setRoadmap] = React.useState<RoadmapStage[]>(initialRoadmap || [])
     const [isLoading, setIsLoading] = React.useState(false)
     const [currentSelectedProject, setCurrentSelectedProject] = React.useState(selectedProject)
     const [isNotesOpen, setIsNotesOpen] = React.useState(false)
+    const [localProjects, setLocalProjects] = React.useState<ProjectBase[]>(initialProjects || [])
+    const [localSelectedProjectId, setLocalSelectedProjectId] = React.useState<string | null>(selectedProjectId)
 
-    // Sync state with props when project changes
     React.useEffect(() => {
-        setRoadmap(initialRoadmap)
+        if (!initialProjects || initialProjects.length === 0) {
+            import("@/app/actions/projects").then(({ getProjectPipeline_v2 }) => {
+                getProjectPipeline_v2().then((data) => {
+                    const mapped = data as ProjectBase[]
+                    setLocalProjects(mapped)
+                    if (mapped.length > 0 && !localSelectedProjectId) {
+                        setLocalSelectedProjectId(mapped[0].id)
+                        setCurrentSelectedProject(mapped[0])
+                    }
+                })
+            })
+        } else {
+            setLocalProjects(initialProjects)
+        }
+    }, [initialProjects])
+
+    React.useEffect(() => {
+        if (localSelectedProjectId && (!initialRoadmap || initialRoadmap.length === 0)) {
+            setIsLoading(true)
+            import("@/app/actions/roadmap").then(({ getProjectRoadmap }) => {
+                getProjectRoadmap(localSelectedProjectId).then((data) => {
+                    setRoadmap(data)
+                    setIsLoading(false)
+                })
+            })
+        }
+    }, [localSelectedProjectId, initialRoadmap])
+
+    React.useEffect(() => {
+        setLocalSelectedProjectId(selectedProjectId)
         setCurrentSelectedProject(selectedProject)
-    }, [initialRoadmap, selectedProject, selectedProjectId])
+        if (initialRoadmap) {
+            setRoadmap(initialRoadmap)
+        }
+    }, [selectedProjectId, selectedProject, initialRoadmap])
 
     const [isStageModalOpen, setIsStageModalOpen] = React.useState(false)
     const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState(false)
@@ -542,26 +575,29 @@ export function RoadmapClient({
                                     <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">Meus Projectos</span>
                                 </div>
                                 <div className="max-h-[300px] overflow-y-auto custom-scrollbar pt-1">
-                                    {initialProjects.map(p => (
+                                    {localProjects.map(p => (
                                         <DropdownMenuItem
                                             key={p.id}
                                             asChild
                                             className={cn(
                                                 "rounded-lg px-3 py-2.5 cursor-pointer transition-all mb-1 outline-none",
-                                                selectedProjectId === p.id
+                                                localSelectedProjectId === p.id
                                                     ? "bg-[#FF0055] text-white font-black shadow-lg shadow-[#FF0055]/20"
                                                     : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300"
                                             )}
                                         >
                                             <Link
                                                 href={`/roadmap?projectId=${p.id}`}
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                    e.preventDefault()
+                                                    setLocalSelectedProjectId(p.id)
                                                     setCurrentSelectedProject(p as ProjectBase)
+                                                    window.history.pushState(null, "", `/roadmap?projectId=${p.id}`)
                                                 }}
                                             >
                                                 <div className="flex items-center justify-between w-full">
                                                     <span className="truncate text-xs font-bold uppercase tracking-tight">{p.name}</span>
-                                                    {selectedProjectId === p.id && <Check className="w-4 h-4 ml-2" />}
+                                                    {localSelectedProjectId === p.id && <Check className="w-4 h-4 ml-2" />}
                                                 </div>
                                             </Link>
                                         </DropdownMenuItem>

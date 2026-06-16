@@ -13,6 +13,7 @@ import { FocusBoardView } from "./FocusBoardView"
 import { RoadmapStage } from "@/app/actions/roadmap"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useSpaNavigation } from "@/components/providers/SpaNavigationProvider"
 
 interface ProjectBase {
     id: string
@@ -46,16 +47,58 @@ export function FocusClient({
     initialRoadmap,
     selectedProject
 }: FocusClientProps) {
-    const roadmap = React.useMemo(() => initialRoadmap, [initialRoadmap])
-    const router = useRouter()
+    const { navigateTo } = useSpaNavigation()
+    const [localProjects, setLocalProjects] = React.useState<ProjectBase[]>(projects || [])
+    const [localRoadmap, setLocalRoadmap] = React.useState<RoadmapStage[]>(initialRoadmap || [])
+    const [localSelectedProject, setLocalSelectedProject] = React.useState<ProjectBase | null>(selectedProject)
+
+    React.useEffect(() => {
+        if (!projects || projects.length === 0) {
+            import("@/app/actions/projects").then(({ getProjectPipeline_v2 }) => {
+                getProjectPipeline_v2().then((data) => {
+                    setLocalProjects(data as ProjectBase[])
+                })
+            })
+        } else {
+            setLocalProjects(projects)
+        }
+    }, [projects])
+
+    // Sync selectedProject from URL parameter on popstate / url changes
+    React.useEffect(() => {
+        const checkUrl = () => {
+            const params = new URLSearchParams(window.location.search)
+            const projectId = params.get("projectId")
+            if (projectId) {
+                const found = localProjects.find(p => p.id === projectId)
+                if (found) {
+                    setLocalSelectedProject(found)
+                    // fetch roadmap
+                    import("@/app/actions/roadmap").then(({ getProjectRoadmap }) => {
+                        getProjectRoadmap(projectId).then((data) => {
+                            setLocalRoadmap(data)
+                        })
+                    })
+                }
+            } else {
+                setLocalSelectedProject(null)
+            }
+        }
+        checkUrl()
+        window.addEventListener("popstate", checkUrl)
+        return () => window.removeEventListener("popstate", checkUrl)
+    }, [localProjects, selectedProject])
 
     // IF PROJECT IS SELECTED, SHOW FOCUS MODE (BOARD VIEW)
-    if (selectedProject) {
+    if (localSelectedProject) {
         return (
             <FocusBoardView
-                project={selectedProject}
-                stages={roadmap}
-                onBack={() => router.push('/focus')}
+                project={localSelectedProject}
+                stages={localRoadmap}
+                onBack={() => {
+                    setLocalSelectedProject(null)
+                    window.history.pushState(null, "", "/focus")
+                }}
             />
         )
     }
@@ -75,13 +118,27 @@ export function FocusClient({
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                    {projects.map((project) => {
+                    {localProjects.map((project) => {
                         const pendingTasks = project.tasks?.filter(t => !t.completed) || []
                         const totalTime = pendingTasks.reduce((acc, t) => acc + (t.estimated_time || 0), 0)
                         const displayTasks = pendingTasks.slice(0, 4)
 
                         return (
-                            <Link key={project.id} href={`/focus?projectId=${project.id}`}>
+                            <Link 
+                                key={project.id} 
+                                href={`/focus?projectId=${project.id}`}
+                                onClick={(e) => {
+                                    e.preventDefault()
+                                    setLocalSelectedProject(project)
+                                    window.history.pushState(null, "", `/focus?projectId=${project.id}`)
+                                    // Fetch roadmap stage for target project
+                                    import("@/app/actions/roadmap").then(({ getProjectRoadmap }) => {
+                                        getProjectRoadmap(project.id).then((data) => {
+                                            setLocalRoadmap(data)
+                                        })
+                                    })
+                                }}
+                            >
                                 <div className="w-full h-[333px] rounded-xl border border-bg-3 bg-bg-1 hover:border-accent-indigo/30 transition-all relative group cursor-pointer flex flex-col shadow-sm">
                                     {/* Header */}
                                     <div className="flex items-center justify-between p-4 pb-2">
@@ -157,7 +214,13 @@ export function FocusClient({
                         )
                     })}
 
-                    <Link href="/projects">
+                    <Link 
+                        href="/projects"
+                        onClick={(e) => {
+                            e.preventDefault()
+                            navigateTo("/projects")
+                        }}
+                    >
                         <div className="w-full h-[333px] rounded-xl border-2 border-dashed border-bg-3 bg-transparent hover:border-accent-indigo/30 transition-all flex flex-col items-center justify-center cursor-pointer group">
                             <LayoutGrid className="w-8 h-8 text-text-tertiary group-hover:text-accent-indigo mb-3 opacity-30 group-hover:opacity-100 transition-all" />
                             <span className="text-[10px] text-text-tertiary group-hover:text-accent-indigo font-bold tracking-widest uppercase">Gerir Projectos</span>

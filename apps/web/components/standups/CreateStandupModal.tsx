@@ -107,8 +107,8 @@ export function CreateStandupModal({ open, onOpenChange, workspaceId, editingSta
                 if (standup) {
                     setStandupName(standup.name);
                     setSelectedTeamId(standup.team_id);
-                    setFrequency(standup.frequency);
-                    setReminderTime(standup.reminder_time);
+                    setFrequency(standup.frequency || "Diariamente");
+                    setReminderTime(standup.reminder_time || "09:00");
                     setSelectedDays(standup.schedule_days);
                     setQuestions((standup.questions as any) || []);
                     setUpdateTarget(standup.target_audience as any);

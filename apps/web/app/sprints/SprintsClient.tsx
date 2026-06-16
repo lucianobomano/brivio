@@ -40,7 +40,32 @@ interface SprintsClientProps {
 }
 
 export function SprintsClient({ initialSprints, projects }: SprintsClientProps) {
-    const [sprints, setSprints] = React.useState(initialSprints)
+    const [sprints, setSprints] = React.useState<Sprint[]>(initialSprints || [])
+    const [localProjects, setLocalProjects] = React.useState(projects || [])
+
+    React.useEffect(() => {
+        if (!initialSprints || initialSprints.length === 0) {
+            import("@/app/actions/sprints").then(({ getSprints }) => {
+                getSprints({}).then((data) => {
+                    setSprints(data as Sprint[])
+                })
+            })
+        } else {
+            setSprints(initialSprints)
+        }
+    }, [initialSprints])
+
+    React.useEffect(() => {
+        if (!projects || projects.length === 0) {
+            import("@/app/actions/projects").then(({ getProjectPipeline_v2 }) => {
+                getProjectPipeline_v2().then((data) => {
+                    setLocalProjects(data as any[])
+                })
+            })
+        } else {
+            setLocalProjects(projects)
+        }
+    }, [projects])
     const [isModalOpen, setIsModalOpen] = React.useState(false)
     const [selectedSprint, setSelectedSprint] = React.useState<Sprint | null>(null)
     const [viewMode, setViewMode] = React.useState<'grid' | 'list'>('grid')
@@ -128,7 +153,7 @@ export function SprintsClient({ initialSprints, projects }: SprintsClientProps) 
     }
 
     const SprintCard = ({ sprint }: { sprint: Sprint }) => {
-        const project = projects.find(p => p.id === sprint.project_id)
+        const project = localProjects.find(p => p.id === sprint.project_id)
         return (
             <div
                 className="group bg-bg-1 border border-bg-3 rounded-[24px] p-6 hover:shadow-xl hover:border-accent-indigo/20 transition-all duration-500 cursor-pointer relative overflow-hidden flex flex-col h-full"
@@ -239,7 +264,7 @@ export function SprintsClient({ initialSprints, projects }: SprintsClientProps) 
     }
 
     const SprintRow = ({ sprint }: { sprint: Sprint }) => {
-        const project = projects.find(p => p.id === sprint.project_id)
+        const project = localProjects.find(p => p.id === sprint.project_id)
         return (
             <div
                 onClick={() => router.push(`/sprints/${sprint.id}`)}
@@ -432,7 +457,7 @@ export function SprintsClient({ initialSprints, projects }: SprintsClientProps) 
                 onClose={() => setIsModalOpen(false)}
                 onSuccess={handleSprintSuccess}
                 sprint={selectedSprint}
-                projects={projects}
+                projects={localProjects}
             />
         </div>
     )

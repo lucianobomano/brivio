@@ -22,6 +22,9 @@ export const metadata: Metadata = {
   description: "The operating system for brand creation, management, and execution.",
 };
 
+import NextTopLoader from "nextjs-toploader";
+import { SpaNavigationProvider } from "@/components/providers/SpaNavigationProvider";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,7 +42,20 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
+          <NextTopLoader
+            color="#ff0054"
+            initialPosition={0.08}
+            crawlSpeed={200}
+            height={3}
+            crawl={true}
+            showSpinner={false}
+            easing="ease"
+            speed={200}
+            shadow="0 0 10px #ff0054,0 0 5px #ff0054"
+          />
+          <SpaNavigationProvider>
+            {children}
+          </SpaNavigationProvider>
           <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>

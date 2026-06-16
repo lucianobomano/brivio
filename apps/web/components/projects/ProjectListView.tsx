@@ -2,20 +2,25 @@
 
 import * as React from "react"
 import { Project, Stage } from "./ProjectsClient"
-import { RoadmapStage } from "@/app/actions/roadmap"
+import { RoadmapStage, archiveRoadmapTask, duplicateRoadmapTask, deleteRoadmapTask } from "@/app/actions/roadmap"
 import { cn } from "@/lib/utils"
-import { MoreHorizontal, ChevronDown, Clock } from "lucide-react"
+import { MoreHorizontal, ChevronDown, Clock, Pencil, Trash2, Archive, Copy, Eye } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
     DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { updateProjectStage_v2 } from "@/app/actions/projects"
+import { updateProjectStage_v2, archiveProject, deleteProject, duplicateProject } from "@/app/actions/projects"
 import { toast } from "sonner"
 import { useCurrency } from "@/components/CurrencyUtils"
 
@@ -39,9 +44,195 @@ interface ProjectListViewProps {
     projectId?: string
     onOpenDetails?: (project: Project) => void
     onEdit?: (project: Project) => void
+    onViewTask?: (task: any) => void
 }
 
-export function ProjectListView({ projects, stages, onRefresh, onViewProject, onOpenDetails, isTaskMode, onEdit }: ProjectListViewProps) {
+function RowActionsPopover({
+    item,
+    isTaskMode,
+    projectId,
+    onEdit,
+    onRefresh,
+    onOpenDetails
+}: {
+    item: any
+    isTaskMode: boolean
+    projectId?: string
+    onEdit: () => void
+    onRefresh: () => void
+    onOpenDetails?: () => void
+}) {
+    const [isOpen, setIsOpen] = React.useState(false)
+    const [isLoading, setIsLoading] = React.useState(false)
+
+    const handleArchive = async () => {
+        setIsLoading(true)
+        try {
+            if (isTaskMode) {
+                if (!projectId) {
+                    toast.error("Erro: Projeto não encontrado")
+                    return
+                }
+                const res = await archiveRoadmapTask(item.id, projectId)
+                if (res.success) {
+                    toast.success("Tarefa arquivada com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao arquivar tarefa")
+                }
+            } else {
+                const res = await archiveProject(item.id)
+                if (res.success) {
+                    toast.success("Projeto arquivado com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao arquivar projeto")
+                }
+            }
+        } catch (err) {
+            toast.error("Ocorreu um erro")
+        } finally {
+            setIsLoading(false)
+            setIsOpen(false)
+        }
+    }
+
+    const handleDuplicate = async () => {
+        setIsLoading(true)
+        try {
+            if (isTaskMode) {
+                if (!projectId) {
+                    toast.error("Erro: Projeto não encontrado")
+                    return
+                }
+                const res = await duplicateRoadmapTask(item.id, projectId)
+                if (res.success) {
+                    toast.success("Tarefa duplicada com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao duplicar tarefa")
+                }
+            } else {
+                const res = await duplicateProject(item.id)
+                if (res.success) {
+                    toast.success("Projeto duplicado com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao duplicar projeto")
+                }
+            }
+        } catch (err) {
+            toast.error("Ocorreu um erro")
+        } finally {
+            setIsLoading(false)
+            setIsOpen(false)
+        }
+    }
+
+    const handleDelete = async () => {
+        setIsLoading(true)
+        try {
+            if (isTaskMode) {
+                if (!projectId) {
+                    toast.error("Erro: Projeto não encontrado")
+                    return
+                }
+                const res = await deleteRoadmapTask(item.id, projectId)
+                if (res.success) {
+                    toast.success("Tarefa eliminada com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error("Erro ao eliminar tarefa")
+                }
+            } else {
+                const res = await deleteProject(item.id)
+                if (res.success) {
+                    toast.success("Projeto eliminado com sucesso")
+                    onRefresh()
+                } else {
+                    toast.error(res.error || "Erro ao eliminar projeto")
+                }
+            }
+        } catch (err) {
+            toast.error("Ocorreu um erro")
+        } finally {
+            setIsLoading(false)
+            setIsOpen(false)
+        }
+    }
+
+    return (
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:bg-bg-2 rounded-lg text-text-tertiary hover:text-text-primary transition-all"
+                >
+                    <MoreHorizontal className="w-4 h-4" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent
+                side="bottom"
+                align="end"
+                className="w-48 bg-bg-1 border border-bg-3 shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-1.5 rounded-xl z-[100]"
+            >
+                <div className="flex flex-col gap-1 w-full">
+                    {onOpenDetails && (
+                        <button
+                            onClick={() => {
+                                onOpenDetails()
+                                setIsOpen(false)
+                            }}
+                            disabled={isLoading}
+                            className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-bg-2 text-text-primary transition-all"
+                        >
+                            <Eye className="w-4 h-4 text-emerald-500" />
+                            Ver Detalhes
+                        </button>
+                    )}
+                    <button
+                        onClick={() => {
+                            onEdit()
+                            setIsOpen(false)
+                        }}
+                        disabled={isLoading}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-bg-2 text-text-primary transition-all"
+                    >
+                        <Pencil className="w-4 h-4 text-accent-indigo" />
+                        Editar
+                    </button>
+                    <button
+                        onClick={handleArchive}
+                        disabled={isLoading}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-bg-2 text-text-primary transition-all"
+                    >
+                        <Archive className="w-4 h-4 text-amber-500" />
+                        Arquivar
+                    </button>
+                    <button
+                        onClick={handleDuplicate}
+                        disabled={isLoading}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-bg-2 text-text-primary transition-all"
+                    >
+                        <Copy className="w-4 h-4 text-blue-500" />
+                        Duplicar
+                    </button>
+                    <button
+                        onClick={handleDelete}
+                        disabled={isLoading}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-xs font-semibold rounded-lg text-left hover:bg-red-500/10 text-red-500 transition-all"
+                    >
+                        <Trash2 className="w-4 h-4" />
+                        Eliminar
+                    </button>
+                </div>
+            </PopoverContent>
+        </Popover>
+    )
+}
+
+export function ProjectListView({ projects, stages, onRefresh, onViewProject, onOpenDetails, isTaskMode, onEdit, onViewTask, projectId }: ProjectListViewProps) {
     const { formatPrice } = useCurrency()
     const handleStatusChange = async (projectId: string, newStatus: string) => {
         const result = await updateProjectStage_v2(projectId, newStatus)
@@ -122,9 +313,13 @@ export function ProjectListView({ projects, stages, onRefresh, onViewProject, on
                                     <span className="text-[10px] text-text-tertiary">---</span>
                                 </td>
                                 <td className="p-4 pr-8 text-right">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-text-tertiary hover:text-text-primary hover:bg-bg-2 rounded-lg">
-                                        <MoreHorizontal className="w-4 h-4" />
-                                    </Button>
+                                    <RowActionsPopover
+                                        item={task}
+                                        isTaskMode={true}
+                                        projectId={projectId}
+                                        onEdit={() => onViewTask?.(task)}
+                                        onRefresh={onRefresh}
+                                    />
                                 </td>
                             </tr>
                         )))
@@ -247,27 +442,13 @@ export function ProjectListView({ projects, stages, onRefresh, onViewProject, on
                                     </td>
 
                                     <td className="p-4 pr-8 text-right">
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-text-tertiary hover:text-text-primary hover:bg-bg-2 rounded-lg transition-all">
-                                                    <MoreHorizontal className="w-4 h-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end" className="w-48 bg-bg-1 border-bg-3 shadow-xl p-1 rounded-xl">
-                                                <DropdownMenuItem
-                                                    onClick={() => onOpenDetails?.(project)}
-                                                    className="flex items-center gap-2 text-xs p-2 rounded-lg cursor-pointer hover:bg-bg-2"
-                                                >
-                                                    Ver Detalhes
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={() => onEdit?.(project)}
-                                                    className="flex items-center gap-2 text-xs p-2 rounded-lg cursor-pointer hover:bg-bg-2"
-                                                >
-                                                    Editar Projeto
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                        <RowActionsPopover
+                                            item={project}
+                                            isTaskMode={false}
+                                            onEdit={() => onEdit?.(project)}
+                                            onOpenDetails={() => onOpenDetails?.(project)}
+                                            onRefresh={onRefresh}
+                                        />
                                     </td>
                                 </tr>
                             )
