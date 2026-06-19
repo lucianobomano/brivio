@@ -12,6 +12,7 @@ interface DraggableBlockWrapperProps {
     onUpdate: (id: string, updates: Partial<Block>) => void
     isFreeFlow?: boolean
     onSelect?: () => void
+    responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
 }
 
 export const DraggableBlockWrapper = ({
@@ -20,12 +21,13 @@ export const DraggableBlockWrapper = ({
     isReadOnly,
     onUpdate,
     isFreeFlow,
-    onSelect
+    onSelect,
+    responsiveDevice
 }: DraggableBlockWrapperProps) => {
     const [isDragging, setIsDragging] = useState(false)
 
-    if (!isFreeFlow) {
-        // No wrapper needed - just return children directly
+    if (!isFreeFlow || (responsiveDevice === 'desktop' || responsiveDevice === 'mobile')) {
+        // No wrapper needed
         return <>{children}</>
     }
 

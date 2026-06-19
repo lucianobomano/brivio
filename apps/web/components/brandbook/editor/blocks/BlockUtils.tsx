@@ -1,6 +1,7 @@
-import React from "react"
+import React, { useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { useBrandDesign } from "../BrandDesignContext"
 
 // Reuse existing simple blocks
 interface AutoResizeTextareaProps {
@@ -28,6 +29,7 @@ export const AutoResizeTextarea = ({ value, onChange, placeholder, className, st
     // If fixedHeight is provided, use it; otherwise auto-resize
     const computedStyle = {
         ...style,
+        maxWidth: '100%',
         resize: 'none' as const,
         overflow: fixedHeight ? 'auto' : 'hidden',
         height: fixedHeight || undefined,
@@ -58,7 +60,8 @@ export const ResizableWrapper = ({
     isFocused,
     isReadOnly,
     className,
-    align = 'center' // Default to center for safety
+    align = 'center', // Default to center for safety
+    responsiveDevice
 }: {
     children: React.ReactNode,
     width?: string | number,
@@ -69,9 +72,31 @@ export const ResizableWrapper = ({
     isReadOnly?: boolean,
     className?: string,
     align?: 'left' | 'center' | 'right'
+    responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
 }) => {
+    const { setIsResizingGlobal } = useBrandDesign();
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [isResizing, setIsResizing] = React.useState<'left' | 'right' | 'top' | 'bottom' | null>(null);
+
+    // Clamp block width when responsive device changes
+    useEffect(() => {
+        if (!containerRef.current || !responsiveDevice) return;
+        const maxWidthMap: Record<string, number> = {
+            desktop: 1070,
+            widescreen: 1452,
+            mobile: 400
+        };
+        const cap = maxWidthMap[responsiveDevice];
+        if (!cap) return;
+        // Use the stored width prop (e.g. "1200px") or fallback to rendered offsetWidth
+        const storedWidth = width ? parseFloat(String(width)) : containerRef.current.offsetWidth;
+        if (storedWidth > cap) {
+            const clamped = `${cap}px`;
+            containerRef.current.style.width = clamped;
+            onWidthChange(clamped);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [responsiveDevice]);
 
     // Horizontal resize handler
     const handlePointerDownHorizontal = (e: React.PointerEvent, side: 'left' | 'right') => {
@@ -79,6 +104,7 @@ export const ResizableWrapper = ({
         e.preventDefault();
         e.stopPropagation();
         setIsResizing(side);
+        setIsResizingGlobal(true);
 
         const startX = e.pageX;
         const startWidth = containerRef.current?.offsetWidth || 0;
@@ -102,6 +128,7 @@ export const ResizableWrapper = ({
 
         const handlePointerUp = () => {
             setIsResizing(null);
+            setIsResizingGlobal(false);
             if (containerRef.current) {
                 const finalWidth = containerRef.current.style.width;
                 containerRef.current.style.transition = '';
@@ -121,6 +148,7 @@ export const ResizableWrapper = ({
         e.preventDefault();
         e.stopPropagation();
         setIsResizing(side);
+        setIsResizingGlobal(true);
 
         const startY = e.pageY;
         const startHeight = containerRef.current?.offsetHeight || 0;
@@ -140,6 +168,7 @@ export const ResizableWrapper = ({
 
         const handlePointerUp = () => {
             setIsResizing(null);
+            setIsResizingGlobal(false);
             if (containerRef.current) {
                 const finalHeight = containerRef.current.style.minHeight;
                 containerRef.current.style.transition = '';
@@ -158,6 +187,7 @@ export const ResizableWrapper = ({
             ref={containerRef}
             style={{
                 width: width || '100%',
+                maxWidth: '100%',
                 minHeight: height || 'auto',
                 position: 'relative'
             }}

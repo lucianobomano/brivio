@@ -15,6 +15,8 @@ export type ViewType =
     | "team" 
     | "inventory" 
     | "finances"
+    | "assets"
+    | "brandops"
 
 interface SpaNavigationContextProps {
     activeView: ViewType
@@ -36,6 +38,8 @@ export function SpaNavigationProvider({ children }: { children: React.ReactNode 
         if (path === "/focus") return "focus"
         if (path === "/sprints" || path.startsWith("/sprints/")) return "sprints"
         if (path === "/standups" || path.startsWith("/standups/")) return "standups"
+        if (path === "/assets") return "assets"
+        if (path === "/brandops") return "brandops"
         return "projects"
     }
 

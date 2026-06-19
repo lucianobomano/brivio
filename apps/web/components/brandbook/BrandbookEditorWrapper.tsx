@@ -36,6 +36,7 @@ interface BrandbookEditorProps {
     brandbookId: string
     brandId: string
     brandName?: string
+    brandLogoUrl?: string | null
     isReadOnly?: boolean
     userData?: UserData | null
 }

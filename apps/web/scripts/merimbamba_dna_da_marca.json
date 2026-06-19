@@ -1,0 +1,483 @@
+{
+  "blocks": [
+    {
+      "id": "t1xz1dz3f",
+      "type": "layout",
+      "content": {
+        "columns": [
+          {
+            "id": "qllfpxxfz",
+            "blocks": [
+              {
+                "id": "3n6xncg3x",
+                "type": "text",
+                "content": {
+                  "text": "NOME DA EMPRESA",
+                  "style": {
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              }
+            ]
+          },
+          {
+            "id": "otg2znkzg",
+            "blocks": [
+              {
+                "id": "1sml1ewbi",
+                "type": "text",
+                "content": {
+                  "text": "BRANDBOOK",
+                  "style": {
+                    "color": "#ffffff",
+                    "fontSize": "20px",
+                    "textAlign": "right",
+                    "fontWeight": "bold"
+                  }
+                },
+                "variant": "p"
+              }
+            ]
+          }
+        ],
+        "settings": {
+          "ratio": 0,
+          "height": "",
+          "columns": 2,
+          "padding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "isVisible": true,
+          "gridOption": 0,
+          "rowPadding": "M",
+          "aspectRatio": "auto",
+          "isFullWidth": false,
+          "isZoomImage": false,
+          "paddingLock": true,
+          "distribution": "between-full",
+          "alignVertical": "top",
+          "isGridUnlocked": false,
+          "sectionPadding": {
+            "top": 60,
+            "left": 180,
+            "right": 180,
+            "bottom": 0,
+            "isLocked": false
+          },
+          "alignHorizontal": "center",
+          "backgroundColor": "#000000"
+        }
+      },
+      "variant": "2-col"
+    },
+    {
+      "id": "2lpo4mg7q",
+      "type": "layout",
+      "content": {
+        "columns": [
+          {
+            "id": "ibf8q02ag",
+            "blocks": [
+              {
+                "id": "rpcwny4w0",
+                "type": "heading",
+                "content": {
+                  "text": "INTRODUÇÃO",
+                  "style": {
+                    "color": "#ffffff",
+                    "width": "472px",
+                    "fontSize": "72px",
+                    "fontFamily": "Roboto"
+                  }
+                },
+                "variant": "h1"
+              },
+              {
+                "id": "xr5tyhp1i",
+                "type": "text",
+                "content": {
+                  "text": "Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.",
+                  "style": {
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              },
+              {
+                "id": "m7ptctagq",
+                "type": "text",
+                "content": {
+                  "text": "💎Este é apenas um espaço em branco à espera.",
+                  "style": {
+                    "fontSize": "14px"
+                  }
+                },
+                "variant": "p"
+              }
+            ],
+            "settings": {
+              "alignVertical": "top"
+            }
+          },
+          {
+            "id": "60xxabhcx",
+            "blocks": [
+              {
+                "id": "gfhvxo8ix",
+                "type": "text",
+                "content": {
+                  "text": "Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer. Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.",
+                  "style": {
+                    "color": "#ffffff",
+                    "width": "635px",
+                    "height": "290px",
+                    "fontSize": "20px",
+                    "fontWeight": "300"
+                  }
+                },
+                "variant": "p"
+              }
+            ],
+            "settings": {
+              "alignVertical": "middle"
+            }
+          }
+        ],
+        "settings": {
+          "ratio": 0,
+          "height": "",
+          "columns": 2,
+          "padding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "isVisible": true,
+          "gridOption": 0,
+          "rowPadding": "S",
+          "aspectRatio": "auto",
+          "isFullWidth": false,
+          "isZoomImage": false,
+          "paddingLock": true,
+          "distribution": "between-full",
+          "alignVertical": "bottom",
+          "isGridUnlocked": false,
+          "sectionPadding": {
+            "top": 250,
+            "left": 180,
+            "right": 180,
+            "bottom": 250,
+            "isLocked": false
+          },
+          "alignHorizontal": "center",
+          "backgroundColor": "#000"
+        }
+      },
+      "variant": "2-col"
+    },
+    {
+      "id": "6dihetpqt",
+      "type": "layout",
+      "content": {
+        "columns": [
+          {
+            "id": "0k9knwqdp",
+            "blocks": [
+              {
+                "id": "85tuoilw3",
+                "type": "heading",
+                "content": {
+                  "text": "MISSÃO",
+                  "style": {
+                    "color": "#ffffff",
+                    "fontSize": "24px",
+                    "fontFamily": "Roboto"
+                  }
+                },
+                "variant": "h1"
+              },
+              {
+                "id": "hfwjbcdev",
+                "type": "text",
+                "content": {
+                  "text": "Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.",
+                  "style": {
+                    "color": "#ffffff",
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              }
+            ],
+            "settings": {
+              "blockGap": 0
+            }
+          },
+          {
+            "id": "oin7a2rti",
+            "blocks": [
+              {
+                "id": "xiqo7da16",
+                "type": "heading",
+                "content": {
+                  "text": "VISÃO",
+                  "style": {
+                    "color": "#ffffff",
+                    "fontSize": "20px",
+                    "fontFamily": "Roboto"
+                  }
+                },
+                "variant": "h1"
+              },
+              {
+                "id": "vr42k128g",
+                "type": "text",
+                "content": {
+                  "text": "Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.",
+                  "style": {
+                    "color": "#ffffff",
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              }
+            ]
+          },
+          {
+            "id": "4wnpagdb5",
+            "blocks": [
+              {
+                "id": "tyahfc7w7",
+                "type": "heading",
+                "content": {
+                  "text": "VALORES",
+                  "style": {
+                    "color": "#ffffff",
+                    "fontSize": "20px",
+                    "fontFamily": "Roboto"
+                  }
+                },
+                "variant": "h1"
+              },
+              {
+                "id": "acen4t7hp",
+                "type": "text",
+                "content": {
+                  "text": "Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.",
+                  "style": {
+                    "color": "#ffffff",
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              }
+            ]
+          }
+        ],
+        "settings": {
+          "ratio": 0,
+          "height": "",
+          "columns": 3,
+          "padding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "isVisible": true,
+          "gridOption": 0,
+          "rowPadding": "S",
+          "aspectRatio": "auto",
+          "isFullWidth": false,
+          "isZoomImage": false,
+          "paddingLock": true,
+          "columnWidths": [
+            0.9555375909458366,
+            0.914308811641067,
+            1.1301535974130963
+          ],
+          "distribution": "between-full",
+          "alignVertical": "middle",
+          "backgroundType": "gradient",
+          "isGridUnlocked": true,
+          "sectionPadding": {
+            "top": 150,
+            "left": 180,
+            "right": 180,
+            "bottom": 150,
+            "isLocked": false
+          },
+          "alignHorizontal": "center",
+          "backgroundColor": "#f6c944",
+          "backgroundGradient": {
+            "type": "linear",
+            "angle": 90,
+            "stops": [
+              {
+                "color": "#FF0054",
+                "offset": 0
+              },
+              {
+                "color": "#0000FF",
+                "offset": 100
+              }
+            ]
+          }
+        }
+      },
+      "variant": "1-col"
+    },
+    {
+      "id": "r9k4g36cr",
+      "type": "layout",
+      "content": {
+        "columns": [
+          {
+            "id": "phiv8ukmc",
+            "blocks": [
+              {
+                "id": "oqpvgccv8",
+                "type": "video",
+                "content": {
+                  "url": "https://rswfzywrpzscnkcisniu.supabase.co/storage/v1/object/public/assets/brands/e10cccd5-7d61-4afb-9f25-e7dbe17771fc/oqpvgccv8/1767959493184_BG-WHITE.mov",
+                  "style": {
+                    "width": 609,
+                    "height": 412,
+                    "isLoop": true,
+                    "hasSound": false,
+                    "aspectRatio": "1/1",
+                    "showControls": false
+                  },
+                  "caption": ""
+                }
+              }
+            ],
+            "settings": {
+              "radius": 0,
+              "borderColor": "#ffffff",
+              "borderWidth": 0,
+              "alignVertical": "middle"
+            }
+          },
+          {
+            "id": "65wm26b5v",
+            "blocks": [
+              {
+                "id": "yggwdu2zz",
+                "type": "heading",
+                "content": {
+                  "text": "Este é um Título padrão Brivio°",
+                  "style": {
+                    "fontSize": "42px"
+                  }
+                },
+                "variant": "h1"
+              },
+              {
+                "id": "e5rfatlnn",
+                "type": "text",
+                "content": {
+                  "text": "Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer.",
+                  "style": {
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              }
+            ],
+            "settings": {
+              "alignVertical": "middle"
+            }
+          }
+        ],
+        "settings": {
+          "ratio": 0,
+          "height": "L",
+          "columns": 2,
+          "padding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "isVisible": true,
+          "gridOption": 0,
+          "rowPadding": "S",
+          "aspectRatio": "auto",
+          "isFullWidth": false,
+          "isZoomImage": false,
+          "paddingLock": true,
+          "distribution": "between-full",
+          "alignVertical": "middle",
+          "isGridUnlocked": false,
+          "sectionPadding": {
+            "top": 120,
+            "left": 180,
+            "right": 180,
+            "bottom": 120,
+            "isLocked": false
+          },
+          "alignHorizontal": "center",
+          "backgroundColor": "#FFFFFF"
+        }
+      },
+      "variant": "2-col"
+    },
+    {
+      "id": "1txcvzdzb",
+      "type": "layout",
+      "content": {
+        "columns": [
+          {
+            "id": "y1qvdwka1",
+            "blocks": [],
+            "settings": {
+              "alignVertical": "middle"
+            }
+          }
+        ],
+        "settings": {
+          "ratio": 0,
+          "height": "XS",
+          "columns": 1,
+          "padding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "isVisible": true,
+          "gridOption": 0,
+          "rowPadding": "S",
+          "aspectRatio": "auto",
+          "isFullWidth": false,
+          "isZoomImage": false,
+          "paddingLock": true,
+          "distribution": "between-full",
+          "alignVertical": "top",
+          "isGridUnlocked": false,
+          "sectionPadding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "alignHorizontal": "center",
+          "backgroundColor": "#f5f5f5"
+        }
+      },
+      "variant": "1-col"
+    }
+  ]
+}

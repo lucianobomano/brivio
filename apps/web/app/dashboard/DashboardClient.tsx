@@ -14,7 +14,6 @@ import {
     PlusCircle,
     Layout
 } from "lucide-react"
-import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
 import { ThemeToggle } from "@/components/theme-toggle"
@@ -117,6 +116,13 @@ export function DashboardClient({
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
     const router = useRouter()
 
+    const navigateTo = React.useCallback((href: string) => {
+        // Use window.location.href to force a full-page navigation,
+        // bypassing the SpaNavigationProvider which intercepts router.push()
+        // and prevents proper page transitions from the dashboard.
+        window.location.href = href
+    }, [])
+
     return (
         <div className="min-h-screen bg-bg-0 text-text-primary font-sans selection:bg-accent-indigo selection:text-white overflow-hidden relative transition-colors duration-500">
             {/* Ambient Background Glows */}
@@ -132,10 +138,11 @@ export function DashboardClient({
                         const Icon = opt.icon
 
                         return (
-                            <Link
+                            <div
                                 key={opt.id}
-                                href={opt.href}
-                                className="w-full max-w-[372px] flex-1 min-w-0 aspect-[372/585] rounded-[12px] relative overflow-hidden flex flex-col justify-between p-4 md:p-8 text-white transition-all hover:translate-y-[-10px] shadow-2xl group"
+                                onClick={() => navigateTo(opt.href)}
+                                onMouseEnter={() => router.prefetch(opt.href)}
+                                className="w-full max-w-[372px] flex-1 min-w-0 aspect-[372/585] rounded-[12px] relative overflow-hidden flex flex-col justify-between p-4 md:p-8 text-white transition-all hover:translate-y-[-10px] shadow-2xl group cursor-pointer"
                                 style={{ backgroundColor: '#1A1B20' }}
                             >
                                 {opt.imageUrl && (
@@ -172,9 +179,9 @@ export function DashboardClient({
                                             <span className="text-[64px] font-thin opacity-80 tracking-tighter drop-shadow-lg leading-none" style={{ fontFamily: 'Inter, sans-serif' }}>
                                                 {opt.id}
                                             </span>
-                                            <button className="px-5 py-2 rounded-full border border-white/30 bg-white/10 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider hover:bg-white/20 transition-all shrink-0">
+                                            <span className="px-5 py-2 rounded-full border border-white/30 bg-white/10 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider hover:bg-white/20 transition-all shrink-0">
                                                 Abrir
-                                            </button>
+                                            </span>
                                         </div>
 
                                         <div className="h-[1px] w-full bg-gradient-to-r from-white/70 to-transparent" />
@@ -198,7 +205,7 @@ export function DashboardClient({
 
                                 {/* Liquid Gradient Effect on Hover (Optional, for premium feel) */}
                                 <div className="absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity pointer-events-none bg-gradient-to-br from-white to-transparent" />
-                            </Link>
+                            </div>
                         )
                     })}
                 </div>

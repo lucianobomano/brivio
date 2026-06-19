@@ -42,7 +42,9 @@ export function AuthLayoutInner({ children, user, showSidebar = true, workspaceI
                             activeView === "roadmap" ? "/roadmap" :
                             activeView === "focus" ? "/focus" :
                             activeView === "sprints" ? "/sprints" :
-                            activeView === "standups" ? "/standups" : pathname
+                            activeView === "standups" ? "/standups" :
+                            activeView === "assets" ? "/assets" :
+                            activeView === "brandops" ? "/brandops" : pathname
 
     const isProjectsPage = currentPathname === "/projects" || currentPathname === "/standups" || currentPathname.startsWith("/sprints") || currentPathname === "/assets" || currentPathname === "/tasks" || currentPathname === "/roadmap" || currentPathname === "/focus"
     const isDashboard = currentPathname === "/dashboard"

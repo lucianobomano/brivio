@@ -1,9 +1,7 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { Filter, List } from "lucide-react"
-import { BrandCard } from "@/components/brands/BrandCard"
-import { CreateBrandCard } from "@/components/brands/CreateBrandCard"
 import { StandupHeader } from "@/components/standups/StandupHeader"
+import { BrandsClient } from "./BrandsClient"
 
 export default async function BrandsPage() {
     const supabase = await createClient()
@@ -46,47 +44,7 @@ export default async function BrandsPage() {
     return (
         <div className="min-h-screen bg-[#EFF0F2] dark:bg-bg-0 selection:bg-[#FF0054] selection:text-white pb-20">
             <StandupHeader />
-
-            {/* Search & Filters */}
-            <div className="py-8 flex justify-center px-[40px]">
-                <div className="w-full max-w-[1600px]">
-                    <div className="flex items-center justify-end gap-6">
-                        <div className="relative w-full max-w-md">
-                            <input
-                                type="search"
-                                placeholder="Pesquisar"
-                                className="w-full bg-transparent border-b border-gray-700 px-4 py-2 text-white placeholder:text-gray-600 focus:outline-none focus:border-gray-500 transition-colors"
-                            />
-                        </div>
-                        <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm">
-                            <Filter className="w-4 h-4" />
-                            <span>Filtrar por</span>
-                        </button>
-                        <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm">
-                            <List className="w-4 h-4" />
-                            <span>Lista</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Cards Grid */}
-            <div className="pb-16 flex justify-center px-[40px]">
-                <div className="w-full max-w-[1600px]">
-                    <div className="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-[20px]">
-                        {/* Create New Card */}
-                        <CreateBrandCard
-                            userName={user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0]}
-                            brandsCount={brandsList.length}
-                        />
-
-                        {/* Brand Cards */}
-                        {brandsList.map((brand) => (
-                            <BrandCard key={brand.id} brand={brand} />
-                        ))}
-                    </div>
-                </div>
-            </div>
+            <BrandsClient brandsList={brandsList} user={user} />
         </div>
     )
 }

@@ -13,6 +13,7 @@ import {
     GripVertical,
     Search,
     Eye,
+    EyeOff,
     Trash,
     Monitor,
     ChevronLeft,
@@ -34,6 +35,12 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
+import {
+    DropdownMenu,
+    DropdownMenuTrigger,
+    DropdownMenuContent,
+    DropdownMenuItem,
+} from "@/components/ui/dropdown-menu"
 import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { useBrandDesign } from "./BrandDesignContext"
@@ -43,7 +50,7 @@ interface LeftSidebarProps {
     modules: any[]
     activeModuleId: string | null
     onSelectModule: (id: string) => void
-    onAddModule: (type: string) => void
+    onAddModule: (type: string, categoryId?: string, customTitle?: string) => void
     onRenameModule?: (id: string, newTitle: string) => void
     onDuplicateModule?: (id: string) => void
     onDeleteModule?: (id: string) => void
@@ -57,6 +64,11 @@ interface LeftSidebarProps {
     isReadOnly?: boolean
     isCollapsed?: boolean
     onToggleCollapse?: () => void
+    userData?: {
+        name: string
+        avatar_url?: string
+    } | null
+    brandLogoUrl?: string | null
 }
 
 // Logic moved to @/lib/brandbook-utils.ts
@@ -295,11 +307,14 @@ export function LeftSidebar({
     onPagesAdded,
     isReadOnly = false,
     isCollapsed = false,
-    onToggleCollapse
+    onToggleCollapse,
+    userData = null,
+    brandLogoUrl = null
 }: LeftSidebarProps) {
     // Categories collapsed by default, but open 'others' if it has pages
     const [openCategories, setOpenCategories] = useState<string[]>(['others'])
     const [isAddPagesModalOpen, setIsAddPagesModalOpen] = useState(false)
+    const [filterCategory, setFilterCategory] = useState<string | null>(null)
     const { getStyleById, settings } = useBrandDesign()
     const menuStyle = getStyleById('menu')
 
@@ -323,6 +338,152 @@ export function LeftSidebar({
         })
         return grouped
     }, [modules])
+
+    const isCategoryHidden = (catId: string) => {
+        const targetModules: any[] = []
+        const collect = (id: string) => {
+            if (modulesByCategory[id]) targetModules.push(...modulesByCategory[id])
+            const cat = CATEGORIES.find(c => c.id === id)
+            if (cat?.subCategories) {
+                cat.subCategories.forEach(sub => {
+                    if (modulesByCategory[sub.id]) targetModules.push(...modulesByCategory[sub.id])
+                })
+            }
+        }
+        collect(catId)
+        return targetModules.length > 0 && targetModules.every(m => m.isHidden)
+    }
+
+    const handleToggleCategoryVisibility = (catId: string) => {
+        const targetModules: any[] = []
+        const collect = (id: string) => {
+            if (modulesByCategory[id]) targetModules.push(...modulesByCategory[id])
+            const cat = CATEGORIES.find(c => c.id === id)
+            if (cat?.subCategories) {
+                cat.subCategories.forEach(sub => {
+                    if (modulesByCategory[sub.id]) targetModules.push(...modulesByCategory[sub.id])
+                })
+            }
+        }
+        collect(catId)
+
+        if (targetModules.length === 0) return
+
+        const hasVisible = targetModules.some(m => !m.isHidden)
+        targetModules.forEach(m => {
+            if (m.isHidden === hasVisible) {
+                onToggleVisibility?.(m.id)
+            }
+        })
+    }
+
+    const handleAddCustomPage = (catId: string) => {
+        const title = prompt("Digite o nome da nova página:")
+        if (title && title.trim()) {
+            onAddModule('custom', catId, title.trim())
+        }
+    }
+
+    const renderCategoryHeader = (catId: string, label: string) => {
+        const isHidden = isCategoryHidden(catId)
+
+        return (
+            <div className="flex items-center justify-between w-full py-0.5 select-none">
+                <div className="flex items-center gap-1.5 min-w-0">
+                    <svg
+                        viewBox="0 0 10 10"
+                        className="w-2.5 h-2.5 fill-current shrink-0 transition-transform duration-200 text-black/60 group-data-[state=open]:rotate-0 group-data-[state=closed]:-rotate-90"
+                    >
+                        <path d="M1,3 L9,3 L5,7 Z" />
+                    </svg>
+                    <span className="truncate">{label}</span>
+                </div>
+
+                {!isReadOnly && (
+                    <div
+                        className="hidden group-hover:flex items-center bg-[#EAEAEA] rounded-md shadow-sm border border-gray-300 overflow-hidden ml-2 h-6"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            e.preventDefault()
+                        }}
+                    >
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            className="h-full px-2 hover:bg-black/5 text-[#0F172A] hover:text-[#FF0054] transition-colors flex items-center justify-center border-r border-gray-300/60 cursor-pointer"
+                            title="Adicionar página"
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
+                                setFilterCategory(catId)
+                                setIsAddPagesModalOpen(true)
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.stopPropagation()
+                                    setFilterCategory(catId)
+                                    setIsAddPagesModalOpen(true)
+                                }
+                            }}
+                        >
+                            <Plus className="w-3 h-3" />
+                        </div>
+                        <div
+                            role="button"
+                            tabIndex={0}
+                            className="h-full px-2 hover:bg-black/5 text-[#0F172A] hover:text-[#FF0054] transition-colors flex items-center justify-center border-r border-gray-300/60 cursor-pointer"
+                            title={isHidden ? "Mostrar seção" : "Ocultar seção"}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
+                                handleToggleCategoryVisibility(catId)
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                    e.stopPropagation()
+                                    handleToggleCategoryVisibility(catId)
+                                }
+                            }}
+                        >
+                            {isHidden ? <EyeOff className="w-3 h-3 text-gray-400" /> : <Eye className="w-3 h-3" />}
+                        </div>
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <div
+                                    role="button"
+                                    tabIndex={0}
+                                    className="h-full px-2 hover:bg-black/5 text-[#0F172A] hover:text-[#FF0054] transition-colors flex items-center justify-center cursor-pointer"
+                                    title="Mais opções"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        e.preventDefault()
+                                    }}
+                                >
+                                    <MoreVertical className="w-3 h-3" />
+                                </div>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent
+                                align="end"
+                                className="bg-[#111116] border border-[#222] text-white rounded-lg shadow-xl p-1 z-[2500]"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <DropdownMenuItem
+                                    className="hover:bg-[#FF0054] hover:text-white px-3 py-1.5 text-xs rounded-sm cursor-pointer"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handleAddCustomPage(catId)
+                                    }}
+                                >
+                                    Adicionar página personalizada
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
+                )}
+            </div>
+        )
+    }
 
     const sharedActions = {
         onRenameModule,
@@ -388,7 +549,15 @@ export function LeftSidebar({
                     <>
                         {/* Header / Logo Area */}
                         <div className="p-8 flex flex-col items-center pb-6">
-                            <div className="w-[80px] h-[80px] rounded-full bg-gradient-brand shadow-lg shadow-purple-500/20" />
+                            {brandLogoUrl ? (
+                                <div className="w-[80px] h-[80px] rounded-full bg-white border border-gray-100 flex items-center justify-center overflow-hidden shadow-lg shadow-purple-500/10">
+                                    <img src={brandLogoUrl} alt={brandName} className="w-full h-full object-contain p-1" />
+                                </div>
+                            ) : (
+                                <div className="w-[80px] h-[80px] rounded-full bg-gradient-brand flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-purple-500/20">
+                                    {brandName ? brandName.charAt(0).toUpperCase() : ""}
+                                </div>
+                            )}
                         </div>
 
                         {/* Search + Add Button */}
@@ -430,9 +599,9 @@ export function LeftSidebar({
                                         <AccordionItem key={category.id} value={category.id} className="border-none">
                                             <AccordionTrigger
                                                 style={{ color: sidebarTextStyle.color }}
-                                                className="px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100"
+                                                className="group px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100 [&>svg]:hidden"
                                             >
-                                                {category.label}
+                                                {renderCategoryHeader(category.id, category.label)}
                                             </AccordionTrigger>
                                             <AccordionContent className="pt-0 pb-2">
                                                 {/* Direct pages under this category */}
@@ -446,9 +615,9 @@ export function LeftSidebar({
                                                                 <AccordionItem key={subCategory.id} value={subCategory.id} className="border-none ml-2">
                                                                     <AccordionTrigger
                                                                         style={{ color: sidebarTextStyle.color }}
-                                                                        className="px-2 py-1 text-[11px] font-semibold hover:no-underline rounded-sm transition-colors opacity-90 hover:opacity-100"
+                                                                        className="group px-2 py-1 text-[11px] font-semibold hover:no-underline rounded-sm transition-colors opacity-90 hover:opacity-100 [&>svg]:hidden"
                                                                     >
-                                                                        {subCategory.label}
+                                                                        {renderCategoryHeader(subCategory.id, subCategory.label)}
                                                                     </AccordionTrigger>
                                                                     <AccordionContent className="pt-0 pb-1">
                                                                         {renderPagesList(subCategory.id)}
@@ -467,9 +636,9 @@ export function LeftSidebar({
                                 <AccordionItem value="others" className="border-none">
                                     <AccordionTrigger
                                         style={{ color: sidebarTextStyle.color }}
-                                        className="px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100"
+                                        className="group px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100 [&>svg]:hidden"
                                     >
-                                        Outras páginas
+                                        {renderCategoryHeader('others', 'Outras páginas')}
                                     </AccordionTrigger>
                                     <AccordionContent className="pt-0 pb-2">
                                         {renderPagesList('others')}
@@ -481,12 +650,19 @@ export function LeftSidebar({
                         {/* User Profile / Bottom */}
                         <div className="p-4 border-t border-[#EBEBEB] mt-auto">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden">
-                                    {/* Placeholder Avatar */}
-                                    <div className="w-full h-full bg-gradient-to-tr from-gray-200 to-gray-400" />
+                                <div className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden flex items-center justify-center">
+                                    {userData?.avatar_url ? (
+                                        <img src={userData.avatar_url} alt={userData.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-[#1E1F24] to-[#2D3039] text-white text-xs font-bold uppercase">
+                                            {userData?.name ? userData.name.charAt(0).toUpperCase() : "U"}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex flex-col">
-                                    <span className="text-sm font-medium" style={{ color: sidebarTextStyle.color }}>User Name</span>
+                                    <span className="text-sm font-medium truncate max-w-[150px]" style={{ color: sidebarTextStyle.color }}>
+                                        {userData?.name || "User Name"}
+                                    </span>
                                     <span className="text-[10px] opacity-60" style={{ color: sidebarTextStyle.color }}>Editor</span>
                                 </div>
                             </div>
@@ -498,11 +674,15 @@ export function LeftSidebar({
             {/* Add Pages Modal */}
             <AddPagesModal
                 isOpen={isAddPagesModalOpen}
-                onClose={() => setIsAddPagesModalOpen(false)}
+                onClose={() => {
+                    setIsAddPagesModalOpen(false)
+                    setFilterCategory(null)
+                }}
                 brandName={brandName}
                 brandbookId={brandbookId}
                 existingPageTitles={modules.map(m => m.title)}
                 onPagesAdded={onPagesAdded}
+                filterCategory={filterCategory}
             />
         </>
     )

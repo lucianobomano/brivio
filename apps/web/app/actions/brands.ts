@@ -26,9 +26,12 @@ export async function createBrand(formData: FormData) {
     const industry = formData.get("industry") as string
     const primaryColor = formData.get("primaryColor") as string
     const requestedWorkspaceId = formData.get("workspace_id") as string
-    const pagesJson = formData.get("selectedPages") as string
-    const selectedPages = pagesJson ? JSON.parse(pagesJson) as string[] : []
-    const templateId = formData.get("templateId") as string
+    const pagesJson = (formData.get("selectedPages") || formData.get("pages")) as string;
+    console.log("[createBrand Action] pagesJson from formData:", pagesJson);
+    const selectedPages = pagesJson ? JSON.parse(pagesJson) as string[] : [];
+    console.log("[createBrand Action] parsed selectedPages:", selectedPages);
+    const templateId = formData.get("templateId") as string;
+    console.log("[createBrand Action] templateId:", templateId);
 
     if (!name) {
         return { success: false, error: "Brand name is required" }
@@ -147,8 +150,10 @@ export async function createBrand(formData: FormData) {
     }
 
     // --- HANDLE PAGES (MODULES) OR TEMPLATE ---
+    console.log("[createBrand Action] selectedPages.length:", selectedPages.length, "templateId:", templateId);
     if (selectedPages.length > 0 || templateId) {
         // 1. Create Default Brandbook
+        console.log("[createBrand Action] Inserting brandbook record...");
         const { data: brandbook, error: bbError } = await adminSupabase
             .from('brandbooks')
             .insert({
@@ -162,10 +167,12 @@ export async function createBrand(formData: FormData) {
             .single()
 
         if (brandbook) {
+            console.log("[createBrand Action] Created brandbook with ID:", brandbook.id);
             let modulesAdded = false;
 
             if (templateId) {
                 // Option A: Use Template
+                console.log("[createBrand Action] Using template ID:", templateId);
                 const { data: template } = await adminSupabase
                     .from('brandbook_templates')
                     .select('modules_json')
@@ -182,17 +189,22 @@ export async function createBrand(formData: FormData) {
                         category: mod.category || mapPageToCategory(mod.title)
                     }))
 
+                    console.log("[createBrand Action] Inserting template modules, count:", modulesData.length);
                     const { error: mError } = await adminSupabase.from('brandbook_modules').insert(modulesData)
                     if (mError) {
-                        console.error("Failed to insert template modules:", mError)
+                        console.error("[createBrand Action] Failed to insert template modules:", mError)
                     } else {
+                        console.log("[createBrand Action] Successfully inserted template modules");
                         modulesAdded = true
                     }
+                } else {
+                    console.log("[createBrand Action] Template not found or modules_json is not an array");
                 }
             }
 
             if (!modulesAdded && selectedPages.length > 0) {
                 // Option B: Use Wizard Pages
+                console.log("[createBrand Action] Using wizard pages count:", selectedPages.length);
                 const modulesData = selectedPages.map((pageTitle, index) => ({
                     brandbook_id: brandbook.id,
                     title: pageTitle,
@@ -202,15 +214,17 @@ export async function createBrand(formData: FormData) {
                     content_json: {}
                 }))
 
+                console.log("[createBrand Action] Inserting modulesData:", JSON.stringify(modulesData));
                 const { error: mError } = await adminSupabase.from('brandbook_modules').insert(modulesData)
                 if (mError) {
-                    console.error("Failed to insert selected pages:", mError)
+                    console.error("[createBrand Action] Failed to insert selected pages:", mError)
                 } else {
+                    console.log("[createBrand Action] Successfully inserted selected pages modules");
                     modulesAdded = true
                 }
             }
         } else {
-            console.error("Failed to create default brandbook:", bbError)
+            console.error("[createBrand Action] Failed to create default brandbook:", bbError)
         }
     }
 
@@ -243,7 +257,7 @@ export async function createBrand(formData: FormData) {
 
 function mapPageToModuleType(title: string): string {
     const map: Record<string, string> = {
-        "Visão geral": "mission", // approximated
+        "Visão geral": "mission",
         "DNA da marca": "archetype",
         "História da marca": "history",
         "Logo": "logo",
@@ -253,22 +267,22 @@ function mapPageToModuleType(title: string): string {
         "Imagens & Fotografia": "photography",
         "Ilustração": "illustration",
         "Grid & Layouts": "grid",
-        "Elementos gráficos": "graphics",
+        "Elementos gráficos": "custom",
         "Motion design": "motion",
         "Aplicações digitais": "applications",
         "Aplicações offline": "applications",
-        "Personalidade da marca": "personality",
-        "Tom de voz": "tone_of_voice",
-        "Linguagem preferencial": "language",
-        "Slogans e taglines": "slogans",
-        "Naming system": "naming",
-        "Storytelling base": "storytelling",
-        "Copywriting guidelines": "copywriting",
-        "Identidade sonora": "sound",
-        "Identidade olfativa": "scent",
-        "Identidade tátil": "tactile",
-        "Identidade gustativa": "taste",
-        "Experiência multimodal": "multimodal"
+        "Personalidade da marca": "custom",
+        "Tom de voz": "voice_tone",
+        "Linguagem preferencial": "custom",
+        "Slogans e taglines": "custom",
+        "Naming system": "custom",
+        "Storytelling base": "custom",
+        "Copywriting guidelines": "custom",
+        "Identidade sonora": "custom",
+        "Identidade olfativa": "custom",
+        "Identidade tátil": "custom",
+        "Identidade gustativa": "custom",
+        "Experiência multimodal": "custom"
     }
     return map[title] || "custom"
 }

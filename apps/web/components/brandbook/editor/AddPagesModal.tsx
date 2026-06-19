@@ -1,38 +1,11 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
-import { X } from "lucide-react"
+import React, { useState } from "react"
+import { X, Plus, Type, Image as ImageIcon, Music, Gem } from "lucide-react"
 import { addBrandbookPages } from "@/app/actions/brandbook"
-
-// All available pages for the brandbook
-const ALL_PAGES = [
-    "Visão geral",
-    "DNA da Marca",
-    "História da marca",
-    "Logo",
-    "Cores",
-    "Tipografia",
-    "Iconografia",
-    "Imagens & Fotografia",
-    "Ilustração",
-    "Grid & Layouts",
-    "Elementos gráficos",
-    "Aplicações digitais",
-    "Aplicações offline",
-    "Motion design",
-    "Personalidade da marca",
-    "Tom de voz",
-    "Linguagem preferencial",
-    "Slogans e taglines",
-    "Naming system",
-    "Storytelling base",
-    "Copywriting guidelines",
-    "Som da marca",
-    "Identidade olfativa",
-    "Identidade tátil",
-    "Identidade gustativa",
-    "Experiência multimodal"
-]
+import { CATEGORIES } from "@/lib/brandbook-utils"
+import { createClient } from "@/lib/supabase/client"
+import { GUIDE_INTRO_TEMPLATE, DNA_TEMPLATE, HISTORY_TEMPLATE } from "@/lib/brandbook-templates"
 
 export interface BrandbookModule {
     id: string
@@ -53,7 +26,111 @@ interface AddPagesModalProps {
     brandbookId: string
     existingPageTitles: string[]
     onPagesAdded?: (modules: BrandbookModule[]) => void
+    filterCategory?: string | null
 }
+
+const TEMPLATES = [
+    {
+        id: 'blank',
+        label: 'Blank',
+        defaultTitle: 'Sem título',
+        type: 'custom',
+        defaultCategory: 'all',
+        icon: <Plus className="w-8 h-8 text-[#97a1b3] group-hover:text-white transition-colors" strokeWidth={1.5} />
+    },
+    {
+        id: 'guide_intro',
+        label: 'Guide intro',
+        defaultTitle: 'Visão geral',
+        type: 'mission',
+        defaultCategory: 'overview',
+        icon: (
+            <div className="w-12 h-16 border border-[#2d3139] group-hover:border-white/40 rounded flex flex-col items-center justify-center gap-1 bg-[#1a1b21] transition-colors">
+                <div className="w-7 h-[2px] bg-[#97a1b3] group-hover:bg-white/60 transition-colors" />
+                <div className="w-7 h-[2px] bg-[#97a1b3] group-hover:bg-white/60 transition-colors" />
+                <div className="w-7 h-[2px] bg-[#97a1b3] group-hover:bg-white/60 transition-colors" />
+                <div className="w-5 h-[2px] bg-[#97a1b3] group-hover:bg-white/60 transition-colors self-start ml-2.5" />
+            </div>
+        )
+    },
+    {
+        id: 'philosophy',
+        label: 'Philosophy',
+        defaultTitle: 'DNA da marca',
+        type: 'archetype',
+        defaultCategory: 'overview',
+        icon: (
+            <div className="w-12 h-16 border border-[#2d3139] group-hover:border-white/40 rounded flex items-center justify-center bg-[#1a1b21] transition-colors">
+                <svg className="w-6 h-6 text-[#97a1b3] group-hover:text-white transition-colors" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="9" cy="12" r="4" />
+                    <circle cx="15" cy="12" r="4" />
+                </svg>
+            </div>
+        )
+    },
+    {
+        id: 'logo',
+        label: 'Logo',
+        defaultTitle: 'Logo',
+        type: 'logo',
+        defaultCategory: 'visual_identity',
+        icon: (
+            <div className="w-12 h-16 border border-[#2d3139] group-hover:border-white/40 rounded flex items-center justify-center bg-[#1a1b21] transition-colors">
+                <Gem className="w-6 h-6 text-[#97a1b3] group-hover:text-white transition-colors" strokeWidth={1.5} />
+            </div>
+        )
+    },
+    {
+        id: 'colors',
+        label: 'Colors',
+        defaultTitle: 'Cores',
+        type: 'palette',
+        defaultCategory: 'visual_identity',
+        icon: (
+            <div className="w-12 h-16 border border-[#2d3139] group-hover:border-white/40 rounded flex items-center justify-center bg-[#1a1b21] transition-colors">
+                <div className="w-6 h-6 border border-[#97a1b3] group-hover:border-white/60 relative overflow-hidden rotate-45 transition-colors">
+                    <div className="absolute inset-0 bg-[#97a1b3] group-hover:bg-white/60 translate-x-1/2 -translate-y-1/2 transition-colors" />
+                </div>
+            </div>
+        )
+    },
+    {
+        id: 'typography',
+        label: 'Typography',
+        defaultTitle: 'Tipografia',
+        type: 'typography',
+        defaultCategory: 'visual_identity',
+        icon: (
+            <div className="w-12 h-16 border border-[#2d3139] group-hover:border-white/40 rounded flex items-center justify-center bg-[#1a1b21] transition-colors">
+                <Type className="w-6 h-6 text-[#97a1b3] group-hover:text-white transition-colors" strokeWidth={1.5} />
+            </div>
+        )
+    },
+    {
+        id: 'photography',
+        label: 'Photography',
+        defaultTitle: 'Imagens & Fotografia',
+        type: 'photography',
+        defaultCategory: 'visual_identity',
+        icon: (
+            <div className="w-12 h-16 border border-[#2d3139] group-hover:border-white/40 rounded flex items-center justify-center bg-[#1a1b21] transition-colors">
+                <ImageIcon className="w-6 h-6 text-[#97a1b3] group-hover:text-white transition-colors" strokeWidth={1.5} />
+            </div>
+        )
+    },
+    {
+        id: 'sound',
+        label: 'Sound',
+        defaultTitle: 'Som da marca',
+        type: 'custom',
+        defaultCategory: 'sensory_identity',
+        icon: (
+            <div className="w-12 h-16 border border-[#2d3139] group-hover:border-white/40 rounded flex items-center justify-center bg-[#1a1b21] transition-colors">
+                <Music className="w-6 h-6 text-[#97a1b3] group-hover:text-white transition-colors" strokeWidth={1.5} />
+            </div>
+        )
+    }
+]
 
 export function AddPagesModal({
     isOpen,
@@ -61,66 +138,66 @@ export function AddPagesModal({
     brandName,
     brandbookId,
     existingPageTitles,
-    onPagesAdded
+    onPagesAdded,
+    filterCategory = null
 }: AddPagesModalProps) {
-    const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set())
+    const [customName, setCustomName] = useState("")
     const [isSaving, setIsSaving] = useState(false)
-
-    // Initialize selected pages with existing ones
-    useEffect(() => {
-        if (isOpen) {
-            const existing = new Set(existingPageTitles.map(t => t.toLowerCase()))
-            const preSelected = new Set<string>()
-            ALL_PAGES.forEach(page => {
-                if (existing.has(page.toLowerCase())) {
-                    preSelected.add(page)
-                }
-            })
-            setSelectedPages(preSelected)
-        }
-    }, [isOpen, existingPageTitles])
 
     if (!isOpen) return null
 
-    const isPageExisting = (page: string) => {
-        return existingPageTitles.some(t => t.toLowerCase() === page.toLowerCase())
-    }
+    const handleSave = async (template: typeof TEMPLATES[0]) => {
+        const finalTitle = customName.trim() || template.defaultTitle
 
-    const togglePage = (page: string) => {
-        // Don't allow deselecting existing pages
-        if (isPageExisting(page)) return
-
-        setSelectedPages(prev => {
-            const newSet = new Set(prev)
-            if (newSet.has(page)) {
-                newSet.delete(page)
-            } else {
-                newSet.add(page)
-            }
-            return newSet
-        })
-    }
-
-    const handleSave = async () => {
-        // Get newly selected pages (not existing ones)
-        const newPages = Array.from(selectedPages).filter(page => !isPageExisting(page))
-
-        if (newPages.length === 0) {
-            onClose()
+        // Avoid adding duplicate title
+        const isDuplicate = existingPageTitles.some(t => t.toLowerCase() === finalTitle.toLowerCase())
+        if (isDuplicate) {
+            alert("Uma página com este título já existe.")
             return
         }
 
         setIsSaving(true)
         try {
-            const result = await addBrandbookPages(brandbookId, newPages)
-            if (result.success && result.modules) {
-                onPagesAdded?.(result.modules)
+            const result = await addBrandbookPages(brandbookId, [finalTitle])
+            if (result.success && result.modules && result.modules.length > 0) {
+                const createdModule = result.modules[0]
+                const updates: any = {}
+
+                if (filterCategory) {
+                    updates.category = filterCategory
+                } else if (template.defaultCategory && template.defaultCategory !== 'all') {
+                    updates.category = template.defaultCategory
+                }
+
+                if (template.type && template.type !== 'custom') {
+                    updates.type = template.type
+                    if (template.type === 'mission') {
+                        updates.content_json = GUIDE_INTRO_TEMPLATE
+                    } else if (template.type === 'archetype') {
+                        updates.content_json = DNA_TEMPLATE
+                    } else if (template.type === 'history') {
+                        updates.content_json = HISTORY_TEMPLATE
+                    }
+                }
+
+                if (Object.keys(updates).length > 0) {
+                    const supabase = createClient()
+                    await supabase
+                        .from('brandbook_modules')
+                        .update(updates)
+                        .eq('id', createdModule.id)
+                }
+
+                const updatedModule = {
+                    ...createdModule,
+                    ...updates
+                }
+
+                onPagesAdded?.([updatedModule])
                 onClose()
-            } else {
-                console.error("Failed to add pages:", result.error)
             }
         } catch (error) {
-            console.error("Error adding pages:", error)
+            console.error("Error adding page:", error)
         } finally {
             setIsSaving(false)
         }
@@ -137,103 +214,59 @@ export function AddPagesModal({
             {/* Modal */}
             <div className="fixed inset-0 z-[4000] flex items-center justify-center pointer-events-none">
                 <div
-                    className="pointer-events-auto relative flex flex-col"
+                    className="pointer-events-auto relative flex flex-col overflow-hidden shadow-2xl"
                     style={{
-                        maxWidth: '1260px',
-                        width: '95%',
-                        height: '1000px',
-                        maxHeight: '95vh',
-                        backgroundColor: '#0E0F14',
-                        borderRadius: '16px',
-                        padding: '113px 240px',
-                        gap: '120px'
+                        width: '722px',
+                        height: '492px',
+                        backgroundColor: '#15161b',
+                        borderRadius: '12px',
                     }}
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Close Button */}
-                    <button
-                        onClick={onClose}
-                        className="absolute top-6 right-6 text-gray-400 hover:text-white transition-colors"
-                    >
-                        <X className="w-6 h-6" />
-                    </button>
-
                     {/* Header */}
-                    <div>
-                        <h2
-                            className="text-2xl font-light"
-                            style={{ color: '#97A1B3' }}
-                        >
-                            Add new pages to <span className="text-white">[{brandName}]</span>
-                        </h2>
-                    </div>
-
-                    {/* Pages Grid */}
-                    <div className="flex-1 overflow-y-auto">
-                        <div className="flex flex-wrap gap-3 justify-center">
-                            {ALL_PAGES.map(page => {
-                                const isSelected = selectedPages.has(page)
-                                const isExisting = isPageExisting(page)
-                                const isActive = isSelected || isExisting
-
-                                return (
-                                    <button
-                                        key={page}
-                                        onClick={() => togglePage(page)}
-                                        className="transition-all duration-200"
-                                        style={{
-                                            height: '50px',
-                                            padding: '0 20px',
-                                            borderRadius: '25px',
-                                            border: '2px solid #ff0054',
-                                            backgroundColor: isActive ? '#ff0054' : 'transparent',
-                                            color: isActive ? '#ffffff' : '#97A1B3',
-                                            fontSize: '14px',
-                                            fontWeight: 500,
-                                            cursor: isExisting ? 'default' : 'pointer',
-                                            opacity: isExisting ? 0.8 : 1
-                                        }}
-                                        onMouseEnter={(e) => {
-                                            if (!isActive && !isExisting) {
-                                                e.currentTarget.style.backgroundColor = '#ff0054'
-                                                e.currentTarget.style.color = '#ffffff'
-                                            }
-                                        }}
-                                        onMouseLeave={(e) => {
-                                            if (!isActive && !isExisting) {
-                                                e.currentTarget.style.backgroundColor = 'transparent'
-                                                e.currentTarget.style.color = '#97A1B3'
-                                            }
-                                        }}
-                                    >
-                                        {page}
-                                    </button>
-                                )
-                            })}
-                        </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-center gap-6">
+                    <div
+                        className="h-16 px-6 flex items-center justify-between shrink-0"
+                        style={{ backgroundColor: '#ff0054' }}
+                    >
+                        <h2 className="text-white text-lg font-medium select-none">Add page</h2>
                         <button
                             onClick={onClose}
-                            className="px-8 py-3 text-sm font-medium transition-colors"
-                            style={{ color: '#97A1B3' }}
-                        >
-                            Cancelar
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            disabled={isSaving}
-                            className="px-8 py-3 text-sm font-medium rounded-lg transition-all"
-                            style={{
-                                backgroundColor: '#ff0054',
-                                color: '#ffffff',
-                                opacity: isSaving ? 0.7 : 1
-                            }}
-                        >
-                            {isSaving ? 'Salvando...' : 'Salvar'}
-                        </button>
+                            className="w-3 h-3 rounded-full bg-white hover:opacity-80 transition-opacity outline-none"
+                            title="Close"
+                        />
+                    </div>
+
+                    {/* Body */}
+                    <div className="flex-1 flex flex-col p-6 gap-6 min-h-0">
+                        {/* Input Name */}
+                        <div className="relative w-full">
+                            <input
+                                type="text"
+                                value={customName}
+                                onChange={(e) => setCustomName(e.target.value)}
+                                placeholder="Enter name"
+                                className="w-full bg-transparent text-white placeholder-gray-500 border-b-2 border-blue-500 pb-2 text-base outline-none focus:border-blue-400 transition-colors"
+                            />
+                        </div>
+
+                        {/* Grid */}
+                        <div className="grid grid-cols-4 gap-4 flex-1 overflow-y-auto min-h-0 pb-2">
+                            {TEMPLATES.map((template) => (
+                                <button
+                                    key={template.id}
+                                    onClick={() => handleSave(template)}
+                                    disabled={isSaving}
+                                    className="h-[130px] border border-[#2d3139] hover:border-[#ff0054] rounded-lg bg-[#1a1b21] flex flex-col items-center justify-center gap-3 p-3 hover:shadow-lg transition-all group outline-none"
+                                >
+                                    <div className="flex-1 flex items-center justify-center">
+                                        {template.icon}
+                                    </div>
+                                    <span className="text-gray-400 group-hover:text-white text-xs font-semibold tracking-wide select-none">
+                                        {template.label}
+                                    </span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div>

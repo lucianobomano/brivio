@@ -59,6 +59,7 @@ interface SectionWrapperProps {
     settingsPanel?: React.ReactNode
     settings?: SectionSettings
     isReadOnly?: boolean
+    responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
 }
 
 const SectionWrapper = ({
@@ -70,9 +71,13 @@ const SectionWrapper = ({
     isLast,
     settingsPanel,
     settings,
-    isReadOnly
+    isReadOnly,
+    responsiveDevice
 }: Omit<SectionWrapperProps, 'onAnimate'>) => {
     const getAlignItems = () => {
+        if (responsiveDevice === 'desktop' || responsiveDevice === 'widescreen' || responsiveDevice === 'mobile') {
+            return 'center'
+        }
         // Horizontal alignment (left/center/right)
         // For flex-col, alignItems controls horizontal alignment
         // Use 'stretch' as default to ensure children take full width
@@ -85,6 +90,9 @@ const SectionWrapper = ({
     }
 
     const getJustifyContent = () => {
+        if (responsiveDevice === 'desktop' || responsiveDevice === 'widescreen' || responsiveDevice === 'mobile') {
+            return 'center'
+        }
         // Vertical alignment (top/middle/bottom)
         switch (settings?.alignVertical) {
             case 'middle': return 'center'
@@ -231,13 +239,13 @@ export function MainCanvas({
         }
     }, [])
 
-    const { settings } = useBrandDesign()
+    const { settings, isResizingGlobal } = useBrandDesign()
 
     // Dynamic width based on responsive selector
     const getResponsiveWidth = () => {
         switch (responsiveDevice) {
             case 'mobile': return 'max-w-[400px]'
-            case 'desktop': return 'max-w-[1280px]'
+            case 'desktop': return 'max-w-none'
             case 'widescreen': return 'max-w-none'
             default: return 'max-w-none'
         }
@@ -724,6 +732,18 @@ export function MainCanvas({
                     responsiveDevice !== 'widescreen' && "mx-auto",
                     !isReadOnly && "pt-[80px]"
                 )}>
+                    {isResizingGlobal && (
+                        <div className="absolute inset-y-0 left-0 right-0 pointer-events-none z-[1000] flex justify-center">
+                            <div className={cn(
+                                "h-full grid grid-cols-12 gap-[32px]",
+                                responsiveDevice === 'desktop' ? "w-[1070px]" : responsiveDevice === 'widescreen' ? "w-[1452px]" : "w-[400px]"
+                            )}>
+                                {Array.from({ length: 12 }).map((_, i) => (
+                                    <div key={i} className="h-full bg-[#FF0054]/5 border-x border-[#FF0054]/10" />
+                                ))}
+                            </div>
+                        </div>
+                    )}
                     <div className="w-full text-gray-600 overflow-visible">
                         <div className={cn("w-full", !isReadOnly ? "space-y-6" : "", "overflow-visible")}>
                             {blocks.length > 0 ? (
@@ -774,6 +794,7 @@ export function MainCanvas({
                                                 }
                                                 settings={block.content.settings}
                                                 isReadOnly={isReadOnly}
+                                                responsiveDevice={responsiveDevice}
                                             >
                                                 <BlockRenderer
                                                     block={block}
@@ -787,6 +808,7 @@ export function MainCanvas({
                                                     onCopy={handleCopyBlock}
                                                     onAnimate={() => onAnimate?.()}
                                                     align={block.content.settings?.alignHorizontal || 'center'}
+                                                    responsiveDevice={responsiveDevice}
                                                 />
                                             </SectionWrapper>
 

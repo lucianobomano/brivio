@@ -1,5 +1,6 @@
 import { createAdminClient, createClient } from "@/lib/supabase/server"
 import BrandbookEditorWrapper from "@/components/brandbook/BrandbookEditorWrapper"
+import { GUIDE_INTRO_TEMPLATE, DNA_TEMPLATE, HISTORY_TEMPLATE } from "@/lib/brandbook-templates"
 
 
 export const dynamic = 'force-dynamic'
@@ -36,14 +37,15 @@ export default async function BrandbookPage({
     const { preview } = await searchParams
     const isReadOnly = preview === 'true'
 
-    // Fetch brand to get the name
+    // Fetch brand to get the name and logo
     const { data: brand } = await supabaseAdmin
         .from('brands')
-        .select('name')
+        .select('name, logo_url')
         .eq('id', brandId)
         .single()
 
     const brandName = brand?.name || ''
+    const brandLogoUrl = brand?.logo_url || null
 
     // 1. Fetch Brandbook - Handle potential duplicates by taking the latest one
     // Correct table name: 'brandbooks'
@@ -98,13 +100,13 @@ export default async function BrandbookPage({
         console.log('[BrandbookPage] Seeding default modules for:', brandbook.id)
         const DEFAULT_MODULES = [
             // 1. Visão geral
-            { brandbook_id: brandbook.id, order: 0, title: 'Visão geral', type: 'intro', category: 'overview', content_json: {} },
-            { brandbook_id: brandbook.id, order: 1, title: 'DNA da marca', type: 'dna', category: 'overview', content_json: {} },
-            { brandbook_id: brandbook.id, order: 2, title: 'História da marca', type: 'history', category: 'overview', content_json: {} },
+            { brandbook_id: brandbook.id, order: 0, title: 'Visão geral', type: 'mission', category: 'overview', content_json: GUIDE_INTRO_TEMPLATE },
+            { brandbook_id: brandbook.id, order: 1, title: 'DNA da marca', type: 'archetype', category: 'overview', content_json: DNA_TEMPLATE },
+            { brandbook_id: brandbook.id, order: 2, title: 'História da marca', type: 'history', category: 'overview', content_json: HISTORY_TEMPLATE },
             // 2. Guia de estilo visual
-            { brandbook_id: brandbook.id, order: 3, title: 'Guia de estilo visual', type: 'visual_guide', category: 'visual_guide', content_json: {} },
+            { brandbook_id: brandbook.id, order: 3, title: 'Guia de estilo visual', type: 'custom', category: 'visual_guide', content_json: {} },
             // 3. Identidade Verbal
-            { brandbook_id: brandbook.id, order: 4, title: 'Personalidade da marca', type: 'verbal', category: 'verbal_identity', content_json: {} },
+            { brandbook_id: brandbook.id, order: 4, title: 'Personalidade da marca', type: 'custom', category: 'verbal_identity', content_json: {} },
             { brandbook_id: brandbook.id, order: 5, title: 'Tom de voz', type: 'voice_tone', category: 'verbal_identity', content_json: {} },
             // 4. Identidade Visual
             { brandbook_id: brandbook.id, order: 6, title: 'Logo', type: 'logo', category: 'visual_identity', content_json: {} },
@@ -112,12 +114,12 @@ export default async function BrandbookPage({
             { brandbook_id: brandbook.id, order: 8, title: 'Tipografia', type: 'typography', category: 'visual_identity', content_json: {} },
             { brandbook_id: brandbook.id, order: 9, title: 'Imagens & Fotografia', type: 'photography', category: 'visual_identity', content_json: {} },
             { brandbook_id: brandbook.id, order: 10, title: 'Ilustração', type: 'illustration', category: 'visual_identity', content_json: {} },
-            { brandbook_id: brandbook.id, order: 11, title: 'Grid & Layouts', type: 'layout', category: 'visual_identity', content_json: {} },
+            { brandbook_id: brandbook.id, order: 11, title: 'Grid & Layouts', type: 'grid', category: 'visual_identity', content_json: {} },
             { brandbook_id: brandbook.id, order: 12, title: 'Motion design', type: 'motion', category: 'visual_identity', content_json: {} },
             // 5. Identidade Sensorial
-            { brandbook_id: brandbook.id, order: 13, title: 'Identidade sonora', type: 'sound', category: 'sensory_identity', content_json: {} },
-            { brandbook_id: brandbook.id, order: 14, title: 'Identidade olfativa', type: 'scent', category: 'sensory_identity', content_json: {} },
-            { brandbook_id: brandbook.id, order: 15, title: 'Experiência multimodal', type: 'multimodal', category: 'sensory_identity', content_json: {} },
+            { brandbook_id: brandbook.id, order: 13, title: 'Identidade sonora', type: 'custom', category: 'sensory_identity', content_json: {} },
+            { brandbook_id: brandbook.id, order: 14, title: 'Identidade olfativa', type: 'custom', category: 'sensory_identity', content_json: {} },
+            { brandbook_id: brandbook.id, order: 15, title: 'Experiência multimodal', type: 'custom', category: 'sensory_identity', content_json: {} },
         ]
 
         const { data: newModules, error: insertError } = await supabaseAdmin
@@ -151,6 +153,7 @@ export default async function BrandbookPage({
                     brandbookId={brandbook.id}
                     brandId={brandId}
                     brandName={brandName}
+                    brandLogoUrl={brandLogoUrl}
                     isReadOnly={isReadOnly}
                     userData={userData}
                 />

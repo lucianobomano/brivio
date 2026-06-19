@@ -23,7 +23,7 @@ export function BrandCard({ brand }: BrandCardProps) {
         : '---'
 
     return (
-        <div className="relative w-full aspect-[372/585] rounded-[16px] bg-white overflow-hidden group border border-gray-100 shadow-sm transition-all duration-500">
+        <div className="relative w-[374px] h-[588px] rounded-[16px] bg-white overflow-hidden group border border-gray-100 shadow-sm transition-all duration-500">
             {/* Clickable Area for the brand */}
             <Link href={`/brand/${brand.id}/brandbook`} className="absolute inset-0 z-10" />
 

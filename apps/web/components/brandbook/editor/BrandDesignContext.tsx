@@ -51,6 +51,8 @@ interface BrandDesignContextType {
     removeFromPalette: (index: number) => void
     updatePaletteColor: (index: number, color: string) => void
     isLoading: boolean
+    isResizingGlobal: boolean
+    setIsResizingGlobal: (resizing: boolean) => void
 }
 
 const DEFAULT_FONT_STYLES: FontStyle[] = [
@@ -88,6 +90,7 @@ export function BrandDesignProvider({ children, brandId }: { children: React.Rea
     const [settings, setSettings] = useState<BrandSettingsState>(DEFAULT_SETTINGS)
     const [brandInfo, setBrandInfo] = useState<BrandInfoState>(DEFAULT_BRAND_INFO)
     const [isLoading, setIsLoading] = useState(true)
+    const [isResizingGlobal, setIsResizingGlobal] = useState(false)
 
     // Load settings from DB
     useEffect(() => {
@@ -241,7 +244,9 @@ export function BrandDesignProvider({ children, brandId }: { children: React.Rea
             addToPalette,
             removeFromPalette,
             updatePaletteColor,
-            isLoading
+            isLoading,
+            isResizingGlobal,
+            setIsResizingGlobal
         }}>
             {children}
         </BrandDesignContext.Provider>

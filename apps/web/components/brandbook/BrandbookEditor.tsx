@@ -61,6 +61,7 @@ interface BrandbookEditorProps {
     brandbookId: string
     brandId: string
     brandName?: string
+    brandLogoUrl?: string | null
     isReadOnly?: boolean
     userData?: UserData | null
 }
@@ -70,6 +71,7 @@ export default function BrandbookEditor({
     brandbookId,
     brandId,
     brandName = '',
+    brandLogoUrl = null,
     isReadOnly = false,
     userData = null
 }: BrandbookEditorProps) {
@@ -116,13 +118,34 @@ export default function BrandbookEditor({
     // Derived state
     const activeModule = items.find(m => m.id === selectedModuleId) || null
 
-    async function handleAddModule(type: string) {
+    async function handleAddModule(type: string, categoryId?: string, customTitle?: string) {
         const order = items.length
         const result = await createBrandbookModule(brandbookId, type, order)
 
         if (result.success && result.module) {
-            setItems([...items, result.module])
-            setSelectedModuleId(result.module.id)
+            let finalModule = result.module
+
+            if (customTitle || categoryId) {
+                const updates: any = {}
+                if (customTitle) updates.title = customTitle
+                if (categoryId) updates.category = categoryId
+
+                const { createClient } = require("@/lib/supabase/client")
+                const supabase = createClient()
+                const { data: updatedModule } = await supabase
+                    .from('brandbook_modules')
+                    .update(updates)
+                    .eq('id', result.module.id)
+                    .select()
+                    .single()
+
+                if (updatedModule) {
+                    finalModule = updatedModule
+                }
+            }
+
+            setItems([...items, finalModule])
+            setSelectedModuleId(finalModule.id)
         }
     }
 
@@ -417,6 +440,8 @@ export default function BrandbookEditor({
                         onToggleFullscreen={handleToggleFullscreen}
                         brandName={brandName}
                         brandbookId={brandbookId}
+                        brandLogoUrl={brandLogoUrl}
+                        userData={userData}
                         onPagesAdded={(newModules) => {
                             setItems(prev => [...prev, ...newModules])
                         }}

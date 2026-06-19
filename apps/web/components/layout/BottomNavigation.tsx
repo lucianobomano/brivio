@@ -34,6 +34,9 @@ const MENU_ITEMS = [
     { label: "Finanças", icon: Wallet, href: "/finances" },
 ]
 
+// Routes managed by the SPA provider — kept for future use
+// const SPA_ROUTES = new Set(["/dashboard", "/projects", "/tasks", "/roadmap", "/focus", "/sprints", "/standups"])
+
 export function BottomNavigation() {
     const pathname = usePathname()
     const searchParams = useSearchParams()
@@ -65,6 +68,7 @@ export function BottomNavigation() {
 
                 {MENU_ITEMS.map((item) => {
                     const itemPath = item.href.split("?")[0]
+
                     let isActive = false
                     if (item.label === "Projectos") {
                         isActive = activeView === "projects"
@@ -81,21 +85,23 @@ export function BottomNavigation() {
                     } else if (item.label === "Stand-ups") {
                         isActive = activeView === "standups"
                     } else {
-                        isActive = activeView === itemPath.replace("/", "") as any
+                        isActive = pathname === itemPath
                     }
 
                     const Icon = item.icon
                     const isHovered = hoveredLabel === item.label
                     const showBg = isHovered || isActive
 
+                    const handleClick = (e: React.MouseEvent) => {
+                        e.preventDefault()
+                        window.location.href = item.href
+                    }
+
                     return (
                         <Link
                             key={item.label}
                             href={item.href}
-                            onClick={(e) => {
-                                e.preventDefault()
-                                navigateTo(item.href)
-                            }}
+                            onClick={handleClick}
                             onMouseEnter={() => setHoveredLabel(item.label)}
                             onMouseLeave={() => setHoveredLabel(null)}
                             className="relative flex items-center justify-center z-10 w-[60px] h-[60px]"

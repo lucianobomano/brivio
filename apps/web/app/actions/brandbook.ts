@@ -2,6 +2,14 @@
 
 import { createAdminClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { GUIDE_INTRO_TEMPLATE, DNA_TEMPLATE, HISTORY_TEMPLATE } from "@/lib/brandbook-templates"
+
+function getDefaultContentForType(type: string): Record<string, any> {
+    if (type === 'mission') return GUIDE_INTRO_TEMPLATE
+    if (type === 'archetype') return DNA_TEMPLATE
+    if (type === 'history') return HISTORY_TEMPLATE
+    return {}
+}
 
 export async function createBrandbookModule(brandbookId: string, type: string, order: number) {
     // Use Admin Client to bypass RLS
@@ -37,7 +45,7 @@ export async function createBrandbookModule(brandbookId: string, type: string, o
             type: type,
             title: titles[type] || "New Section",
             order: order,
-            content_json: {} // Default empty content
+            content_json: getDefaultContentForType(type)
         })
         .select()
         .single()
@@ -263,14 +271,17 @@ export async function addBrandbookPages(brandbookId: string, newPageTitles: stri
     }
 
     // Create module data
-    const modulesData = pagesToAdd.map((pageTitle, index) => ({
-        brandbook_id: brandbookId,
-        title: pageTitle,
-        type: mapPageToModuleType(pageTitle),
-        order: maxOrder + 1 + index,
-        category: mapPageToCategory(pageTitle),
-        content_json: {}
-    }))
+    const modulesData = pagesToAdd.map((pageTitle, index) => {
+        const type = mapPageToModuleType(pageTitle)
+        return {
+            brandbook_id: brandbookId,
+            title: pageTitle,
+            type: type,
+            order: maxOrder + 1 + index,
+            category: mapPageToCategory(pageTitle),
+            content_json: getDefaultContentForType(type)
+        }
+    })
 
     const { data: insertedModules, error } = await supabase
         .from('brandbook_modules')

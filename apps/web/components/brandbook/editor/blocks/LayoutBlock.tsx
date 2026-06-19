@@ -25,10 +25,11 @@ interface LayoutBlockProps {
     onDelete?: (id: string) => void
     onDuplicate?: (id: string) => void
     onAnimate?: () => void
+    responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
 }
 
-export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDuplicate, onAnimate }: LayoutBlockProps) => {
-    const { brandId } = useBrandDesign()
+export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDuplicate, onAnimate, responsiveDevice }: LayoutBlockProps) => {
+    const { brandId, setIsResizingGlobal } = useBrandDesign()
     // Determine columns from variant or content
     // content.columns = [{ id: 'col-1', blocks: [] }, ...]
     const columns = block.content.columns || []
@@ -270,6 +271,7 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
 
     const handleResizeStart = () => {
         dragStartWidths.current = [...localWidths]
+        setIsResizingGlobal(true)
     }
 
     const handleResize = (index: number, delta: number) => {
@@ -330,6 +332,7 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
                 columnWidths: localWidthsRef.current
             }
         })
+        setIsResizingGlobal(false)
     }
 
     const getGridTemplate = (count: number, option: number) => {
@@ -378,7 +381,10 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
                 gap: `${gapValue}px`,
                 gridTemplateColumns: appliedTemplate,
                 aspectRatio: hasAspectRatio ? aspectRatio.replace(':', '/') : undefined,
-                maxHeight: '100%'
+                maxHeight: '100%',
+                maxWidth: responsiveDevice === 'desktop' ? '1070px' : responsiveDevice === 'widescreen' ? '1452px' : undefined,
+                marginLeft: (responsiveDevice === 'desktop' || responsiveDevice === 'widescreen') ? 'auto' : undefined,
+                marginRight: (responsiveDevice === 'desktop' || responsiveDevice === 'widescreen') ? 'auto' : undefined,
             }}
         >
             {columns.map((col: any, index: number) => {
@@ -556,6 +562,7 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
                                         onAnimate={onAnimate}
                                         align={col.settings?.alignHorizontal || 'left'}
                                         isFreeFlow={col.settings?.isFreeFlow}
+                                        responsiveDevice={responsiveDevice}
                                         onDelete={(id) => {
                                             // Deleting a block inside a column
                                             const newColumns = columns.map((c: any) => {

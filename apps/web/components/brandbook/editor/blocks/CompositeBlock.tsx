@@ -31,9 +31,10 @@ interface CompositeBlockProps {
     onMove?: (id: string, direction: 'up' | 'down') => void
     activeBlockId?: string | null
     align?: 'left' | 'center' | 'right'
+    responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
 }
 
-export const CompositeBlock = ({ block, isReadOnly, onUpdate, onDelete, onSelect, onMove, align, activeBlockId }: CompositeBlockProps) => {
+export const CompositeBlock = ({ block, isReadOnly, onUpdate, onDelete, onSelect, onMove, align, activeBlockId, responsiveDevice }: CompositeBlockProps) => {
     const { getStyleById } = useBrandDesign()
     const globalStyle = getStyleById('body') // Fallback to body for composite text
 
@@ -220,6 +221,7 @@ export const CompositeBlock = ({ block, isReadOnly, onUpdate, onDelete, onSelect
                     isReadOnly={isReadOnly}
                     align={align}
                     className="w-full"
+                    responsiveDevice={responsiveDevice}
                 >
                     <AutoResizeTextarea
                         value={text !== undefined && text !== null ? text : "Este é apenas um espaço em branco à espera da sua voz criativa. Substitua este texto quando a ideia certa aparecer."}

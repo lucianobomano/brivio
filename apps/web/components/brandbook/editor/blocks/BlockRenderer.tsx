@@ -35,6 +35,7 @@ interface BlockProps {
     onAnimate?: () => void
     align?: 'left' | 'center' | 'right'
     isFreeFlow?: boolean
+    responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
 }
 
 import {
@@ -52,7 +53,7 @@ import {
     detectBackgroundColor
 } from "./BlockUtils"
 
-const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, type }: BlockProps & { type: 'heading' | 'body' }) => {
+const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, responsiveDevice, type }: BlockProps & { type: 'heading' | 'body' }) => {
     const { getStyleById } = useBrandDesign()
     const [isFocused, setIsFocused] = React.useState(false)
     const [isHovered, setIsHovered] = React.useState(false)
@@ -217,6 +218,7 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                 isFocused={isFocused || activeBlockId === block.id}
                 isReadOnly={isReadOnly}
                 align={align}
+                responsiveDevice={responsiveDevice}
             >
                 {isReadOnly ? (
                     <div
@@ -234,6 +236,7 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             color: globalStyle?.color,
                             textTransform: (globalStyle?.casing === 'none' ? undefined : globalStyle?.casing) as React.CSSProperties['textTransform'],
                             ...block.content.style,
+                            maxWidth: '100%',
                             height: block.content.style?.height || 'auto',
                             minHeight: '0px'
                         }}
@@ -275,10 +278,10 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     )
 }
 
-export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow }: BlockProps) {
+export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice }: BlockProps) {
     if (!block) return null
 
-    const commonProps = { block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow }
+    const commonProps = { block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice }
 
     const renderBlock = () => {
         switch (block.type as string) {
@@ -331,6 +334,7 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
                 isFreeFlow={isFreeFlow}
                 onUpdate={onUpdate}
                 onSelect={() => onSelect?.(block.id)}
+                responsiveDevice={responsiveDevice}
             >
                 {renderBlock()}
             </DraggableBlockWrapper>

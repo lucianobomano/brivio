@@ -1,0 +1,252 @@
+{
+  "blocks": [
+    {
+      "id": "ko4t189mx",
+      "type": "layout",
+      "content": {
+        "columns": [
+          {
+            "id": "p99ym6zhh",
+            "blocks": [
+              {
+                "id": "yk4hqnlt8",
+                "type": "text",
+                "content": {
+                  "text": "BRAND STYLE GUIDE: HISTORY",
+                  "style": {
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              }
+            ]
+          },
+          {
+            "id": "p0eof660i",
+            "blocks": []
+          }
+        ],
+        "settings": {
+          "ratio": 0,
+          "height": "",
+          "columns": 2,
+          "padding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "isVisible": true,
+          "gridOption": 0,
+          "rowPadding": "S",
+          "aspectRatio": "auto",
+          "isFullWidth": false,
+          "isZoomImage": false,
+          "paddingLock": true,
+          "distribution": "between-full",
+          "alignVertical": "middle",
+          "isGridUnlocked": false,
+          "sectionPadding": {
+            "top": 80,
+            "left": 180,
+            "right": 180,
+            "bottom": 0,
+            "isLocked": false
+          },
+          "alignHorizontal": "center",
+          "backgroundColor": "#FFFFFF"
+        }
+      },
+      "variant": "2-col"
+    },
+    {
+      "id": "0msdq9n0k",
+      "type": "layout",
+      "content": {
+        "columns": [
+          {
+            "id": "e5z4foh8t",
+            "blocks": [
+              {
+                "id": "3x4uzd2o8",
+                "type": "heading",
+                "content": {
+                  "text": "All brands \nbegin with a true story",
+                  "style": {
+                    "width": "621px",
+                    "fontSize": "82px",
+                    "fontFamily": "Roboto"
+                  }
+                },
+                "variant": "h1"
+              },
+              {
+                "id": "96v8ifxz7",
+                "type": "text",
+                "content": {
+                  "text": "This is the page to display «N'gunza Group» brand origins, vision, creators behind the brand while leaving other sections for practical guidelines.",
+                  "style": {
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              },
+              {
+                "id": "frz0nl0bk",
+                "type": "text",
+                "content": {
+                  "text": "💎MICRO-VIDEOS & TEXT CARDS MODULES WORK GREAT.",
+                  "style": {
+                    "fontSize": "14px"
+                  }
+                },
+                "variant": "p"
+              }
+            ],
+            "settings": {
+              "alignVertical": "middle"
+            }
+          },
+          {
+            "id": "gynuq0ejj",
+            "blocks": [
+              {
+                "id": "if21feh54",
+                "type": "video",
+                "content": {
+                  "url": "https://rswfzywrpzscnkcisniu.supabase.co/storage/v1/object/public/assets/brands/e10cccd5-7d61-4afb-9f25-e7dbe17771fc/if21feh54/1767958924853_BG-WHITE.mov",
+                  "style": {
+                    "width": 640,
+                    "height": 640,
+                    "isLoop": true,
+                    "hasSound": false,
+                    "aspectRatio": "1/1",
+                    "showControls": false
+                  },
+                  "caption": ""
+                }
+              }
+            ],
+            "settings": {
+              "alignVertical": "middle"
+            }
+          }
+        ],
+        "settings": {
+          "ratio": 0,
+          "height": "385px",
+          "columns": 2,
+          "padding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "isVisible": true,
+          "gridOption": 0,
+          "rowPadding": "S",
+          "aspectRatio": "auto",
+          "isFullWidth": false,
+          "isZoomImage": false,
+          "paddingLock": true,
+          "distribution": "between-full",
+          "alignVertical": "middle",
+          "isGridUnlocked": false,
+          "sectionPadding": {
+            "top": 0,
+            "left": 180,
+            "right": 180,
+            "bottom": 0,
+            "isLocked": false
+          },
+          "alignHorizontal": "center",
+          "backgroundColor": "#FFFFFF"
+        }
+      },
+      "variant": "2-col"
+    },
+    {
+      "id": "s3ep3hoja",
+      "type": "layout",
+      "content": {
+        "columns": [
+          {
+            "id": "bbeqsq685",
+            "blocks": [
+              {
+                "id": "0o7m0mnqa",
+                "type": "text",
+                "content": {
+                  "text": "BRAND BOOK GUIDELINES",
+                  "style": {
+                    "fontSize": "20px"
+                  }
+                },
+                "variant": "p"
+              }
+            ],
+            "settings": {
+              "alignVertical": "middle"
+            }
+          },
+          {
+            "id": "vpjos62jy",
+            "blocks": [
+              {
+                "id": "v3abbe12g",
+                "type": "text",
+                "content": {
+                  "text": "03",
+                  "style": {
+                    "color": "#050505",
+                    "fontSize": "20px",
+                    "textAlign": "right",
+                    "fontWeight": "bold"
+                  }
+                },
+                "variant": "p"
+              }
+            ],
+            "settings": {
+              "alignVertical": "middle"
+            }
+          }
+        ],
+        "settings": {
+          "ratio": 0,
+          "height": "",
+          "columns": 2,
+          "padding": {
+            "top": 0,
+            "left": 0,
+            "right": 0,
+            "bottom": 0,
+            "isLocked": true
+          },
+          "isVisible": true,
+          "gridOption": 0,
+          "rowPadding": "S",
+          "aspectRatio": "auto",
+          "isFullWidth": false,
+          "isZoomImage": false,
+          "paddingLock": true,
+          "distribution": "between-full",
+          "alignVertical": "middle",
+          "isGridUnlocked": false,
+          "sectionPadding": {
+            "top": 50,
+            "left": 180,
+            "right": 180,
+            "bottom": 0,
+            "isLocked": false
+          },
+          "alignHorizontal": "center",
+          "backgroundColor": "#FFFFFF"
+        }
+      },
+      "variant": "2-col"
+    }
+  ]
+}
