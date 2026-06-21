@@ -17,6 +17,7 @@ export type ViewType =
     | "finances"
     | "assets"
     | "brandops"
+    | "other"
 
 interface SpaNavigationContextProps {
     activeView: ViewType
@@ -27,24 +28,28 @@ interface SpaNavigationContextProps {
 
 const SpaNavigationContext = React.createContext<SpaNavigationContextProps | undefined>(undefined)
 
+const getViewFromPath = (path: string): ViewType => {
+    if (path === "/dashboard") return "dashboard"
+    if (path === "/projects") return "projects"
+    if (path === "/tasks") return "tasks"
+    if (path === "/roadmap") return "roadmap"
+    if (path === "/focus") return "focus"
+    if (path === "/sprints" || path.startsWith("/sprints/")) return "sprints"
+    if (path === "/standups" || path.startsWith("/standups/")) return "standups"
+    if (path === "/assets") return "assets"
+    if (path === "/brandops") return "brandops"
+    return "other"
+}
+
 export function SpaNavigationProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
 
-    const getViewFromPath = (path: string): ViewType => {
-        if (path === "/dashboard") return "dashboard"
-        if (path === "/projects") return "projects"
-        if (path === "/tasks") return "tasks"
-        if (path === "/roadmap") return "roadmap"
-        if (path === "/focus") return "focus"
-        if (path === "/sprints" || path.startsWith("/sprints/")) return "sprints"
-        if (path === "/standups" || path.startsWith("/standups/")) return "standups"
-        if (path === "/assets") return "assets"
-        if (path === "/brandops") return "brandops"
-        return "projects"
-    }
-
     const [activeView, setActiveView] = React.useState<ViewType>(getViewFromPath(pathname))
     const [initialPathname] = React.useState(pathname)
+
+    React.useEffect(() => {
+        setActiveView(getViewFromPath(pathname))
+    }, [pathname])
 
     const navigateTo = React.useCallback((href: string) => {
         const path = href.split("?")[0]

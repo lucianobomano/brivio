@@ -135,6 +135,7 @@ export function RoadmapClient({
 }: RoadmapClientProps) {
     const [roadmap, setRoadmap] = React.useState<RoadmapStage[]>(initialRoadmap || [])
     const [isLoading, setIsLoading] = React.useState(false)
+    const [isRoadmapLoading, setIsRoadmapLoading] = React.useState(false)
     const [currentSelectedProject, setCurrentSelectedProject] = React.useState(selectedProject)
     const [isNotesOpen, setIsNotesOpen] = React.useState(false)
     const [localProjects, setLocalProjects] = React.useState<ProjectBase[]>(initialProjects || [])
@@ -159,15 +160,36 @@ export function RoadmapClient({
 
     React.useEffect(() => {
         if (localSelectedProjectId && (!initialRoadmap || initialRoadmap.length === 0)) {
-            setIsLoading(true)
+            setIsRoadmapLoading(true)
             import("@/app/actions/roadmap").then(({ getProjectRoadmap }) => {
                 getProjectRoadmap(localSelectedProjectId).then((data) => {
                     setRoadmap(data)
-                    setIsLoading(false)
+                    setIsRoadmapLoading(false)
                 })
             })
         }
     }, [localSelectedProjectId, initialRoadmap])
+
+    // Handles project selection without full page navigation
+    const handleSelectProject = React.useCallback((p: ProjectBase) => {
+        if (p.id === localSelectedProjectId) return
+        // 1. Update UI immediately (instant feedback)
+        setCurrentSelectedProject(p)
+        setLocalSelectedProjectId(p.id)
+        setRoadmap([])
+        // 2. Update URL without triggering a server navigation
+        window.history.pushState(null, "", `/roadmap?projectId=${p.id}`)
+        // 3. Fetch roadmap data client-side
+        setIsRoadmapLoading(true)
+        import("@/app/actions/roadmap").then(({ getProjectRoadmap }) => {
+            getProjectRoadmap(p.id).then((data) => {
+                setRoadmap(data)
+                setIsRoadmapLoading(false)
+            }).catch(() => {
+                setIsRoadmapLoading(false)
+            })
+        })
+    }, [localSelectedProjectId])
 
     React.useEffect(() => {
         setLocalSelectedProjectId(selectedProjectId)
@@ -578,28 +600,18 @@ export function RoadmapClient({
                                     {localProjects.map(p => (
                                         <DropdownMenuItem
                                             key={p.id}
-                                            asChild
                                             className={cn(
                                                 "rounded-lg px-3 py-2.5 cursor-pointer transition-all mb-1 outline-none",
                                                 localSelectedProjectId === p.id
                                                     ? "bg-[#FF0055] text-white font-black shadow-lg shadow-[#FF0055]/20"
                                                     : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300"
                                             )}
+                                            onClick={() => handleSelectProject(p)}
                                         >
-                                            <Link
-                                                href={`/roadmap?projectId=${p.id}`}
-                                                onClick={(e) => {
-                                                    e.preventDefault()
-                                                    setLocalSelectedProjectId(p.id)
-                                                    setCurrentSelectedProject(p as ProjectBase)
-                                                    window.history.pushState(null, "", `/roadmap?projectId=${p.id}`)
-                                                }}
-                                            >
-                                                <div className="flex items-center justify-between w-full">
-                                                    <span className="truncate text-xs font-bold uppercase tracking-tight">{p.name}</span>
-                                                    {localSelectedProjectId === p.id && <Check className="w-4 h-4 ml-2" />}
-                                                </div>
-                                            </Link>
+                                            <div className="flex items-center justify-between w-full">
+                                                <span className="truncate text-xs font-bold uppercase tracking-tight">{p.name}</span>
+                                                {localSelectedProjectId === p.id && <Check className="w-4 h-4 ml-2" />}
+                                            </div>
                                         </DropdownMenuItem>
                                     ))}
                                 </div>
@@ -768,7 +780,24 @@ export function RoadmapClient({
                 </motion.div>
             )}
 
+            {/* Roadmap loading skeleton */}
+            {isRoadmapLoading && (
+                <div className="space-y-6 pb-24 animate-pulse">
+                    {[1, 2, 3].map(i => (
+                        <div key={i} className="flex gap-6 items-start">
+                            <div className="w-16 h-16 rounded-full bg-bg-2 border border-bg-3 shrink-0" />
+                            <div className="flex-1 space-y-3 pt-4">
+                                <div className="h-4 bg-bg-2 rounded-lg w-1/3" />
+                                <div className="h-3 bg-bg-2 rounded-lg w-2/3" />
+                                <div className="h-3 bg-bg-2 rounded-lg w-1/2" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {/* Roadmap Views */}
+            <div className={isRoadmapLoading ? "hidden" : ""}>
             <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -812,7 +841,7 @@ export function RoadmapClient({
 
                 {layoutStyle === 'default' && viewMode === 'horizontal' && (
                     <div className="pb-24">
-                        <div className="flex gap-6 overflow-x-auto pb-4" style={{ scrollbarWidth: 'thin' }}>
+                        <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
                             {roadmap.map((stage, idx) => (
                                 <motion.div
                                     key={stage.id}
@@ -914,18 +943,10 @@ export function RoadmapClient({
                             ref={scrollContainerRef}
                             onMouseMove={handleMouseMove}
                             onMouseLeave={handleMouseLeave}
-                            className="overflow-x-auto overflow-y-visible px-6"
-                            style={{
-                                cursor: scrollDirection ? 'none' : 'default',
-                                scrollbarWidth: 'none',
-                                msOverflowStyle: 'none',
-                            }}
+                            className="overflow-x-auto overflow-y-visible px-6 scrollbar-hide"
+                            style={{ cursor: scrollDirection ? 'none' : 'default' }}
                         >
-                            <style jsx>{`
-                                div::-webkit-scrollbar {
-                                    display: none;
-                                }
-                            `}</style>
+
 
                             <div className="relative min-w-max flex items-center justify-start py-8 px-[100px]" style={{ gap: '250px' }}>
                                 {/* Connecting Line */}
@@ -1348,7 +1369,7 @@ export function RoadmapClient({
 
                 {/* Timeline Horizontal Layout */}
                 {layoutStyle === 'timeline' && (
-                    <div className="pb-24 overflow-x-auto">
+                    <div className="pb-24 overflow-x-auto scrollbar-hide">
                         <div className="flex items-start gap-0 min-w-max py-8">
                             {roadmap.map((stage, idx) => (
                                 <React.Fragment key={stage.id}>
@@ -1458,6 +1479,7 @@ export function RoadmapClient({
                     </div>
                 )}
             </DndContext>
+            </div>
 
             {/* Stage Create/Edit Modal */}
             <Dialog open={isStageModalOpen} onOpenChange={setIsStageModalOpen}>

@@ -1,4 +1,3 @@
-import { StandupHeader } from "@/components/standups/StandupHeader"
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { FocusClient } from "./FocusClient"
@@ -70,7 +69,6 @@ export default async function FocusPage({ searchParams: searchParamsPromise }: P
     return (
         <AuthLayoutInner user={userData} showSidebar={false} workspaceId={targetWorkspaceId}>
             <div className="flex flex-col min-h-screen bg-bg-0">
-                {!selectedProjectId && <StandupHeader />}
                 <div className="flex-1">
                     <FocusClient
                         projects={enrichedProjects}

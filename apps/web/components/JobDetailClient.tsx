@@ -24,6 +24,14 @@ export function JobDetailClient({ initialJob }: { initialJob: Job }) {
     const job = initialJob
     const containerRef = React.useRef<HTMLDivElement>(null)
 
+    // SECURITY: Sanitize HTML to prevent XSS attacks
+    const sanitizeHtml = (html: string): string => {
+        return html
+            .replace(/<script[\s\S]*?<\/script>/gi, '') // Remove <script> blocks
+            .replace(/on\w+\s*=\s*["'][^"']*["']/gi, '') // Remove inline event handlers
+            .replace(/javascript:\s*/gi, '') // Remove javascript: protocol
+    }
+
     const scrollToTop = () => {
         window.scrollTo({ top: 0, behavior: "smooth" })
         containerRef.current?.scrollTo({ top: 0, behavior: "smooth" })
@@ -92,7 +100,7 @@ export function JobDetailClient({ initialJob }: { initialJob: Job }) {
                 <div className="max-w-[900px] mx-auto px-8 md:px-[55px]">
                     <div
                         className="prose prose-invert prose-p:text-[18px] prose-p:leading-[1.6] prose-p:text-text-secondary prose-li:text-[18px] prose-li:text-text-secondary prose-strong:text-text-primary prose-ul:list-disc prose-ul:ml-6 space-y-8 mb-24"
-                        dangerouslySetInnerHTML={{ __html: job.description }}
+                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(job.description) }}
                     />
 
                     {/* Subtle Apply Link */}

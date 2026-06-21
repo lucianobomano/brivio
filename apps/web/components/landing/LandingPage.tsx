@@ -337,7 +337,7 @@ export default function LandingPage() {
                     >
                         <div className="absolute inset-0 bg-gradient-to-br from-accent-indigo/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-1000" />
                         <div className="h-full w-full rounded-[2rem] bg-zinc-900 overflow-hidden relative border border-white/5">
-                            <Image src="/landing/hero_v3.png" alt="Platform" fill className="object-cover opacity-50 grayscale hover:grayscale-0 transition-all duration-1000 scale-110 group-hover:scale-100" />
+                            <Image src="/landing/hero_image.png" alt="Platform" fill className="object-cover opacity-50 grayscale hover:grayscale-0 transition-all duration-1000 scale-110 group-hover:scale-100" />
                             <div className="absolute top-8 left-8 flex items-center space-x-4">
                                 <div className="w-3 h-3 rounded-full bg-red-500/50" />
                                 <div className="w-3 h-3 rounded-full bg-yellow-500/50" />

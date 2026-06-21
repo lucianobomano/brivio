@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function getProjectById(id: string) {
@@ -287,6 +287,27 @@ export async function deleteProjectStage(stageId: string) {
 
 export async function updateProjectStatusLabel(projectId: string, statusLabel: string) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Not authorized" }
+
+    // SECURITY: Verify the user is a member of the project's workspace
+    const { data: project } = await supabase
+        .from('projects')
+        .select('workspace_id')
+        .eq('id', projectId)
+        .single()
+
+    if (!project) return { success: false, error: "Project not found" }
+
+    const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('id')
+        .eq('workspace_id', project.workspace_id)
+        .eq('user_id', user.id)
+        .single()
+
+    if (!membership) return { success: false, error: "Not authorized" }
+
     const { error } = await supabase
         .from('projects')
         .update({ status_label: statusLabel })
@@ -619,6 +640,27 @@ export async function updateProject(id: string, data: {
 
 export async function archiveProject(id: string) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Not authorized" }
+
+    // SECURITY: Verify the user is a member of the project's workspace
+    const { data: project } = await supabase
+        .from('projects')
+        .select('workspace_id')
+        .eq('id', id)
+        .single()
+
+    if (!project) return { success: false, error: "Project not found" }
+
+    const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('id')
+        .eq('workspace_id', project.workspace_id)
+        .eq('user_id', user.id)
+        .single()
+
+    if (!membership) return { success: false, error: "Not authorized" }
+
     const { error } = await supabase
         .from('projects')
         .update({
@@ -638,7 +680,32 @@ export async function archiveProject(id: string) {
 }
 
 export async function deleteProject(id: string) {
-    const supabase = await createClient()
+    // Use admin client to bypass RLS — the anon client's DELETE is blocked by RLS policies
+    const supabase = await createAdminClient()
+
+    // Verify the caller is authenticated before proceeding
+    const authClient = await createClient()
+    const { data: { user } } = await authClient.auth.getUser()
+    if (!user) return { success: false, error: "Not authorized" }
+
+    // SECURITY: Verify the user is a member of the project's workspace before deletion
+    const { data: project } = await supabase
+        .from('projects')
+        .select('workspace_id, created_by')
+        .eq('id', id)
+        .single()
+
+    if (!project) return { success: false, error: "Project not found" }
+
+    const { data: membership } = await supabase
+        .from('workspace_members')
+        .select('id')
+        .eq('workspace_id', project.workspace_id)
+        .eq('user_id', user.id)
+        .single()
+
+    if (!membership) return { success: false, error: "Not authorized" }
+
     const { error } = await supabase
         .from('projects')
         .delete()

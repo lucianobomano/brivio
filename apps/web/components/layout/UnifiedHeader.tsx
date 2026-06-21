@@ -96,11 +96,10 @@ export function UnifiedHeader({
                     <div className="flex items-center gap-6">
                         {/* Add Button Group */}
                         <div
-                            className="flex items-center"
+                            className="flex items-center bg-bg-1 border border-bg-3 shadow-sm"
                             style={{
                                 width: "500px",
                                 height: "61px",
-                                backgroundColor: "#15171F",
                                 padding: "10px 14px",
                                 borderRadius: "12px"
                             }}
@@ -109,7 +108,7 @@ export function UnifiedHeader({
                                 {/* Main Add Button */}
                                 <button
                                     onClick={onAddClick}
-                                    className="flex items-center justify-center text-white text-sm font-bold group"
+                                    className="flex items-center justify-center text-text-primary text-sm font-bold group"
                                     style={{
                                         width: "143px",
                                         height: "41px",
@@ -119,8 +118,8 @@ export function UnifiedHeader({
                                     }}
                                 >
                                     <span
-                                        className="flex items-center justify-center w-full h-full bg-[#15171F] group-hover:bg-[#15171F]/80 transition-colors"
-                                        style={{ borderRadius: "97px 0 0 97px", padding: "0 27px" }}
+                                        className="flex items-center justify-center w-full h-full bg-bg-1 group-hover:bg-bg-2 transition-colors whitespace-nowrap"
+                                        style={{ borderRadius: "97px 0 0 97px", padding: "0 16px" }}
                                     >
                                         {addLabel}
                                     </span>
@@ -139,10 +138,10 @@ export function UnifiedHeader({
                                             }}
                                         >
                                             <span
-                                                className="flex items-center justify-center w-full h-full bg-[#15171F] group-hover:bg-[#15171F]/80 transition-colors"
+                                                className="flex items-center justify-center w-full h-full bg-bg-1 group-hover:bg-bg-2 transition-colors"
                                                 style={{ borderRadius: "0 97px 97px 0", padding: "0 15px" }}
                                             >
-                                                <ChevronDown className="w-6 h-6 text-white" />
+                                                <ChevronDown className="w-6 h-6 text-text-primary" />
                                             </span>
                                         </button>
                                     </DropdownMenuTrigger>
@@ -192,11 +191,10 @@ export function UnifiedHeader({
 
                             {/* Theme Toggle (Inline) */}
                             <div
-                                className="flex items-center ml-4"
+                                className="flex items-center ml-4 bg-bg-2"
                                 style={{
                                     width: "71px",
                                     height: "41px",
-                                    backgroundColor: "#2E313C",
                                     borderRadius: "100px",
                                     padding: "6px 8px",
                                 }}
@@ -205,21 +203,21 @@ export function UnifiedHeader({
                                     onClick={() => setTheme("light")}
                                     className={cn(
                                         "flex items-center justify-center transition-all",
-                                        theme === "light" ? "bg-[#15161B] rounded-full" : ""
+                                        theme === "light" ? "bg-bg-0 shadow-sm rounded-full" : ""
                                     )}
                                     style={{ width: "28px", height: "28px" }}
                                 >
-                                    <Sun className={cn("w-[22px] h-[22px]", theme === "light" ? "text-[#ff0054]" : "text-[#515151]")} />
+                                    <Sun className={cn("w-[22px] h-[22px]", theme === "light" ? "text-accent-indigo" : "text-text-tertiary")} />
                                 </button>
                                 <button
                                     onClick={() => setTheme("dark")}
                                     className={cn(
                                         "flex items-center justify-center transition-all",
-                                        theme === "dark" ? "bg-[#15161B] rounded-full" : ""
+                                        theme === "dark" ? "bg-bg-0 shadow-sm rounded-full" : ""
                                     )}
                                     style={{ width: "28px", height: "28px" }}
                                 >
-                                    <Moon className={cn("w-[22px] h-[22px]", theme === "dark" ? "text-[#ff0054]" : "text-[#515151]")} />
+                                    <Moon className={cn("w-[22px] h-[22px]", theme === "dark" ? "text-accent-indigo" : "text-text-tertiary")} />
                                 </button>
                             </div>
 
@@ -227,13 +225,13 @@ export function UnifiedHeader({
                             <div className="flex items-center ml-auto" style={{ gap: "16px" }}>
                                 <Home
                                     onClick={() => router.push("/dashboard")}
-                                    className="w-[30px] h-[30px] text-[#515151] cursor-pointer hover:text-white transition-colors"
+                                    className="w-[30px] h-[30px] text-text-secondary cursor-pointer hover:text-text-primary transition-colors"
                                 />
                                 <Settings
                                     onClick={onSettingsClick}
-                                    className="w-[30px] h-[30px] text-[#515151] cursor-pointer hover:text-white transition-colors"
+                                    className="w-[30px] h-[30px] text-text-secondary cursor-pointer hover:text-text-primary transition-colors"
                                 />
-                                <LayoutGrid className="w-[30px] h-[30px] text-[#515151] cursor-pointer hover:text-white transition-colors" />
+                                <LayoutGrid className="w-[30px] h-[30px] text-text-secondary cursor-pointer hover:text-text-primary transition-colors" />
                                 {/* Global User Profile Popover */}
                                 <div className="relative">
                                     <div
@@ -273,7 +271,7 @@ export function UnifiedHeader({
 
             {/* Header border with gap */}
             <div className="w-full flex justify-center shrink-0 z-20" style={{ marginTop: "25px" }}>
-                <div style={{ height: "1px", backgroundColor: "#303030", width: "1520px" }} />
+                <div className="bg-bg-3" style={{ height: "1px", width: "1520px" }} />
             </div>
         </>
     )

@@ -17,6 +17,7 @@ import { TaskListWithTasks } from "@/app/actions/tasks"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
+import { StandupHeader } from "@/components/standups/StandupHeader"
 
 interface TasksClientPageProps {
     user: { id: string; name: string }
@@ -99,55 +100,7 @@ export default function TasksClientPage({ user, initialLists }: TasksClientPageP
     return (
         <div className="bg-[#0a0a0c] text-white min-h-screen font-sans">
             {/* Header */}
-            <header className="h-16 flex items-center justify-between px-8 sticky top-0 z-10 bg-[#0a0a0c]">
-                {/* Left side - Home button + Greeting */}
-                <div className="flex items-center space-x-6">
-                    <Link href="/dashboard">
-                        <Button
-                            variant="outline"
-                            className="h-10 border-[#2a2a2e] bg-transparent text-white hover:bg-[#1a1a1e] rounded-lg px-4"
-                        >
-                            <Home className="w-4 h-4 mr-2" />
-                            Home
-                        </Button>
-                    </Link>
-
-                    <div>
-                        <h1 className="text-xl font-semibold text-white">
-                            {greeting}, {currentUser?.name || "Creator"}
-                        </h1>
-                        <p className="text-sm text-gray-500">
-                            Nice! Brivio* it in your {currentHour < 12 ? "morning" : currentHour < 18 ? "afternoon" : "evening"}
-                        </p>
-                    </div>
-                </div>
-
-                {/* Right side */}
-                <div className="flex items-center space-x-3">
-                    {/* Report button with gradient border */}
-                    <div className="p-[1px] rounded-full bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500">
-                        <Button
-                            variant="ghost"
-                            className="h-9 bg-[#0a0a0c] text-white hover:bg-[#1a1a1e] rounded-full px-4 text-sm font-medium"
-                        >
-                            Report
-                        </Button>
-                    </div>
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-[#1a1a1e]">
-                        <Search className="w-5 h-5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-[#1a1a1e]">
-                        <Settings className="w-5 h-5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-[#1a1a1e]">
-                        <Grid className="w-5 h-5" />
-                    </Button>
-                    <Avatar className="w-8 h-8 border border-[#2a2a2e]">
-                        <AvatarImage src="https://github.com/shadcn.png" />
-                        <AvatarFallback>CN</AvatarFallback>
-                    </Avatar>
-                </div>
-            </header>
+            <StandupHeader />
 
             {/* Content */}
             <div className="px-8 py-12">
@@ -200,8 +153,8 @@ export default function TasksClientPage({ user, initialLists }: TasksClientPageP
                                             ) : (
                                                 <div className="flex flex-col items-center justify-center h-full group-hover:opacity-20 transition-opacity">
                                                     <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#2a2a2e] flex items-center justify-center mb-3">
-                                                        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 flex items-center justify-center">
-                                                            <CheckCircle2 className="w-4 h-4 text-black" />
+                                                        <div className="w-8 h-8 rounded-full bg-[#ff0054] flex items-center justify-center">
+                                                            <CheckCircle2 className="w-4 h-4 text-white" />
                                                         </div>
                                                     </div>
                                                     <span className="text-xs text-gray-500 font-medium tracking-wide">ALL CLEAR</span>
@@ -210,7 +163,7 @@ export default function TasksClientPage({ user, initialLists }: TasksClientPageP
 
                                             {/* Open Button Overlay (Center) */}
                                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 translate-y-2 group-hover:translate-y-0">
-                                                <div className="px-6 py-2.5 rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400 text-black text-sm font-semibold flex items-center shadow-lg shadow-emerald-500/20">
+                                                <div className="px-6 py-2.5 rounded-full bg-[#ff0054] text-white text-sm font-semibold flex items-center shadow-lg shadow-[#ff0054]/20">
                                                     <MoveUpRight className="w-4 h-4 mr-2" />
                                                     Open
                                                 </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import {
     DndContext,
     DragOverlay,
@@ -52,6 +52,7 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
+import { StandupHeader } from "@/components/standups/StandupHeader"
 
 interface FocusBoardViewProps {
     project: any
@@ -95,7 +96,7 @@ function formatTimeInput(minutes: number): string {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
 }
 
-const HoverIconBtn = ({ icon: Icon, text, color = "bg-[#2a2a2e]", onClick }: { icon: React.ElementType, text: string, color?: string, onClick?: () => void }) => (
+const HoverIconBtn = ({ icon: Icon, text, onClick, color = "bg-bg-2 dark:bg-[#1a1a1e] border border-border dark:border-[#2a2a2e]" }: { icon: any, text: string, onClick?: () => void, color?: string }) => (
     <div
         className={cn(
             "group/icon flex items-center h-7 rounded-full transition-all duration-300 overflow-hidden cursor-pointer px-1.5 py-0.5",
@@ -104,8 +105,8 @@ const HoverIconBtn = ({ icon: Icon, text, color = "bg-[#2a2a2e]", onClick }: { i
         )}
         onClick={(e) => { e.stopPropagation(); onClick?.(); }}
     >
-        <Icon className="w-3.5 h-3.5 text-slate-400 group-hover/icon:text-white shrink-0" />
-        <span className="text-[10px] text-white font-bold uppercase tracking-wider opacity-0 group-hover/icon:opacity-100 whitespace-nowrap duration-300 delay-75">
+        <Icon className="w-3.5 h-3.5 text-text-tertiary dark:text-slate-400 group-hover/icon:text-text-primary dark:group-hover/icon:text-white shrink-0" />
+        <span className="text-[10px] text-text-primary dark:text-white font-bold uppercase tracking-wider opacity-0 group-hover/icon:opacity-100 whitespace-nowrap duration-300 delay-75">
             {text}
         </span>
     </div>
@@ -256,24 +257,31 @@ function FocusedTaskCard({ task, index, stageColor, projectId, onUpdate, onMove,
     return (
         <motion.div
             ref={setNodeRef}
-            style={{
-                ...style, ...(isFocused ? {
-                    background: 'linear-gradient(#1a1a1e, #1a1a1e) padding-box, linear-gradient(to right, #FF0054, #06D6A0) border-box',
-                    border: '2px solid transparent',
-                } : {})
-            }}
+            style={style}
             {...attributes}
             {...listeners}
             className={cn(
-                "group relative bg-[#1a1a1e] border border-[#2a2a2e] rounded-xl cursor-pointer transition-all duration-500",
-                task.completed ? "opacity-60 border-emerald-500/20" : "hover:border-[#3a3a3e]",
-                isOverlay && "shadow-2xl border-accent-indigo/50 scale-105 rotate-2",
-                isFocusMode && !isFocused ? "h-[54px] p-2 overflow-hidden" : (isFocused ? "h-[100px] px-6" : (isHovered ? "h-auto py-4 px-3" : "h-[80px] p-4"))
+                "group relative bg-white dark:bg-[#1a1a1e] border border-border dark:border-[#2a2a2e] rounded-xl cursor-pointer transition-all duration-500",
+                task.completed ? "opacity-60 border-emerald-500/20" : "hover:border-border-hover dark:hover:border-[#3a3a3e]",
+                isOverlay && "shadow-2xl border-[#ff0054]/50 scale-105 rotate-2",
+                isFocusMode && !isFocused ? "h-[54px] p-2 overflow-hidden" : (isFocused ? "h-[100px] px-6 border-transparent dark:border-transparent" : (isHovered ? "h-auto py-4 px-3" : "h-[80px] p-4"))
             )}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => { setIsHovered(false); setShowDropdown(false); }}
         >
-            <div className="flex flex-col h-full justify-center">
+            {isFocused && (
+                <div 
+                    className="absolute inset-0 rounded-xl pointer-events-none z-10"
+                    style={{
+                        padding: '2px', // Border width
+                        background: 'linear-gradient(to right, #FF0054, #06D6A0)',
+                        WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                        WebkitMaskComposite: 'xor',
+                        maskComposite: 'exclude'
+                    }}
+                />
+            )}
+            <div className="flex flex-col h-full justify-center relative z-20">
                 <AnimatePresence mode="wait">
                     {isFocused && isHovered ? (
                         <motion.div
@@ -320,13 +328,13 @@ function FocusedTaskCard({ task, index, stageColor, projectId, onUpdate, onMove,
                                     <div className="flex items-center gap-2">
                                         {!isFocusMode && (
                                             <div className="flex items-center space-x-1 mt-0.5 shrink-0" onPointerDown={handleNoDrag}>
-                                                <span className="text-[10px] font-mono text-slate-400 w-3 font-bold">{index}</span>
+                                                <span className="text-[10px] font-mono text-text-tertiary dark:text-slate-400 w-3 font-bold">{index}</span>
                                                 {task.completed ? (
                                                     <button onClick={handleToggleComplete} className="text-emerald-500">
                                                         <CheckSquare className="w-3.5 h-3.5" />
                                                     </button>
                                                 ) : (
-                                                    <button onClick={handleToggleComplete} className="text-slate-400 hover:text-white transition-colors">
+                                                    <button onClick={handleToggleComplete} className="text-text-tertiary dark:text-slate-400 hover:text-text-primary dark:hover:text-white transition-colors">
                                                         <Square className="w-3.5 h-3.5" />
                                                     </button>
                                                 )}
@@ -340,15 +348,15 @@ function FocusedTaskCard({ task, index, stageColor, projectId, onUpdate, onMove,
                                                     onChange={(e) => setTitleValue(e.target.value)}
                                                     onBlur={handleTitleBlur}
                                                     onKeyDown={(e) => e.key === 'Enter' && handleTitleBlur()}
-                                                    className="h-6 p-0 bg-transparent border-none text-[16px] font-bold text-white focus-visible:ring-0"
+                                                    className="h-6 p-0 bg-transparent border-none text-[16px] font-bold text-text-primary dark:text-white focus-visible:ring-0"
                                                     autoFocus
                                                     onPointerDown={handleNoDrag}
                                                 />
                                             ) : (
                                                 <h4
                                                     className={cn(
-                                                        "text-[16px] font-bold text-white truncate",
-                                                        task.completed && "line-through text-slate-500"
+                                                        "text-[16px] font-bold text-text-primary dark:text-white truncate",
+                                                        task.completed && "line-through text-text-tertiary dark:text-slate-500"
                                                     )}
                                                     onClick={() => !isFocusMode && setEditingTitle(true)}
                                                 >
@@ -376,7 +384,7 @@ function FocusedTaskCard({ task, index, stageColor, projectId, onUpdate, onMove,
                                     {!isFocusMode && !isHovered && (
                                         <div className="flex items-center gap-3 mt-1" onPointerDown={handleNoDrag}>
                                             <span
-                                                className="text-[10px] text-slate-400 font-bold uppercase tracking-wider"
+                                                className="text-[10px] text-text-tertiary dark:text-slate-400 font-bold uppercase tracking-wider"
                                             >
                                                 + EST {task.estimated_time ? formatTime(task.estimated_time) : '--'}
                                             </span>
@@ -386,7 +394,7 @@ function FocusedTaskCard({ task, index, stageColor, projectId, onUpdate, onMove,
 
                                 <div className="flex items-center shrink-0" onPointerDown={handleNoDrag}>
                                     {isFocused && (
-                                        <div className="text-[24px] font-mono font-black text-white tabular-nums tracking-tighter">
+                                        <div className="text-[24px] font-mono font-black text-text-primary dark:text-white tabular-nums tracking-tighter">
                                             {formatSessionTime(seconds)}
                                         </div>
                                     )}
@@ -418,10 +426,10 @@ function FocusedTaskCard({ task, index, stageColor, projectId, onUpdate, onMove,
                                             <div className="relative">
                                                 <HoverIconBtn icon={MoreVertical} text="More" onClick={() => setShowDropdown(!showDropdown)} />
                                                 {showDropdown && (
-                                                    <div className="absolute left-0 bottom-full mb-1 w-32 bg-[#1a1a1e] border border-[#2a2a2e] rounded-lg shadow-xl z-50 p-1">
+                                                    <div className="absolute left-0 bottom-full mb-1 w-32 bg-white dark:bg-[#1a1a1e] border border-border dark:border-[#2a2a2e] rounded-lg shadow-xl z-50 p-1">
                                                         <button
                                                             onClick={handleDelete}
-                                                            className="w-full text-left px-2 py-1.5 text-[11px] text-red-500 hover:bg-white/5 rounded transition-colors"
+                                                            className="w-full text-left px-2 py-1.5 text-[11px] text-red-500 hover:bg-bg-1 dark:hover:bg-white/5 rounded transition-colors"
                                                         >
                                                             Excluir
                                                         </button>
@@ -493,28 +501,40 @@ function FocusedColumn({ stage, tasks, projectId, onUpdate, roadmapStages, isFoc
     }
 
     return (
-        <div
-            className={cn(
-                "w-[380px] flex-shrink-0 rounded-[20px] flex flex-col h-full transition-all duration-300 border-2",
-                isFocusMode ? "border-transparent" : "border-[#2a2a2e]"
-            )}
-            style={{
-                backgroundColor: '#1E1E22',
-                ...(isFocusMode ? {
-                    background: 'linear-gradient(#1E1E22, #1E1E22) padding-box, linear-gradient(to bottom, #DD005A, #FF002D, #06D6A0, #311C99) border-box',
-                } : {})
-            }}
-        >
+        <div className="relative w-[375px] flex-shrink-0 h-full group rounded-[20px] bg-white dark:bg-[#16171C] transition-all duration-300">
+            {/* Standard Border Overlay */}
+            <div className={cn(
+                "absolute inset-0 rounded-[20px] border-[2px] pointer-events-none transition-colors duration-300 z-20",
+                isFocusMode ? "border-transparent" : "border-border dark:border-[#2a2a2e] group-hover:border-transparent"
+            )} />
+
+            {/* Gradient Border Overlay */}
+            <div 
+                className={cn(
+                    "absolute inset-0 rounded-[20px] pointer-events-none transition-opacity duration-300 z-20",
+                    isFocusMode ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                )}
+                style={{
+                    padding: '2px', // Border width
+                    background: 'linear-gradient(to right, #FF0054, #88007F, #06D6A0, #311C99)',
+                    WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
+                    WebkitMaskComposite: 'xor',
+                    maskComposite: 'exclude'
+                }}
+            />
+
+            {/* Content Container */}
+            <div className="relative flex flex-col h-full z-10 rounded-[20px]">
             <div className="p-5">
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="font-bold text-base text-white capitalize">
+                    <h3 className="font-bold text-base text-text-primary dark:text-white capitalize">
                         {stage.name}
                     </h3>
                     {!isFocusMode && (
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-6 w-6 text-slate-400 hover:text-white"
+                            className="h-6 w-6 text-text-tertiary dark:text-slate-400 hover:text-text-primary dark:hover:text-white"
                             onClick={() => setIsAddingTask(true)}
                         >
                             <Plus className="w-4 h-4" />
@@ -524,7 +544,7 @@ function FocusedColumn({ stage, tasks, projectId, onUpdate, roadmapStages, isFoc
 
                 {!isFocusMode && (
                     <div className="flex items-center gap-3 mb-2">
-                        <div className="flex-1 h-1.5 bg-[#2a2a2e] rounded-full overflow-hidden">
+                        <div className="flex-1 h-1.5 bg-bg-2 dark:bg-[#2a2a2e] rounded-full overflow-hidden">
                             <div
                                 className="h-full transition-all duration-500"
                                 style={{
@@ -533,7 +553,7 @@ function FocusedColumn({ stage, tasks, projectId, onUpdate, roadmapStages, isFoc
                                 }}
                             />
                         </div>
-                        <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap uppercase tracking-widest">
+                        <span className="text-[10px] font-bold text-text-tertiary dark:text-slate-400 whitespace-nowrap uppercase tracking-widest">
                             {tasks.filter(t => t.completed).length}/{tasks.length} Done
                         </span>
                     </div>
@@ -566,34 +586,39 @@ function FocusedColumn({ stage, tasks, projectId, onUpdate, roadmapStages, isFoc
                         ))
                     ) : !isAddingTask && (
                         <div className="flex flex-col items-center justify-center py-12 opacity-30">
-                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#2a2a2e] flex items-center justify-center mb-4">
+                            <div className="w-12 h-12 rounded-full border-2 border-dashed border-border dark:border-[#2a2a2e] flex items-center justify-center mb-4 text-text-tertiary">
                                 <CheckCircle2 className="w-6 h-6" />
                             </div>
-                            <span className="text-xs font-bold uppercase tracking-widest">All clear</span>
+                            <span className="text-xs font-bold uppercase tracking-widest text-text-tertiary dark:text-white">All clear</span>
                         </div>
                     )}
                 </SortableContext>
 
                 {isAddingTask && (
-                    <div className="bg-[#1a1a1e] border border-[#2a2a2e] rounded-xl p-3 animate-in fade-in duration-200">
+                    <div className="bg-white dark:bg-[#1a1a1e] border border-border dark:border-[#2a2a2e] rounded-xl p-3 animate-in fade-in duration-200">
                         <Input
                             placeholder="Nova tarefa..."
                             value={newTaskTitle}
                             onChange={(e) => setNewTaskTitle(e.target.value)}
-                            className="h-8 bg-transparent border-none text-[14px] text-white placeholder:text-slate-500 focus-visible:ring-0 p-0 mb-3"
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") handleAddTask()
+                                if (e.key === "Escape") setIsAddingTask(false)
+                            }}
+                            className="h-8 bg-white dark:bg-[#1a1a1e] border-border dark:border-[#3a3a3e] text-text-primary dark:text-white text-sm focus-visible:ring-1 focus-visible:ring-accent-indigo"
                             autoFocus
-                            onKeyDown={(e) => e.key === 'Enter' && handleAddTask()}
                         />
-                        <div className="flex items-center justify-between">
-                            <button
+                        <div className="flex items-center justify-end gap-2 mt-2">
+                            <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setIsAddingTask(false)}
-                                className="flex items-center text-[10px] font-bold text-slate-400 hover:text-white uppercase tracking-widest"
+                                className="h-6 px-2 text-[10px] text-text-tertiary dark:text-slate-400 hover:text-text-primary dark:hover:text-white"
                             >
                                 <X className="w-3 h-3 mr-1" /> Cancelar
-                            </button>
+                            </Button>
                             <Button
                                 size="sm"
-                                className="h-7 bg-white text-black hover:bg-gray-200 font-bold text-[10px] uppercase tracking-widest px-3"
+                                className="h-7 bg-bg-3 dark:bg-white text-text-primary dark:text-black hover:bg-bg-4 dark:hover:bg-gray-200 font-bold text-[10px] uppercase tracking-widest px-3"
                                 onClick={handleAddTask}
                                 disabled={!newTaskTitle.trim() || isLoading}
                             >
@@ -609,6 +634,7 @@ function FocusedColumn({ stage, tasks, projectId, onUpdate, roadmapStages, isFoc
                 <div className="p-4 mt-auto">
                     <div className="flex items-center gap-3">
                         <button
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 if (onDeepFocus) onDeepFocus();
@@ -618,6 +644,7 @@ function FocusedColumn({ stage, tasks, projectId, onUpdate, roadmapStages, isFoc
                             <span className="text-[13px] font-bold text-white tracking-tight">Focus mode</span>
                         </button>
                         <button
+                            onPointerDown={(e) => e.stopPropagation()}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onFocusToggle(true); // Signaling close session
@@ -650,13 +677,14 @@ function FocusedColumn({ stage, tasks, projectId, onUpdate, roadmapStages, isFoc
                     </Button>
                 </div>
             )}
+            </div>
         </div>
     )
 }
 
 // --- Liquid Background Component ---
 const LiquidBackground = () => (
-    <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10 bg-[#1A1A1E]">
+    <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10 bg-[#0E0F14]">
         <motion.div
             animate={{
                 x: [0, 150, -100, 0],
@@ -788,11 +816,22 @@ function DeepFocusTimer({ task, projectId, onUpdate, onExit, onSkip }: { task: R
 }
 
 export function FocusBoardView({ project, stages, onBack }: FocusBoardViewProps) {
+    const scrollContainerRef = useRef<HTMLDivElement>(null)
     const router = useRouter()
     const [localStages, setLocalStages] = useState(stages)
     const [focusedStageId, setFocusedStageId] = useState<string | null>(null)
     const [isDeepFocus, setIsDeepFocus] = useState(false)
     const [activeTask, setActiveTask] = useState<any>(null)
+
+    const handleScroll = (direction: 'left' | 'right') => {
+        if (scrollContainerRef.current) {
+            const scrollAmount = 400
+            scrollContainerRef.current.scrollBy({
+                left: direction === 'left' ? -scrollAmount : scrollAmount,
+                behavior: 'smooth'
+            })
+        }
+    }
 
     useEffect(() => {
         setLocalStages(stages)
@@ -891,20 +930,23 @@ export function FocusBoardView({ project, stages, onBack }: FocusBoardViewProps)
 
     return (
         <DndContext
+            id="focus-board"
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex flex-col h-screen bg-[#1A1A1E] text-white">
-                <header className="h-[72px] flex items-center justify-between px-8 border-b border-[#2a2a2e] bg-[#1A1A1E] sticky top-0 z-50">
+            <div className="fixed inset-0 bg-bg-0 dark:bg-[#0B0B0D] pointer-events-none" style={{ zIndex: 0 }} />
+            <div className="flex flex-col h-screen bg-bg-0 dark:bg-[#0B0B0D] text-text-primary dark:text-white relative z-10">
+                <StandupHeader />
+                <div className="flex items-center justify-between px-8 py-4 border-b border-border dark:border-[#2a2a2e] bg-bg-0 dark:bg-[#0B0B0D]">
                     <div className="flex items-center gap-6">
                         <Button
                             variant="ghost"
                             size="sm"
                             onClick={onBack}
-                            className="h-9 px-3 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl border border-white/5"
+                            className="h-9 px-3 text-[#ff0054] hover:bg-[#ff0054] hover:text-white dark:hover:bg-[#ff0054]/20 dark:hover:text-[#ff0054] rounded-xl border border-[#ff0054]/20 transition-all"
                         >
                             <ArrowLeft className="w-4 h-4 mr-2" />
                             Voltar
@@ -922,35 +964,18 @@ export function FocusBoardView({ project, stages, onBack }: FocusBoardViewProps)
                                 )}
                             </div>
                             <div>
-                                <h1 className="text-base font-bold text-white tracking-tight">{project.name}</h1>
-                                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Project Roadmap</p>
+                                <h1 className="text-base font-bold text-text-primary dark:text-white tracking-tight">{project.name}</h1>
+                                <p className="text-[10px] text-text-tertiary dark:text-slate-400 font-bold uppercase tracking-widest">Project Roadmap</p>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <div className="flex items-center gap-3">
-                        <div className="p-[1px] rounded-full bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500 shadow-lg shadow-purple-500/10 active:scale-[0.98] transition-transform">
-                            <Button
-                                variant="ghost"
-                                className="h-8 bg-[#0a0a0c] text-white hover:bg-[#1a1a1e] rounded-full px-5 text-[11px] font-bold uppercase tracking-widest"
-                            >
-                                Report
-                            </Button>
-                        </div>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-white rounded-xl hover:bg-white/5">
-                            <Search className="w-4 h-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-400 hover:text-white rounded-xl hover:bg-white/5">
-                            <Grid className="w-4 h-4" />
-                        </Button>
-                        <Avatar className="w-8 h-8 border border-white/10 ml-2">
-                            <AvatarImage src="https://github.com/shadcn.png" />
-                            <AvatarFallback>BT</AvatarFallback>
-                        </Avatar>
-                    </div>
-                </header>
-
-                <div className="flex-1 overflow-x-auto p-10 bg-[#1A1A1E] flex items-center justify-center">
+                <div className="relative flex-1 overflow-hidden bg-bg-0 dark:bg-[#0B0B0D]">
+                    <div 
+                        ref={scrollContainerRef}
+                        className="w-full h-full overflow-x-auto p-10 flex items-start justify-start [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+                    >
                     <AnimatePresence mode="wait">
                         {!isDeepFocus ? (
                             <motion.div
@@ -958,7 +983,7 @@ export function FocusBoardView({ project, stages, onBack }: FocusBoardViewProps)
                                 initial={{ opacity: 0, scale: 0.98 }}
                                 animate={{ opacity: 1, scale: 1 }}
                                 exit={{ opacity: 0, scale: 1.02 }}
-                                className="flex h-full gap-[14px] mx-auto w-fit min-w-full justify-center"
+                                className="flex h-full gap-[14px] w-max"
                             >
                                 {localStages.map((stage) => (
                                     <FocusedColumn
@@ -1014,6 +1039,23 @@ export function FocusBoardView({ project, stages, onBack }: FocusBoardViewProps)
                     </AnimatePresence>
                 </div>
 
+                {!isDeepFocus && (
+                    <>
+                        <button
+                            onClick={() => handleScroll('left')}
+                            className="absolute left-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/80 dark:bg-[#16171C]/80 hover:bg-[#ff0054] dark:hover:bg-[#ff0054] text-text-primary dark:text-white hover:text-white rounded-full flex items-center justify-center border border-border dark:border-white/10 backdrop-blur-md shadow-xl transition-all z-20 group"
+                        >
+                            <ChevronLeft className="w-6 h-6 opacity-70 group-hover:opacity-100" />
+                        </button>
+                        <button
+                            onClick={() => handleScroll('right')}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 w-12 h-12 bg-white/80 dark:bg-[#16171C]/80 hover:bg-[#ff0054] dark:hover:bg-[#ff0054] text-text-primary dark:text-white hover:text-white rounded-full flex items-center justify-center border border-border dark:border-white/10 backdrop-blur-md shadow-xl transition-all z-20 group"
+                        >
+                            <ChevronRight className="w-6 h-6 opacity-70 group-hover:opacity-100" />
+                        </button>
+                    </>
+                )}
+                </div>
 
                 <DragOverlay dropAnimation={dropAnimation}>
                     {activeTask ? (

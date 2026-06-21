@@ -584,9 +584,9 @@ export default function BrandbookEditor({
                                         <Bell className="w-5 h-5" />
                                     </button>
                                     <button
-                                        onClick={() => router.push('/brands')}
+                                        onClick={() => router.push('/dashboard')}
                                         className="text-[#888] hover:text-white transition-colors"
-                                        title="Voltar para Brands"
+                                        title="Ir para o Dashboard"
                                     >
                                         <Home className="w-5 h-5" />
                                     </button>

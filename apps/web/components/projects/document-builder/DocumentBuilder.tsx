@@ -159,21 +159,34 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
 
             // Items sync logic
             const itemsBlock = blocks.find(b => b.type === 'items')
-            if (itemsBlock && initialData?.items && initialData.items.length > 0) {
+            if (itemsBlock) {
                 // Determine if the current internal items are empty or just placeholders
                 const currentItems = itemsBlock.data.items || []
                 const isItemPlaceholder = currentItems.length === 1 && (!currentItems[0].description || currentItems[0].description === "Serviço de Design" || currentItems[0].description === "Novo Serviço")
 
                 if (isItemPlaceholder) {
-                    handleUpdateBlock(itemsBlock.id, {
-                        ...itemsBlock.data,
-                        items: initialData.items.map((item) => ({
-                            description: item.description,
-                            details: item.details || "",
-                            quantity: item.quantity,
-                            price: item.price
-                        }))
-                    })
+                    if (initialData?.items && initialData.items.length > 0) {
+                        handleUpdateBlock(itemsBlock.id, {
+                            ...itemsBlock.data,
+                            items: initialData.items.map((item) => ({
+                                description: item.description,
+                                details: item.details || "",
+                                quantity: item.quantity,
+                                price: item.price
+                            }))
+                        })
+                    } else if (!initialData?.id && pData) {
+                        const projectTypeHuman = ROADMAP_TEMPLATES.find(t => t.id === pData.template_id || t.id === pData.category)?.name || pData.type || "Serviço de Design";
+                        handleUpdateBlock(itemsBlock.id, {
+                            ...itemsBlock.data,
+                            items: [{
+                                description: projectTypeHuman,
+                                details: pData.description || "A expressão Lorem ipsum em design gráfico e editoração é um texto padrão",
+                                quantity: 1,
+                                price: Number(pData.budget_amount || pData.budget || 0)
+                            }]
+                        })
+                    }
                 }
             }
 
@@ -1348,7 +1361,7 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
 
                 {/* Main Content - Canvas */}
                 <div
-                    className="flex-1 bg-[#121214] overflow-auto p-16 custom-scrollbar flex flex-col items-center"
+                    className="flex-1 bg-[#121214] overflow-y-auto overflow-x-hidden p-16 custom-scrollbar flex flex-col items-center"
                     onWheel={handleWheel}
                 >
                     {/* A4 Page Container */}
@@ -1541,9 +1554,14 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
                                 </SelectTrigger>
                                 <SelectContent className="bg-[#141416] border-white/10 text-white">
                                     <SelectItem value="AOA">Kwanza (AOA)</SelectItem>
+                                    <SelectItem value="CVE">Escudo (CVE)</SelectItem>
+                                    <SelectItem value="MZN">Metical (MZN)</SelectItem>
+                                    <SelectItem value="STN">Dobra (STN)</SelectItem>
+                                    <SelectItem value="XAF">Franco CFA (XAF)</SelectItem>
+                                    <SelectItem value="XOF">Franco CFA (XOF)</SelectItem>
                                     <SelectItem value="EUR">Euro (EUR)</SelectItem>
-                                    <SelectItem value="USD">Dólar (USD)</SelectItem>
                                     <SelectItem value="BRL">Real (BRL)</SelectItem>
+                                    <SelectItem value="USD">Dólar (USD)</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

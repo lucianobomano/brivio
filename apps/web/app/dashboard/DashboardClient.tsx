@@ -177,7 +177,7 @@ export function DashboardClient({
                                         {/* Index and Button Row */}
                                         <div className="flex items-end justify-between">
                                             <span className="text-[64px] font-thin opacity-80 tracking-tighter drop-shadow-lg leading-none" style={{ fontFamily: 'Inter, sans-serif' }}>
-                                                {opt.id}
+                                                0{idx + 1}
                                             </span>
                                             <span className="px-5 py-2 rounded-full border border-white/30 bg-white/10 backdrop-blur-md text-[10px] font-bold uppercase tracking-wider hover:bg-white/20 transition-all shrink-0">
                                                 Abrir
@@ -216,14 +216,14 @@ export function DashboardClient({
                 <div className="flex items-center gap-4">
                     {/* Management & Network Shortcut Buttons */}
                     <button
-                        onClick={() => router.push('/tasks')}
+                        onClick={() => navigateTo('/tasks')}
                         className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-bg-1 dark:bg-white/5 border border-bg-3 dark:border-white/10 text-xs font-bold text-text-primary hover:bg-bg-2 dark:hover:bg-white/10 transition-all hover:scale-105"
                     >
                         <CheckSquare className="w-3.5 h-3.5 text-[#8800FF]" />
                         Tasks
                     </button>
                     <button
-                        onClick={() => router.push('/community')}
+                        onClick={() => navigateTo('/community')}
                         className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-bg-1 dark:bg-white/5 border border-bg-3 dark:border-white/10 text-xs font-bold text-text-primary hover:bg-bg-2 dark:hover:bg-white/10 transition-all hover:scale-105"
                     >
                         <Users className="w-3.5 h-3.5 text-[#FF0054]" />
@@ -234,7 +234,7 @@ export function DashboardClient({
 
                     {hasWorkspace ? (
                         <button
-                            onClick={() => router.push(`/projects?workspaceId=${workspaceId}`)}
+                            onClick={() => navigateTo(`/projects?workspaceId=${workspaceId}`)}
                             className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white text-black text-xs font-bold hover:scale-105 transition-all shadow-lg shadow-white/10 ring-1 ring-white/20"
                         >
                             <Layout className="w-3.5 h-3.5" />

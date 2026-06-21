@@ -20,6 +20,9 @@ const interTight = Inter_Tight({
 export const metadata: Metadata = {
   title: "Brand Ops Platform",
   description: "The operating system for brand creation, management, and execution.",
+  icons: {
+    icon: "/favicon.svg",
+  },
 };
 
 import NextTopLoader from "nextjs-toploader";

@@ -82,7 +82,23 @@ export async function updateWorkspaceSettings(workspaceId: string, data: Partial
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
-    // Verify membership/admin role could be added here
+    // SECURITY: Verify the user is a member of this workspace before updating
+    const { data: membership, error: membershipError } = await supabase
+        .from('workspace_members')
+        .select('role')
+        .eq('workspace_id', workspaceId)
+        .eq('user_id', user.id)
+        .single()
+
+    if (membershipError || !membership) {
+        return { success: false, error: "Unauthorized: You are not a member of this workspace." }
+    }
+
+    // Only owners and admins can update workspace settings
+    if (!['owner', 'admin'].includes(membership.role)) {
+        return { success: false, error: "Unauthorized: Only owners and admins can update workspace settings." }
+    }
+
     const { data: updatedData, error } = await supabase
         .from('workspaces')
         .update({

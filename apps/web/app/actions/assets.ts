@@ -305,6 +305,9 @@ function mapMimeTypeToAssetType(mimeType: string): string {
 
 export async function deleteFolder(folderId: string) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
     const { error } = await supabase
         .from('asset_folders')
         .update({ deleted_at: new Date().toISOString() })
@@ -318,6 +321,9 @@ export async function deleteFolder(folderId: string) {
 
 export async function deleteAsset(assetId: string) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
     const { error } = await supabase
         .from('assets')
         .update({ deleted_at: new Date().toISOString() })
@@ -397,6 +403,9 @@ export async function getTrash(scope: { brandId?: string, workspaceId?: string }
 
 export async function restoreItem(id: string, type: 'asset' | 'folder') {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
     const table = type === 'asset' ? 'assets' : 'asset_folders'
 
     const { error } = await supabase
@@ -412,6 +421,9 @@ export async function restoreItem(id: string, type: 'asset' | 'folder') {
 
 export async function permanentlyDeleteItem(id: string, type: 'asset' | 'folder') {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
     const table = type === 'asset' ? 'assets' : 'asset_folders'
 
     const { error } = await supabase
@@ -427,9 +439,16 @@ export async function permanentlyDeleteItem(id: string, type: 'asset' | 'folder'
 
 export async function renameFolder(folderId: string, newName: string) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
+    // Sanitize input
+    const safeName = newName.trim().slice(0, 255)
+    if (!safeName) return { success: false, error: "Name cannot be empty" }
+
     const { error } = await supabase
         .from('asset_folders')
-        .update({ name: newName })
+        .update({ name: safeName })
         .eq('id', folderId)
 
     if (error) return { success: false, error: error.message }
@@ -439,9 +458,16 @@ export async function renameFolder(folderId: string, newName: string) {
 
 export async function renameAsset(assetId: string, newName: string) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
+    // Sanitize input
+    const safeName = newName.trim().slice(0, 255)
+    if (!safeName) return { success: false, error: "Name cannot be empty" }
+
     const { error } = await supabase
         .from('assets')
-        .update({ name: newName })
+        .update({ name: safeName })
         .eq('id', assetId)
 
     if (error) return { success: false, error: error.message }
@@ -451,6 +477,9 @@ export async function renameAsset(assetId: string, newName: string) {
 
 export async function moveFolder(folderId: string, destFolderId: string | null) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
     const { error } = await supabase
         .from('asset_folders')
         .update({ parent_id: destFolderId })
@@ -463,6 +492,9 @@ export async function moveFolder(folderId: string, destFolderId: string | null) 
 
 export async function moveAsset(assetId: string, destFolderId: string | null) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
     const { error } = await supabase
         .from('assets')
         .update({ folder_id: destFolderId })
@@ -475,6 +507,9 @@ export async function moveAsset(assetId: string, destFolderId: string | null) {
 
 export async function updateFolderAccess(folderId: string, isPublic: boolean, allowViewers: boolean) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
     const { error } = await supabase
         .from('asset_folders')
         .update({ is_public: isPublic, allow_viewers: allowViewers })
@@ -487,6 +522,9 @@ export async function updateFolderAccess(folderId: string, isPublic: boolean, al
 
 export async function toggleFavorite(id: string, type: 'asset' | 'folder', currentStatus: boolean) {
     const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+
     const table = type === 'asset' ? 'assets' : 'asset_folders'
 
     const { error } = await supabase

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createAdminClient } from "@/lib/supabase/server"
+import { createAdminClient, createClient } from "@/lib/supabase/server"
 
 // Route segment config for handling large file uploads
 export const runtime = 'nodejs'
@@ -8,9 +8,18 @@ export const maxDuration = 60
 
 // Generate a signed upload URL for direct browser-to-Supabase upload
 export async function POST(request: NextRequest) {
-    console.log('[Upload API] Received request for signed URL')
 
     try {
+        // SECURITY: Verify authenticated session before issuing any upload URL
+        const authClient = await createClient()
+        const { data: { user }, error: authError } = await authClient.auth.getUser()
+        if (authError || !user) {
+            return NextResponse.json(
+                { success: false, error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
         const body = await request.json()
         const { brandId, moduleId, fileName, fileType, fileSize } = body
 

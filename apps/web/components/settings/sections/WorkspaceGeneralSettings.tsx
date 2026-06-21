@@ -148,7 +148,11 @@ export function WorkspaceGeneralSettings({ workspace }: WorkspaceGeneralSettings
                         <SelectContent className="bg-bg-2 border-bg-3 text-white">
                             <SelectItem value="EUR">Euro (EUR)</SelectItem>
                             <SelectItem value="AOA">Kwanza (AOA)</SelectItem>
+                            <SelectItem value="CVE">Escudo (CVE)</SelectItem>
                             <SelectItem value="MZN">Metical (MZN)</SelectItem>
+                            <SelectItem value="STN">Dobra (STN)</SelectItem>
+                            <SelectItem value="XAF">Franco CFA (XAF)</SelectItem>
+                            <SelectItem value="XOF">Franco CFA (XOF)</SelectItem>
                             <SelectItem value="BRL">Real (BRL)</SelectItem>
                             <SelectItem value="USD">Dólar (USD)</SelectItem>
                         </SelectContent>

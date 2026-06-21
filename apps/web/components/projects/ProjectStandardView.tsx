@@ -453,7 +453,7 @@ export function ProjectStandardView({
                                                         {/* Budget / Price */}
                                                         <td className="border border-bg-3 bg-bg-0 px-4 text-center">
                                                             <span className="text-[16px] font-normal text-[#05b137]">
-                                                                {formatPrice(isTaskMode ? ((item as Task).price || "0,00") : "0,00")}
+                                                                {formatPrice(isTaskMode ? ((item as Task).price || "0,00") : ((item as Project).budget_amount || 0))}
                                                             </span>
                                                         </td>
 

@@ -43,6 +43,11 @@ export function BottomNavigation() {
     const [hoveredLabel, setHoveredLabel] = React.useState<string | null>(null)
     const { activeView, navigateTo } = useSpaNavigation()
 
+    // Hide on Focus Board View
+    if (activeView === "focus" && searchParams.get("projectId")) {
+        return null
+    }
+
     return (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-40 transition-all duration-500">
             <motion.div

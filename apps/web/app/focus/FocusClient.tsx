@@ -14,6 +14,7 @@ import { RoadmapStage } from "@/app/actions/roadmap"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { useSpaNavigation } from "@/components/providers/SpaNavigationProvider"
+import { StandupHeader } from "@/components/standups/StandupHeader"
 
 interface ProjectBase {
     id: string
@@ -105,16 +106,14 @@ export function FocusClient({
 
     // GALLERY VIEW (DEFAULT IF NO PROJECT SELECTED)
     return (
-        <div className="px-8 py-12">
-            <div className="max-w-[1400px] mx-auto">
-                <div className="flex items-center gap-4 mb-12">
-                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-accent-indigo to-accent-mint flex items-center justify-center">
-                        <Zap className="w-6 h-6 text-white" />
-                    </div>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight text-text-primary">Modo Foco</h1>
-                        <p className="text-text-tertiary text-sm">Selecione um projeto para iniciar o foco</p>
-                    </div>
+        <div className="flex flex-col min-h-screen bg-bg-0 dark:bg-[#0B0B0D] relative z-10">
+            <div className="fixed inset-0 bg-bg-0 dark:bg-[#0B0B0D] pointer-events-none" style={{ zIndex: 0 }} />
+            <StandupHeader />
+            <div className="flex-1 px-8 py-12 relative z-10">
+                <div className="max-w-[1400px] mx-auto">
+                <div className="mb-12">
+                    <h1 className="text-3xl font-bold tracking-tight text-text-primary">Modo Foco</h1>
+                    <p className="text-text-tertiary text-sm">Selecione um projeto para iniciar o foco</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -139,20 +138,10 @@ export function FocusClient({
                                     })
                                 }}
                             >
-                                <div className="w-full h-[333px] rounded-xl border border-bg-3 bg-bg-1 hover:border-accent-indigo/30 transition-all relative group cursor-pointer flex flex-col shadow-sm">
+                                <div className="w-full h-[333px] rounded-xl border border-border dark:border-bg-3 bg-white dark:bg-[#16171C] hover:border-[#ff0054]/50 transition-all relative group cursor-pointer flex flex-col shadow-sm">
                                     {/* Header */}
                                     <div className="flex items-center justify-between p-4 pb-2">
                                         <div className="flex items-center space-x-2">
-                                            <div
-                                                className="w-6 h-6 rounded flex items-center justify-center text-white text-[10px] font-bold"
-                                                style={{ backgroundColor: project.color || '#6366f1' }}
-                                            >
-                                                {project.brand?.logo_url ? (
-                                                    <img src={project.brand.logo_url} className="w-4 h-4 rounded-sm object-contain" />
-                                                ) : (
-                                                    project.name.charAt(0).toUpperCase()
-                                                )}
-                                            </div>
                                             <span className="text-sm font-bold text-text-primary truncate max-w-[180px]">
                                                 {project.name}
                                             </span>
@@ -167,7 +156,7 @@ export function FocusClient({
                                         {pendingTasks.length > 0 ? (
                                             <div className="space-y-2">
                                                 {displayTasks.map((task, idx) => (
-                                                    <div key={task.id} className="bg-bg-0 border border-bg-3/50 rounded-lg p-2.5 flex justify-between items-center group-hover:opacity-40 transition-opacity">
+                                                    <div key={task.id} className="bg-bg-1 dark:bg-bg-0 rounded-lg p-2.5 flex justify-between items-center group-hover:opacity-40 transition-opacity">
                                                         <div className="flex items-center space-x-3 overflow-hidden">
                                                             <span className="text-text-tertiary text-[10px] w-3 font-mono">{idx + 1}</span>
                                                             <span className="text-[12px] text-text-secondary truncate font-medium">{task.title}</span>
@@ -181,7 +170,7 @@ export function FocusClient({
                                         ) : (
                                             <div className="flex flex-col items-center justify-center h-full group-hover:opacity-20 transition-opacity opacity-40">
                                                 <div className="w-12 h-12 rounded-full border-2 border-dashed border-bg-3 flex items-center justify-center mb-3">
-                                                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-emerald-500 to-cyan-500 flex items-center justify-center">
+                                                    <div className="w-8 h-8 rounded-full bg-[#ff0054] flex items-center justify-center">
                                                         <CheckCircle2 className="w-4 h-4 text-white" />
                                                     </div>
                                                 </div>
@@ -191,7 +180,7 @@ export function FocusClient({
 
                                         {/* Overlay Open Button */}
                                         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 translate-y-2 group-hover:translate-y-0">
-                                            <div className="px-6 py-2.5 rounded-full bg-accent-indigo text-white text-sm font-bold flex items-center shadow-xl shadow-accent-indigo/20">
+                                            <div className="px-6 py-2.5 rounded-full bg-[#ff0054] text-white text-sm font-bold flex items-center shadow-xl shadow-[#ff0054]/20">
                                                 <MoveUpRight className="w-4 h-4 mr-2" />
                                                 Iniciar Foco
                                             </div>
@@ -199,7 +188,7 @@ export function FocusClient({
                                     </div>
 
                                     {/* Footer */}
-                                    <div className="p-4 pt-2 flex items-center justify-between border-t border-bg-3/30">
+                                    <div className="p-4 pt-2 flex items-center justify-between border-t border-border dark:border-bg-3/30">
                                         <span className="text-[11px] text-text-tertiary font-bold">
                                             {pendingTasks.length} {pendingTasks.length === 1 ? 'pendente' : 'pendentes'}
                                         </span>
@@ -221,13 +210,14 @@ export function FocusClient({
                             navigateTo("/projects")
                         }}
                     >
-                        <div className="w-full h-[333px] rounded-xl border-2 border-dashed border-bg-3 bg-transparent hover:border-accent-indigo/30 transition-all flex flex-col items-center justify-center cursor-pointer group">
-                            <LayoutGrid className="w-8 h-8 text-text-tertiary group-hover:text-accent-indigo mb-3 opacity-30 group-hover:opacity-100 transition-all" />
-                            <span className="text-[10px] text-text-tertiary group-hover:text-accent-indigo font-bold tracking-widest uppercase">Gerir Projectos</span>
+                        <div className="w-full h-[333px] rounded-xl border-2 border-dashed border-border dark:border-slate-800 bg-transparent hover:border-[#ff0054]/50 transition-all flex flex-col items-center justify-center cursor-pointer group">
+                            <LayoutGrid className="w-8 h-8 text-text-tertiary dark:text-slate-400 group-hover:text-[#ff0054] mb-3 opacity-70 group-hover:opacity-100 transition-all" />
+                            <span className="text-[10px] text-text-tertiary dark:text-slate-400 group-hover:text-[#ff0054] font-bold tracking-widest uppercase transition-all">Gerir Projectos</span>
                         </div>
                     </Link>
                 </div>
             </div>
+        </div>
         </div>
     )
 }

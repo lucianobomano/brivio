@@ -34,6 +34,11 @@ import { toast } from "sonner"
 import Image from "next/image"
 import { ROADMAP_TEMPLATES } from "@/lib/roadmap-templates"
 import { useCurrency } from "@/components/CurrencyUtils"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker"
+import { format, parseISO } from "date-fns"
+import { pt } from "date-fns/locale"
+
 
 interface Brand {
     id: string
@@ -75,6 +80,7 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
     const [newBrandName, setNewBrandName] = React.useState("")
     const [isCreatingBrand, setIsCreatingBrand] = React.useState(false)
     const [isUploading, setIsUploading] = React.useState(false)
+    const [isCalendarOpen, setIsCalendarOpen] = React.useState(false)
     const fileInputRef = React.useRef<HTMLInputElement>(null)
 
     // Form State
@@ -554,6 +560,12 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
                                                 <option value="USD" className="bg-white dark:bg-[#15161B]">USD ($)</option>
                                                 <option value="BRL" className="bg-white dark:bg-[#15161B]">BRL (R$)</option>
                                                 <option value="EUR" className="bg-white dark:bg-[#15161B]">EUR (€)</option>
+                                                <option value="AOA" className="bg-white dark:bg-[#15161B]">AOA (Kz)</option>
+                                                <option value="CVE" className="bg-white dark:bg-[#15161B]">CVE ($)</option>
+                                                <option value="MZN" className="bg-white dark:bg-[#15161B]">MZN (MT)</option>
+                                                <option value="STN" className="bg-white dark:bg-[#15161B]">STN (Db)</option>
+                                                <option value="XAF" className="bg-white dark:bg-[#15161B]">XAF (FCFA)</option>
+                                                <option value="XOF" className="bg-white dark:bg-[#15161B]">XOF (CFA)</option>
                                             </select>
                                             <ChevronRight className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#97A1B3] rotate-90 pointer-events-none" />
                                         </div>
@@ -570,31 +582,35 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
                                 exit={{ opacity: 0, x: -20 }}
                                 className="space-y-12"
                             >
-                                <div className="grid grid-cols-2 gap-x-[70px]">
-                                    <div className="space-y-3">
-                                        <label className="text-[14px] font-medium text-[#97A1B3]">Data de início</label>
-                                        <div className="relative">
-                                            <input
-                                                type="date"
-                                                className="w-full bg-transparent border-b border-[#97A1B3] dark:border-[#373737] px-[12px] py-4 text-[18px] text-[#4F5B6E] dark:text-[#97A1B3] appearance-none outline-none focus:border-[#ff0054]"
-                                                value={formData.start_date}
-                                                onChange={e => setFormData({ ...formData, start_date: e.target.value })}
+                                <div className="space-y-3">
+                                    <label className="text-[14px] font-medium text-[#97A1B3]">Cronograma do projeto</label>
+                                    <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                                        <PopoverTrigger asChild>
+                                            <button className="w-full h-[58px] bg-transparent border-b border-[#97A1B3] dark:border-[#373737] px-[12px] flex items-center justify-between text-[18px] text-[#4F5B6E] dark:text-[#97A1B3] hover:border-[#ff0054] transition-all outline-none">
+                                                <span>
+                                                    {formData.start_date && formData.due_date
+                                                        ? `${format(parseISO(formData.start_date), "d MMM", { locale: pt })} — ${format(parseISO(formData.due_date), "d MMM", { locale: pt })}`
+                                                        : formData.start_date 
+                                                            ? format(parseISO(formData.start_date), "d MMM", { locale: pt })
+                                                            : "Selecionar datas..."}
+                                                </span>
+                                                <Calendar className="w-5 h-5 text-[#97A1B3]" />
+                                            </button>
+                                        </PopoverTrigger>
+                                        <PopoverContent 
+                                            side="bottom" 
+                                            align="start" 
+                                            className="p-0 border-none bg-transparent shadow-none w-auto"
+                                            sideOffset={8}
+                                        >
+                                            <CustomDateRangePicker
+                                                initialStartDate={formData.start_date}
+                                                initialEndDate={formData.due_date}
+                                                onSave={(start, end) => setFormData(prev => ({ ...prev, start_date: start, due_date: end }))}
+                                                onClose={() => setIsCalendarOpen(false)}
                                             />
-                                            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#97A1B3] pointer-events-none" />
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[14px] font-medium text-[#97A1B3]">Data de entrega</label>
-                                        <div className="relative">
-                                            <input
-                                                type="date"
-                                                className="w-full bg-transparent border-b border-[#97A1B3] dark:border-[#373737] px-[12px] py-4 text-[18px] text-[#4F5B6E] dark:text-[#97A1B3] appearance-none outline-none focus:border-[#ff0054]"
-                                                value={formData.due_date}
-                                                onChange={e => setFormData({ ...formData, due_date: e.target.value })}
-                                            />
-                                            <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[#97A1B3] pointer-events-none" />
-                                        </div>
-                                    </div>
+                                        </PopoverContent>
+                                    </Popover>
                                 </div>
 
                                 <div className="bg-[#DDE0E6] dark:bg-[#1A1B23] p-8 rounded-[8px] flex items-center gap-6 border border-gray-200 dark:border-[#373737]">

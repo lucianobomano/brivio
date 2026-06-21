@@ -54,7 +54,14 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    // SECURITY: Redirect unauthenticated users to login for all protected routes
+    if (!user) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/login'
+        return NextResponse.redirect(url)
+    }
 
     return response
 }
@@ -66,7 +73,9 @@ export const config = {
          * - _next/static (static files)
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
-         * Feel free to modify this pattern to include more paths.
+         * - login, register (public auth routes)
+         * - api/upload (upload endpoint handles auth internally)
+         * - static file extensions
          */
         '/((?!_next/static|_next/image|favicon.ico|login|register|$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
