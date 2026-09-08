@@ -23,6 +23,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { ProjectNotesPanel } from "@/components/roadmap/ProjectNotesPanel"
+import { JourneyRoadmapLayouts, type JourneyLayoutStyle } from "@/components/roadmap/JourneyRoadmapLayouts"
 
 interface ClientRoadmapViewProps {
     project: any
@@ -34,7 +35,7 @@ interface ClientRoadmapViewProps {
     initialNotes?: any[]
 }
 
-type LayoutStyle = 'default' | 'numbered' | 'minimal' | 'cards' | 'timeline'
+type LayoutStyle = 'default' | 'numbered' | 'minimal' | 'cards' | 'timeline' | JourneyLayoutStyle
 
 const BG_CLASSES: Record<string, string> = {
     'default': 'bg-[#FAFAFA]',
@@ -46,6 +47,10 @@ const LAYOUT_OPTIONS: { id: LayoutStyle; name: string; icon: string; description
     { id: 'minimal', name: 'Minimal', icon: '✨', description: 'Design clean' },
     { id: 'cards', name: 'Cards', icon: '🃏', description: 'Glassmorphism' },
     { id: 'timeline', name: 'Horizontal', icon: '⏳', description: 'Linha do tempo' },
+    { id: 'winding-road', name: 'Estrada', icon: '🛣️', description: 'Percurso sinuoso' },
+    { id: 'angular-path', name: 'Angular', icon: '🚩', description: 'Caminho com viragens' },
+    { id: 'ribbon-path', name: 'Fita', icon: '🎗️', description: 'Percurso fluido' },
+    { id: 'stair-path', name: 'Escadaria', icon: '🪜', description: 'Evolução por níveis' },
 ]
 
 export function ClientRoadmapView({
@@ -199,7 +204,7 @@ export function ClientRoadmapView({
 
                     <h1 className="text-[42px] md:text-[56px] font-bold tracking-tight mb-6 leading-[1.1]">
                         <span className="bg-gradient-to-r from-[#1D1D1F] via-[#3d3d3f] to-[#1D1D1F] bg-clip-text text-transparent">
-                            Olá, {brand?.name || "Cliente"}!
+                            Olá. {brand?.name || "Cliente"}
                         </span>
                         <br />
                         <span className="text-[#86868B] text-[32px] md:text-[42px]">Acompanhe o progresso em tempo real.</span>
@@ -762,6 +767,14 @@ export function ClientRoadmapView({
                                 })}
                             </div>
                         </motion.div>
+                    )}
+
+                    {roadmap.length > 0 && (['winding-road', 'angular-path', 'ribbon-path', 'stair-path'] as JourneyLayoutStyle[]).includes(layoutStyle as JourneyLayoutStyle) && (
+                        <JourneyRoadmapLayouts
+                            variant={layoutStyle as JourneyLayoutStyle}
+                            stages={roadmap}
+                            readOnly
+                        />
                     )}
                 </AnimatePresence>
 

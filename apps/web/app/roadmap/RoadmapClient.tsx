@@ -64,6 +64,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover"
 import { ProjectNotesPanel } from "@/components/roadmap/ProjectNotesPanel"
+import { JourneyRoadmapLayouts, type JourneyLayoutStyle } from "@/components/roadmap/JourneyRoadmapLayouts"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
@@ -89,6 +90,15 @@ const BG_CLASSES_ADMIN: Record<string, string> = {
 }
 
 type GalleryItem = { type: 'gradient' | 'image', value: string, label?: string };
+
+type RoadmapLayoutStyle = 'default' | 'numbered' | 'minimal' | 'cards' | 'timeline' | JourneyLayoutStyle
+
+const JOURNEY_LAYOUT_OPTIONS: { id: JourneyLayoutStyle; icon: string; name: string; description: string }[] = [
+    { id: 'winding-road', icon: '🛣️', name: 'Estrada Serpenteante', description: 'Percurso sinuoso com início, curvas e objetivo' },
+    { id: 'angular-path', icon: '🚩', name: 'Percurso Angular', description: 'Caminho gráfico com viragens marcantes' },
+    { id: 'ribbon-path', icon: '🎗️', name: 'Fita Serpentina', description: 'Fases ligadas por uma fita fluida e elegante' },
+    { id: 'stair-path', icon: '🪜', name: 'Escadaria', description: 'Etapas ascendentes até à entrega final' },
+]
 
 const galleryItems: GalleryItem[] = [
     { type: 'gradient', value: "linear-gradient(135deg, #FF0054 0%, #88007F 100%)", label: "Pink Purple" },
@@ -207,7 +217,7 @@ export function RoadmapClient({
     const [newStageName, setNewStageName] = React.useState("")
     const [newStageColor, setNewStageColor] = React.useState("#ff0054")
     const [viewMode, setViewMode] = React.useState<'vertical' | 'horizontal'>('vertical')
-    const [layoutStyle, setLayoutStyle] = React.useState<'default' | 'numbered' | 'minimal' | 'cards' | 'timeline'>('numbered')
+    const [layoutStyle, setLayoutStyle] = React.useState<RoadmapLayoutStyle>('numbered')
     const [bgStyle, setBgStyle] = React.useState<string>('default')
     const [editingTask, setEditingTask] = React.useState<{ id: string, title: string, stageId: string } | null>(null)
     const [newTaskTitle, setNewTaskTitle] = React.useState("")
@@ -299,8 +309,8 @@ export function RoadmapClient({
     const currentStage = roadmap.find(s => s.progress < 100) || roadmap[roadmap.length - 1]
 
     const handleGenerateLink = () => {
-        if (!selectedProjectId) return
-        const link = `${window.location.origin}/share/${selectedProjectId}/roadmap?layout=${layoutStyle}&bg=${encodeURIComponent(bgStyle)}`
+        if (!localSelectedProjectId) return
+        const link = `${window.location.origin}/share/${localSelectedProjectId}/roadmap?layout=${layoutStyle}&bg=${encodeURIComponent(bgStyle)}`
         navigator.clipboard.writeText(link)
         toast.success("Link do cliente copiado!", {
             description: "Você já pode enviar este link para o seu cliente."
@@ -1478,6 +1488,28 @@ export function RoadmapClient({
                         </div>
                     </div>
                 )}
+
+                {JOURNEY_LAYOUT_OPTIONS.some(option => option.id === layoutStyle) && (
+                    <JourneyRoadmapLayouts
+                        variant={layoutStyle as JourneyLayoutStyle}
+                        stages={roadmap}
+                        onToggleTask={handleToggleTask}
+                        onAddTask={(stageId) => {
+                            setTaskStageId(stageId)
+                            setEditingTask(null)
+                            setNewTaskTitle("")
+                            setIsTaskModalOpen(true)
+                        }}
+                        onEditStage={(stageId) => {
+                            const stage = roadmap.find(item => item.id === stageId)
+                            if (!stage) return
+                            setEditingStage(stage)
+                            setNewStageName(stage.name)
+                            setNewStageColor(stage.color)
+                            setIsStageModalOpen(true)
+                        }}
+                    />
+                )}
             </DndContext>
             </div>
 
@@ -1613,7 +1645,7 @@ export function RoadmapClient({
                         />
                     </DialogHeader>
 
-                    <div className="grid grid-cols-3 gap-4 p-6">
+                    <div className="grid max-h-[620px] grid-cols-2 gap-4 overflow-y-auto p-6 md:grid-cols-3">
                         {/* Default Layout */}
                         <motion.button
                             onClick={() => {
@@ -1703,6 +1735,26 @@ export function RoadmapClient({
                             <h3 className="text-[14px] font-bold text-text-primary mb-1">Timeline Horizontal</h3>
                             <p className="text-[11px] text-text-tertiary">Linha do tempo com setas conectoras</p>
                         </motion.button>
+
+                        {JOURNEY_LAYOUT_OPTIONS.map(option => (
+                            <motion.button
+                                key={option.id}
+                                onClick={() => {
+                                    setLayoutStyle(option.id)
+                                    setIsLayoutModalOpen(false)
+                                }}
+                                className={cn(
+                                    "p-5 bg-[#2E313C] border rounded-[5px] text-left transition-all group",
+                                    layoutStyle === option.id ? "border-[#FF0054] ring-2 ring-[#FF0054]/20" : "border-bg-3 hover:border-[#FF0054]/50"
+                                )}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                <div className="text-2xl mb-2">{option.icon}</div>
+                                <h3 className="text-[14px] font-bold text-text-primary mb-1">{option.name}</h3>
+                                <p className="text-[11px] text-text-tertiary">{option.description}</p>
+                            </motion.button>
+                        ))}
                     </div>
                 </DialogContent>
             </Dialog>
