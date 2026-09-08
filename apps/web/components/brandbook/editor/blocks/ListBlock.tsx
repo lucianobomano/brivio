@@ -27,7 +27,7 @@ interface ListBlockProps {
     isFreeFlow?: boolean
 }
 
-export const ListBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onDuplicate, onCopy, onMove, onAnimate, isFreeFlow }: ListBlockProps) => {
+export const ListBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onDuplicate, onCopy, onMove, onAnimate, isFreeFlow, align }: ListBlockProps) => {
     const { getStyleById } = useBrandDesign()
     const globalStyle = getStyleById('body')
     const [isFocused, setIsFocused] = React.useState(false)
@@ -101,6 +101,11 @@ export const ListBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId
                     ...block.content,
                     style: { ...block.content.style, lineHeight: h }
                 })}
+                margin={block.content.style?.margin}
+                onMarginChange={(m) => onUpdate(block.id, {
+                    ...block.content,
+                    style: { ...block.content.style, margin: m }
+                })}
                 onAnimate={onAnimate}
             />
         </div>
@@ -112,7 +117,8 @@ export const ListBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId
         fontSize: globalStyle?.size ? `${globalStyle.size}px` : undefined,
         lineHeight: globalStyle?.height,
         color: globalStyle?.color,
-        ...block.content.style
+        ...block.content.style,
+        textAlign: block.content.style?.textAlign || align || 'left'
     }
 
     const content = (

@@ -1,19 +1,20 @@
 "use client"
 
 import React from "react"
-import { Block } from "../types"
+import { Block, BrivioClipboardItem } from "../types"
 import { cn } from "@/lib/utils"
 // Cyclical dependency risk? We will import BlockRenderer dynamically or pass it as prop? 
 // Usually better to have a generic renderer or Import it.
 // React handles circular imports fine usually for components if implementation is clean.
 import { BlockRenderer } from "./BlockRenderer"
-import { Plus, ArrowLeft, ArrowRight } from "lucide-react"
+import { Plus, ArrowLeft, ArrowRight, Clipboard } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ColumnSettingsPanel } from "./ColumnSettingsPanel"
 import { useState, useRef, useEffect } from "react"
 import { ColumnSplitter } from "./ColumnSplitter"
 import { useBrandDesign } from "../BrandDesignContext"
 import { uploadBrandbookMedia } from "@/app/actions/brandbook"
+import { toast } from "sonner"
 
 interface LayoutBlockProps {
     block: Block
@@ -24,11 +25,27 @@ interface LayoutBlockProps {
     activeBlockId?: string | null
     onDelete?: (id: string) => void
     onDuplicate?: (id: string) => void
+    onCopy?: (id: string) => void
     onAnimate?: () => void
     responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
+    clipboard?: BrivioClipboardItem | null
+    onPasteBlock?: (parentId?: string, columnId?: string, insertIndex?: number) => void
 }
 
-export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDuplicate, onAnimate, responsiveDevice }: LayoutBlockProps) => {
+export const LayoutBlock = ({
+    block,
+    isReadOnly,
+    onUpdate,
+    onAddBlock,
+    onSelect,
+    activeBlockId,
+    onDuplicate,
+    onCopy,
+    onAnimate,
+    responsiveDevice,
+    clipboard,
+    onPasteBlock
+}: LayoutBlockProps) => {
     const { brandId, setIsResizingGlobal } = useBrandDesign()
     // Determine columns from variant or content
     // content.columns = [{ id: 'col-1', blocks: [] }, ...]
@@ -195,6 +212,151 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
         }
 
         onUpdate(block.id, updatedContent)
+    }
+
+    const handleCopyColumn = (col: any) => {
+        const item: BrivioClipboardItem = {
+            itemType: 'column',
+            data: col,
+            label: `Coluna (${col.blocks?.length || 0} blocos)`
+        }
+        try {
+            localStorage.setItem('brivio_clipboard', JSON.stringify(item))
+            window.dispatchEvent(new CustomEvent('brivio_clipboard_update', { detail: item }))
+            navigator.clipboard.writeText(JSON.stringify(item))
+        } catch { /* ignore */ }
+        toast.success("Coluna copiada para a área de transferência!", {
+            description: "Opções de colar disponíveis dentro das seções."
+        })
+    }
+
+    const handleDuplicateColumn = (colId: string) => {
+        const colIndex = columns.findIndex((c: any) => c.id === colId)
+        if (colIndex === -1) return
+        const sourceCol = columns[colIndex]
+        const clonedCol = {
+            ...JSON.parse(JSON.stringify(sourceCol)),
+            id: `col-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+        }
+        if (Array.isArray(clonedCol.blocks)) {
+            clonedCol.blocks = clonedCol.blocks.map((b: any) => ({
+                ...b,
+                id: `b-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+            }))
+        }
+        const newColumns = [...columns]
+        newColumns.splice(colIndex + 1, 0, clonedCol)
+        const newCount = newColumns.length
+        onUpdate(block.id, {
+            ...block.content,
+            columns: newColumns,
+            settings: {
+                ...block.content.settings,
+                columns: newCount,
+                columnWidths: Array(newCount).fill(1)
+            }
+        })
+        toast.success("Coluna duplicada com sucesso!")
+    }
+
+    const handleDeleteColumn = (colId: string) => {
+        if (columns.length <= 1) {
+            toast.error("A seção precisa ter pelo menos uma coluna.")
+            return
+        }
+        const newColumns = columns.filter((c: any) => c.id !== colId)
+        const newCount = newColumns.length
+        onUpdate(block.id, {
+            ...block.content,
+            columns: newColumns,
+            settings: {
+                ...block.content.settings,
+                columns: newCount,
+                columnWidths: Array(newCount).fill(1)
+            }
+        })
+        setOpenSettingsColId(null)
+        toast.success("Coluna apagada com sucesso.")
+    }
+
+    const handlePasteColumn = () => {
+        if (!clipboard || clipboard.itemType !== 'column' || !clipboard.data) return
+
+        const deepCloneWithNewIds = (obj: any): any => {
+            if (Array.isArray(obj)) {
+                return obj.map(item => deepCloneWithNewIds(item))
+            } else if (obj && typeof obj === 'object') {
+                const newObj: any = { ...obj }
+                if (newObj.id) newObj.id = `col-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+                for (const key in newObj) {
+                    if (key !== 'id') {
+                        newObj[key] = deepCloneWithNewIds(newObj[key])
+                    }
+                }
+                return newObj
+            }
+            return obj
+        }
+
+        const clonedCol = deepCloneWithNewIds(JSON.parse(JSON.stringify(clipboard.data)))
+        clonedCol.id = `col-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+        if (Array.isArray(clonedCol.blocks)) {
+            clonedCol.blocks = clonedCol.blocks.map((b: any) => ({
+                ...deepCloneWithNewIds(b),
+                id: `b-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+            }))
+        }
+
+        const newColumns = [...columns, clonedCol]
+        const newCount = newColumns.length
+
+        onUpdate(block.id, {
+            ...block.content,
+            columns: newColumns,
+            settings: {
+                ...block.content.settings,
+                columns: newCount,
+                columnWidths: Array(newCount).fill(1)
+            }
+        })
+        toast.success("Coluna colada na seção com sucesso!")
+    }
+
+    const handlePasteBlockIntoColumn = (colId: string) => {
+        if (!clipboard || clipboard.itemType !== 'block' || !clipboard.data) return
+
+        const deepCloneWithNewIds = (obj: any): any => {
+            if (Array.isArray(obj)) {
+                return obj.map(item => deepCloneWithNewIds(item))
+            } else if (obj && typeof obj === 'object') {
+                const newObj: any = { ...obj }
+                if (newObj.id) newObj.id = `b-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`
+                for (const key in newObj) {
+                    if (key !== 'id') {
+                        newObj[key] = deepCloneWithNewIds(newObj[key])
+                    }
+                }
+                return newObj
+            }
+            return obj
+        }
+
+        const newBlock = deepCloneWithNewIds(JSON.parse(JSON.stringify(clipboard.data)))
+        const newColumns = columns.map((c: any) => {
+            if (c.id === colId) {
+                return {
+                    ...c,
+                    blocks: [...(c.blocks || []), newBlock]
+                }
+            }
+            return c
+        })
+
+        onUpdate(block.id, {
+            ...block.content,
+            columns: newColumns
+        })
+        toast.success("Bloco colado na coluna com sucesso!")
     }
 
     // State to track open panel for specific column
@@ -373,9 +535,10 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
     const gapValue = noColumnGap ? 0 : columnGap
 
     return (
-        <div
-            className={cn("grid w-full h-full min-h-0 transition-all duration-300 relative overflow-visible", getGridClass(colCount))}
-            id={`layout-block-${block.id}`}
+        <div className="w-full h-full flex flex-col relative overflow-visible group/layout-section">
+            <div
+                className={cn("grid w-full flex-1 min-h-0 transition-all duration-300 relative overflow-visible", getGridClass(colCount))}
+                id={`layout-block-${block.id}`}
             style={{
                 padding: '0px',
                 gap: `${gapValue}px`,
@@ -511,6 +674,11 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
                                         isFullWidth: false,
                                         isFullHeight: false
                                     })}
+                                    onCopyColumn={() => handleCopyColumn(col)}
+                                    onDuplicateColumn={() => handleDuplicateColumn(col.id)}
+                                    onDeleteColumn={() => handleDeleteColumn(col.id)}
+                                    isLocked={col.settings?.isLocked || false}
+                                    onToggleLock={() => handleColumnSettingsChange(col.id, { isLocked: !col.settings?.isLocked })}
                                 >
                                     <button
                                         className="bg-[#FF0054] text-white text-[10px] px-2 h-[24px] rounded-t-[4px] font-medium tracking-wide flex items-center gap-1 hover:bg-[#D90048] transition-colors"
@@ -559,10 +727,13 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
                                         activeBlockId={activeBlockId}
                                         onMove={handleBlockMove}
                                         onDuplicate={handleBlockDuplicate}
+                                        onCopy={onCopy}
                                         onAnimate={onAnimate}
                                         align={col.settings?.alignHorizontal || 'left'}
                                         isFreeFlow={col.settings?.isFreeFlow}
                                         responsiveDevice={responsiveDevice}
+                                        clipboard={clipboard}
+                                        onPasteBlock={onPasteBlock}
                                         onDelete={(id) => {
                                             // Deleting a block inside a column
                                             const newColumns = columns.map((c: any) => {
@@ -580,11 +751,27 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
                                 </div>
                             ))}
 
+                            {/* Paste Block Option - Displayed ONLY inside columns when clipboard item is a block */}
+                            {!isReadOnly && clipboard?.itemType === 'block' && (
+                                <Button
+                                    variant="outline"
+                                    className="w-[65%] mx-auto h-8 border-dashed border-[#FF0054] bg-[#FF0054]/5 hover:bg-[#FF0054]/10 text-[#FF0054] text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm animate-pulse cursor-pointer mt-3 mb-1 shrink-0"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        handlePasteBlockIntoColumn(col.id)
+                                    }}
+                                    title="Colar bloco copiado nesta coluna"
+                                >
+                                    <Clipboard className="w-3.5 h-3.5" />
+                                    <span>Colar bloco aqui</span>
+                                </Button>
+                            )}
+
                             {/* Add Button for this column */}
                             {!isReadOnly && (
                                 <Button
                                     variant="ghost"
-                                    className="w-[65%] mx-auto h-8 border border-dashed text-gray-400 hover:text-pink-500 hover:border-pink-500 hover:bg-pink-50 mt-4 mb-2 shrink-0"
+                                    className="w-[65%] mx-auto h-8 border border-dashed text-gray-400 hover:text-pink-500 hover:border-pink-500 hover:bg-pink-50 mt-2 mb-2 shrink-0"
                                     onClick={() => {
                                         onAddBlock(block.id, col.id, 'request_dialog')
                                     }}
@@ -606,6 +793,29 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
                     </div>
                 )
             }
+            )}
+            </div>
+
+            {/* Paste Column Option - Displayed ONLY inside sections when clipboard item is a column */}
+            {clipboard?.itemType === 'column' && !isReadOnly && (
+                <div className="w-full flex items-center justify-center py-2.5 px-4 my-2 z-20 animate-in fade-in zoom-in-95">
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            handlePasteColumn()
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#7928CA] hover:bg-[#6820B0] text-white rounded-lg shadow-md border border-[#9A5BFF]/40 text-xs font-semibold tracking-wide transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                        title="Colar coluna copiada dentro desta seção"
+                    >
+                        <Clipboard className="w-4 h-4 text-white/90" />
+                        <span>Colar coluna copiada nesta seção</span>
+                        {clipboard.label && (
+                            <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full text-white/90">
+                                {clipboard.label}
+                            </span>
+                        )}
+                    </button>
+                </div>
             )}
         </div>
     )

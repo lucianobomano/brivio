@@ -10,6 +10,8 @@ export interface RoadmapStage {
     name: string
     color: string
     position: number
+    start_date?: string | null
+    due_date?: string | null
     tasks: {
         id: string
         title: string
@@ -121,6 +123,8 @@ export async function getProjectRoadmap(projectId: string) {
                 name: stage.name,
                 color: stage.color,
                 position: stage.position,
+                start_date: stage.start_date || null,
+                due_date: stage.due_date || null,
                 tasks: stageTasks,
                 progress
             }
@@ -246,7 +250,13 @@ export async function updateStagePosition(stageId: string, newPosition: number) 
 /**
  * Creates a new roadmap stage.
  */
-export async function createRoadmapStage(workspaceId: string, name: string, color: string) {
+export async function createRoadmapStage(
+    workspaceId: string, 
+    name: string, 
+    color: string,
+    startDate?: string | null,
+    dueDate?: string | null
+) {
     try {
         const lastStage = await prisma.$queryRawUnsafe<{ position: number }[]>(`
             SELECT position FROM public.project_stages
@@ -258,9 +268,9 @@ export async function createRoadmapStage(workspaceId: string, name: string, colo
         const newPosition = (lastStage?.[0]?.position || 0) + 1000
 
         await prisma.$executeRawUnsafe(`
-            INSERT INTO public.project_stages (id, workspace_id, name, color, position, created_at, updated_at)
-            VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, NOW(), NOW())
-        `, workspaceId, name, color, newPosition)
+            INSERT INTO public.project_stages (id, workspace_id, name, color, position, start_date, due_date, created_at, updated_at)
+            VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5::timestamptz, $6::timestamptz, NOW(), NOW())
+        `, workspaceId, name, color, newPosition, startDate || null, dueDate || null)
 
         revalidatePath('/roadmap')
         return { success: true }
@@ -291,13 +301,22 @@ export async function deleteRoadmapStage(stageId: string) {
 /**
  * Updates a roadmap stage.
  */
-export async function updateRoadmapStage(stageId: string, name: string, color: string) {
+export async function updateRoadmapStage(
+    stageId: string,
+    name: string,
+    color: string,
+    startDate?: string | null,
+    dueDate?: string | null
+) {
     try {
         await prisma.$executeRawUnsafe(`
             UPDATE public.project_stages
-            SET name = $1, color = $2, updated_at = NOW()
-            WHERE id = $3::uuid
-        `, name, color, stageId)
+            SET name = $1, color = $2, 
+                start_date = $3::timestamptz,
+                due_date = $4::timestamptz,
+                updated_at = NOW()
+            WHERE id = $5::uuid
+        `, name, color, startDate || null, dueDate || null, stageId)
 
         revalidatePath('/roadmap')
         return { success: true }

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react"
 import { Block } from "../types"
-import { Plus, Trash2, CheckCircle2 } from "lucide-react"
+import { Plus, Trash2, CheckCircle2, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 // import { Input } from "@/components/ui/input" 
 import { hexToRgb, rgbToCmyk, getSimulatedPantone, getContrastColor, mixWithWhite } from "./ColorUtils"
@@ -44,6 +44,82 @@ interface ColorData {
     value: string
     settings?: ColorSettings
     variants?: { id: string; name?: string; value: string; settings?: ColorSettings }[]
+}
+
+const CircleCopyableCodeItem = ({
+    label,
+    value,
+    copyText,
+    colorValue,
+    onCopy,
+}: {
+    label: string
+    value: string
+    copyText?: string
+    colorValue: string
+    onCopy?: (text: string) => void
+}) => {
+    const [hovered, setHovered] = useState(false)
+    const [copied, setCopied] = useState(false)
+    const textToCopy = copyText || value
+    const contrastColor = getContrastColor(colorValue)
+
+    const handleItemClick = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        navigator.clipboard.writeText(textToCopy)
+        onCopy?.(textToCopy)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 1500)
+    }
+
+    return (
+        <div className="relative flex items-center gap-2">
+            <span className="text-white font-medium shrink-0 w-[54px] select-none text-[14px] sm:text-[15px]">{label}</span>
+            <div
+                className="relative inline-flex items-center cursor-pointer select-none"
+                onMouseEnter={() => setHovered(true)}
+                onMouseLeave={() => setHovered(false)}
+                onClick={handleItemClick}
+            >
+                {/* Floating Copy Tooltip directly above the value */}
+                {hovered && (
+                    <div
+                        className="absolute -top-7 left-1/2 -translate-x-1/2 px-2.5 py-0.5 rounded-full flex items-center gap-1.5 shadow-md whitespace-nowrap z-30 transition-all animate-in fade-in zoom-in-95 duration-150 border border-black/10"
+                        style={{
+                            backgroundColor: colorValue,
+                            color: contrastColor
+                        }}
+                    >
+                        {copied ? (
+                            <>
+                                <Check className="w-3.5 h-3.5 stroke-[2.5]" />
+                                <span className="text-[11px] font-semibold">Copiado!</span>
+                            </>
+                        ) : (
+                            <>
+                                <Copy className="w-3.5 h-3.5 stroke-[2.5]" />
+                                <span className="text-[11px] font-semibold">Copy</span>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                {/* Highlighted Value Box */}
+                <span
+                    className={cn(
+                        "transition-all duration-150 uppercase rounded px-1.5 py-0.5 text-[14px] sm:text-[15px]",
+                        hovered ? "font-bold" : "text-white"
+                    )}
+                    style={hovered ? {
+                        backgroundColor: colorValue,
+                        color: contrastColor
+                    } : undefined}
+                >
+                    {value}
+                </span>
+            </div>
+        </div>
+    )
 }
 
 const ColorCard = React.forwardRef(({
@@ -100,9 +176,9 @@ const ColorCard = React.forwardRef(({
     const showRgb = effectiveSettings?.showRgb !== false
 
     // Custom styles from Block Settings
-    const radius = globalSettings?.styles?.radius || 0
-    const borderWidth = globalSettings?.styles?.borderWidth || 0
-    const borderColor = globalSettings?.styles?.borderColor || '#E5E7EB'
+    const radius = globalSettings?.radius ?? globalSettings?.styles?.radius ?? 0
+    const borderWidth = globalSettings?.borderWidth ?? globalSettings?.styles?.borderWidth ?? 0
+    const borderColor = globalSettings?.borderColor ?? globalSettings?.styles?.borderColor ?? '#E5E7EB'
 
     if (layout === 'horizontal') {
         const height = 308;
@@ -262,7 +338,7 @@ const ColorCard = React.forwardRef(({
                     !isReadOnly && "hover:z-50"
                 )}
                 style={{
-                    width: '300px',
+                    width: '100%',
                     height: '822px',
                     borderRadius: `${radius}px`,
                     borderWidth: `${borderWidth}px`,
@@ -413,15 +489,16 @@ const ColorCard = React.forwardRef(({
         <div
             ref={ref}
             className={cn(
-                "w-full bg-white relative group/card flex transition-all duration-300",
-                layout === 'list' ? "flex-row h-auto min-h-[100px]" : "flex-col",
-                layout === 'circles' && "bg-transparent",
-                hoverEnabled && "hover:border-[#FF0054]"
+                "w-full relative group/card flex transition-all duration-300",
+                layout === 'list' ? "flex-row h-auto min-h-[100px] bg-white" : "flex-col",
+                layout === 'circles' ? "bg-transparent items-center" : (layout !== 'list' && "bg-white"),
+                hoverEnabled && layout !== 'circles' && "hover:border-[#FF0054]"
             )}
             style={{
-                height: layout === 'list' ? 'auto' : (aspectRatio ? 'auto' : `${cardHeight}px`),
-                aspectRatio: (layout !== 'list' && aspectRatio) ? `${aspectRatio}` : undefined,
-                maxWidth: customWidth ? `${customWidth}px` : undefined,
+                height: (layout === 'circles' || layout === 'list') ? 'auto' : (aspectRatio ? 'auto' : `${cardHeight}px`),
+                aspectRatio: (layout !== 'list' && layout !== 'circles' && aspectRatio) ? `${aspectRatio}` : undefined,
+                maxWidth: (layout === 'row' && customWidth) ? `${customWidth}px` : undefined,
+                width: '100%',
             }}
             onClick={(e) => {
                 e.stopPropagation();
@@ -444,9 +521,9 @@ const ColorCard = React.forwardRef(({
             {/* Inner Content Wrapper with Overflow Hidden for Corners/Border */}
             <div
                 className={cn(
-                    "w-full h-full flex transition-all duration-300 pointer-events-none",
-                    layout === 'list' ? "flex-row" : "flex-col",
-                    layout === 'circles' ? "rounded-full aspect-square" : "overflow-hidden"
+                    "w-full flex transition-all duration-300 pointer-events-none overflow-hidden",
+                    layout === 'list' ? "flex-row h-full min-h-[90px]" : "flex-col",
+                    layout === 'circles' ? "rounded-full aspect-square" : "h-full"
                 )}
                 style={{
                     borderRadius: layout === 'circles' ? '50%' : `${radius}px`,
@@ -479,7 +556,48 @@ const ColorCard = React.forwardRef(({
                         style={{ backgroundColor: color.value }}
                     />
 
-                    {/* Info Overlay */}
+                    {/* Info Overlay for Circles Layout */}
+                    {hoverEnabled && layout === 'circles' && (
+                        <div
+                            className="absolute inset-0 bg-black flex flex-col items-center justify-center p-4 text-white transition-transform duration-500 ease-out translate-y-full group-hover/card:translate-y-0 z-20 select-none overflow-hidden"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="flex flex-col gap-2.5 font-sans tracking-wide">
+                                {showCmyk && (
+                                    <CircleCopyableCodeItem
+                                        label="CMYK:"
+                                        value={`${cmyk.c} ${cmyk.m} ${cmyk.y} ${cmyk.k}`}
+                                        colorValue={color.value}
+                                        onCopy={onCopyInfo}
+                                    />
+                                )}
+                                {showRgb && (
+                                    <CircleCopyableCodeItem
+                                        label="RGB:"
+                                        value={`${rgb.r} ${rgb.g} ${rgb.b}`}
+                                        colorValue={color.value}
+                                        onCopy={onCopyInfo}
+                                    />
+                                )}
+                                <CircleCopyableCodeItem
+                                    label="HEX:"
+                                    value={color.value}
+                                    colorValue={color.value}
+                                    onCopy={onCopyInfo}
+                                />
+                                {showPantone && pantone && (
+                                    <CircleCopyableCodeItem
+                                        label="Pantone:"
+                                        value={pantone}
+                                        colorValue={color.value}
+                                        onCopy={onCopyInfo}
+                                    />
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Info Overlay for other layouts */}
                     {hoverEnabled && layout !== 'circles' && (
                         <div
                             className={cn(
@@ -494,24 +612,24 @@ const ColorCard = React.forwardRef(({
                             <div className="space-y-3 text-sm font-mono" style={{ color: globalSettings?.styles?.textColor || 'inherit' }}>
                                 {showRgb && (
                                     <div
-                                        onClick={(e) => { if (isReadOnly) { e.stopPropagation(); onCopyInfo?.(`${rgb.r} ${rgb.g} ${rgb.b}`); } }}
-                                        className={cn("flex justify-between items-center gap-4", isReadOnly && "cursor-pointer transition-opacity hover:opacity-70")}
+                                        onClick={(e) => { e.stopPropagation(); onCopyInfo?.(`${rgb.r} ${rgb.g} ${rgb.b}`); }}
+                                        className="flex justify-between items-center gap-4 cursor-pointer transition-opacity hover:opacity-70"
                                     >
                                         <span className="font-semibold opacity-70">RGB:</span>
                                         <span>{rgb.r} {rgb.g} {rgb.b}</span>
                                     </div>
                                 )}
                                 <div
-                                    onClick={(e) => { if (isReadOnly) { e.stopPropagation(); onCopyInfo?.(color.value); } }}
-                                    className={cn("flex justify-between items-center gap-4", isReadOnly && "cursor-pointer transition-opacity hover:opacity-70")}
+                                    onClick={(e) => { e.stopPropagation(); onCopyInfo?.(color.value); }}
+                                    className="flex justify-between items-center gap-4 cursor-pointer transition-opacity hover:opacity-70"
                                 >
                                     <span className="font-semibold opacity-70">HEX:</span>
                                     <span className="uppercase">{color.value}</span>
                                 </div>
                                 {showCmyk && (
                                     <div
-                                        onClick={(e) => { if (isReadOnly) { e.stopPropagation(); onCopyInfo?.(`${cmyk.c} ${cmyk.m} ${cmyk.y} ${cmyk.k}`); } }}
-                                        className={cn("flex justify-between items-center gap-4", isReadOnly && "cursor-pointer transition-opacity hover:opacity-70")}
+                                        onClick={(e) => { e.stopPropagation(); onCopyInfo?.(`${cmyk.c} ${cmyk.m} ${cmyk.y} ${cmyk.k}`); }}
+                                        className="flex justify-between items-center gap-4 cursor-pointer transition-opacity hover:opacity-70"
                                     >
                                         <span className="font-semibold opacity-70">CMYK:</span>
                                         <span>{cmyk.c} {cmyk.m} {cmyk.y} {cmyk.k}</span>
@@ -519,8 +637,8 @@ const ColorCard = React.forwardRef(({
                                 )}
                                 {showPantone && (
                                     <div
-                                        onClick={(e) => { if (isReadOnly) { e.stopPropagation(); onCopyInfo?.(pantone); } }}
-                                        className={cn("flex justify-between items-center mt-1 pt-2 border-t border-gray-100/20 gap-4", isReadOnly && "cursor-pointer transition-opacity hover:opacity-70")}
+                                        onClick={(e) => { e.stopPropagation(); onCopyInfo?.(pantone); }}
+                                        className="flex justify-between items-center mt-1 pt-2 border-t border-gray-100/20 gap-4 cursor-pointer transition-opacity hover:opacity-70"
                                     >
                                         <span className="font-semibold opacity-70">Pantone:</span>
                                         <span>{pantone}</span>
@@ -683,7 +801,6 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
     const [copyToastVisible, setCopyToastVisible] = useState(false)
 
     const handleCopy = (text: string) => {
-        if (!isReadOnly) return;
         navigator.clipboard.writeText(text);
         setCopyToastVisible(true);
         setTimeout(() => setCopyToastVisible(false), 2000);
@@ -883,6 +1000,12 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
         <div
             className="w-full relative group/palette"
             onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}
+            style={{
+                marginTop: globalSettings.margin?.top ? `${globalSettings.margin.top}px` : undefined,
+                marginBottom: globalSettings.margin?.bottom ? `${globalSettings.margin.bottom}px` : undefined,
+                paddingLeft: globalSettings.margin?.left ? `${globalSettings.margin.left}px` : undefined,
+                paddingRight: globalSettings.margin?.right ? `${globalSettings.margin.right}px` : undefined,
+            }}
         >
             {/* Toolbar on Hover */}
             {!isReadOnly && (
@@ -916,20 +1039,23 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
             <div
                 className={cn(
                     "w-full transition-all duration-300",
-                    globalSettings.layout === 'row' ? "flex flex-row overflow-x-auto pb-4 hide-scrollbar" : "grid justify-items-center",
-                    globalSettings.layout === 'list' || globalSettings.layout === 'horizontal' ? "grid-cols-1" : (globalSettings.layout !== 'row' && gridCols),
-                    !globalSettings.fullWidth && (globalSettings.layout === 'horizontal' ? "max-w-[1465px]" : "max-w-[1080px]") + " mx-auto"
+                    globalSettings.layout === 'row' ? "flex flex-row overflow-x-auto pb-4 hide-scrollbar" : "grid",
+                    (globalSettings.layout === 'list' || globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic') ? "grid-cols-1" : (globalSettings.layout !== 'row' && gridCols),
+                    !globalSettings.fullWidth && (globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic' ? "max-w-[1465px]" : "max-w-[1080px]") + " mx-auto"
                 )}
                 style={{
-                    columnGap: `${globalSettings.gapHorizontal}px`,
-                    rowGap: `${globalSettings.gapVertical}px`,
-                    display: globalSettings.layout === 'row' ? 'flex' : 'grid'
+                    display: globalSettings.layout === 'row' ? 'flex' : 'grid',
+                    gridTemplateColumns: (globalSettings.layout === 'grid' || !globalSettings.layout || globalSettings.layout === 'circles' || globalSettings.layout === 'tall')
+                        ? `repeat(${globalSettings.columns || 3}, minmax(0, 1fr))`
+                        : (globalSettings.layout === 'list' || globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic' ? 'repeat(1, minmax(0, 1fr))' : undefined),
+                    columnGap: `${globalSettings.gapHorizontal ?? DEFAULT_PALETTE_SETTINGS.gapHorizontal ?? 32}px`,
+                    rowGap: `${globalSettings.gapVertical ?? DEFAULT_PALETTE_SETTINGS.gapVertical ?? 32}px`,
                 }}
             >
                 {/* Color Cards */}
                 {globalSettings.layout === 'mosaic' ? (
                     <div
-                        className="w-full grid grid-cols-4 gap-0 overflow-hidden"
+                        className="w-full grid grid-cols-4 gap-4 overflow-hidden"
                         style={{
                             maxWidth: globalSettings.fullWidth ? '100%' : '1465px',
                             margin: '0 auto',
@@ -971,17 +1097,23 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
                         <div
                             key={color.id}
                             className={cn(
-                                "relative group/card",
+                                "relative group/card w-full",
                                 globalSettings.layout === 'row' && "shrink-0",
-                                globalSettings.layout === 'circles' && "aspect-square",
+                                globalSettings.layout === 'circles' && "w-full flex flex-col items-center",
                                 globalSettings.layout === 'list' && "w-full",
                                 globalSettings.layout === 'tall' && "overflow-visible h-[822px]", // Tall needs visible for plus buttons
                                 globalSettings.layout === 'horizontal' && "w-full"
                             )}
                             style={{
-                                width: globalSettings.layout === 'tall' ? '300px' : (globalSettings.layout === 'horizontal' ? '100%' : (globalSettings.layout === 'row' ? `${globalSettings.customWidth}px` : (globalSettings.layout === 'list' ? '100%' : '100%'))),
-                                height: globalSettings.layout === 'tall' ? '822px' : (globalSettings.layout === 'horizontal' ? '308px' : (globalSettings.layout !== 'list' && !aspectRatio ? `${currentHeight}px` : undefined)),
-                                flexShrink: globalSettings.layout === 'tall' || globalSettings.layout === 'horizontal' ? 0 : undefined
+                                width: globalSettings.layout === 'row' ? `${globalSettings.customWidth || 300}px` : '100%',
+                                height: globalSettings.layout === 'tall'
+                                    ? '822px'
+                                    : (globalSettings.layout === 'horizontal'
+                                        ? '308px'
+                                        : (globalSettings.layout === 'circles' || globalSettings.layout === 'list'
+                                            ? 'auto'
+                                            : (!aspectRatio ? `${currentHeight}px` : undefined))),
+                                flexShrink: globalSettings.layout === 'row' ? 0 : undefined
                             }}
                         >
                             <ColorCard
@@ -1025,15 +1157,30 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
                 {!isReadOnly && (
                     <div
                         className={cn(
-                            "w-full bg-white border-dashed border-2 border-gray-200 flex items-center justify-center cursor-pointer transition-all duration-300 group shrink-0",
+                            "w-full border-dashed border-2 border-gray-200 flex items-center justify-center cursor-pointer transition-all duration-300 group shrink-0",
                             "hover:border-[#FF0054]",
+                            globalSettings.layout === 'circles' ? "aspect-square rounded-full bg-transparent" : "bg-white",
                             (globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic') && "max-w-[1465px]"
                         )}
                         style={{
-                            height: globalSettings.layout === 'tall' ? '822px' : ((globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic') ? '120px' : (aspectRatio ? 'auto' : `${currentHeight}px`)),
-                            aspectRatio: (globalSettings.layout !== 'horizontal' && globalSettings.layout !== 'mosaic' && aspectRatio) ? `${aspectRatio}` : undefined,
-                            width: globalSettings.layout === 'tall' ? '300px' : ((globalSettings.layout === 'row') ? `${globalSettings.customWidth}px` : (globalSettings.layout === 'list' || globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic' ? '100%' : '100%')),
-                            borderRadius: `${globalSettings.radius || 0}px`
+                            height: globalSettings.layout === 'tall'
+                                ? '822px'
+                                : (globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic'
+                                    ? '120px'
+                                    : (globalSettings.layout === 'list'
+                                        ? '100px'
+                                        : (globalSettings.layout === 'circles'
+                                            ? 'auto'
+                                            : (aspectRatio ? 'auto' : `${currentHeight}px`)))),
+                            aspectRatio: globalSettings.layout === 'circles'
+                                ? '1 / 1'
+                                : ((globalSettings.layout !== 'horizontal' && globalSettings.layout !== 'mosaic' && globalSettings.layout !== 'list' && aspectRatio)
+                                    ? `${aspectRatio}`
+                                    : undefined),
+                            width: globalSettings.layout === 'row' ? `${globalSettings.customWidth || 300}px` : '100%',
+                            borderRadius: globalSettings.layout === 'circles'
+                                ? '50%'
+                                : `${globalSettings.styles?.radius ?? globalSettings.radius ?? 0}px`
                         }}
                         onClick={handleAddColor}
                     >

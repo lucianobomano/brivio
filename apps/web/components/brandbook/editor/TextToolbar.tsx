@@ -26,7 +26,8 @@ import {
     ArrowDown,
     Copy,
     CopyPlus,
-    Zap
+    Zap,
+    Check
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -37,6 +38,9 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { TextSettingsPanel } from "./TextSettingsPanel"
 import { FontPicker } from "./FontPicker"
+import { BlockMargin } from "./blocks/MarginSettingsControl"
+import { LinkSettingsPopover } from "./LinkSettingsPopover"
+import { BlockLink } from "./types"
 
 interface TextToolbarProps {
     onDelete?: () => void
@@ -75,8 +79,15 @@ interface TextToolbarProps {
     onOrderChange?: (direction: 'up' | 'down') => void
     outline?: { top: boolean; right: boolean; bottom: boolean; left: boolean }
     onOutlineChange?: (side: 'top' | 'right' | 'bottom' | 'left') => void
+    margin?: BlockMargin
+    onMarginChange?: (margin: BlockMargin) => void
     onAnimate?: () => void
     onSettingsOpenChange?: (isOpen: boolean) => void
+
+    // Link Props
+    link?: BlockLink | null
+    onLinkChange?: (link: BlockLink | null) => void
+    onLinkOpenChange?: (isOpen: boolean) => void
 
     className?: string
 }
@@ -117,12 +128,26 @@ export const TextToolbar = ({
     onOrderChange,
     outline,
     onOutlineChange,
+    margin,
+    onMarginChange,
     onAnimate,
     onSettingsOpenChange,
+    link,
+    onLinkChange,
+    onLinkOpenChange,
     className
 }: TextToolbarProps) => {
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
+    const [isLinkOpen, setIsLinkOpen] = React.useState(false)
+    const [isCopied, setIsCopied] = React.useState(false)
     const [localFontSize, setLocalFontSize] = React.useState(currentFontSize?.replace('px', '') || '20')
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        onCopy?.()
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
 
     React.useEffect(() => {
         if (currentFontSize) {
@@ -135,13 +160,18 @@ export const TextToolbar = ({
         onSettingsOpenChange?.(isSettingsOpen)
     }, [isSettingsOpen, onSettingsOpenChange])
 
+    // Notify parent when link popover state changes
+    React.useEffect(() => {
+        onLinkOpenChange?.(isLinkOpen)
+    }, [isLinkOpen, onLinkOpenChange])
+
 
     // Common font sizes
     const fontSizes = ['10px', '11px', '12px', '13px', '14px', '15px', '16px', '18px', '20px', '22px', '24px', '26px', '28px', '30px', '32px', '36px', '40px', '44px', '48px', '56px', '64px', '72px', '80px', '96px', '120px']
 
     return (
-        <div className={cn(className)}>
-            <div className="flex items-center bg-[#15161B] rounded-[4px] px-2 py-1.5 gap-2 shadow-xl border border-[#333]">
+        <div className={cn("w-max min-w-max shrink-0", className)}>
+            <div className="flex items-center bg-[#15161B] rounded-[4px] px-2 py-1.5 gap-2 shadow-xl border border-[#333] whitespace-nowrap w-max min-w-max shrink-0 select-none">
                 {/* 1. Font Size Input + Dropdown */}
                 <div className="flex items-center gap-0 pl-1 border-r border-[#333]/30 mr-1">
                     <input
@@ -467,7 +497,40 @@ export const TextToolbar = ({
 
                 {/* 5. Actions */}
                 <div className="flex items-center gap-1">
-                    <button className="text-gray-400 hover:text-white p-1"><Link className="w-4 h-4" /></button>
+                    {/* Link Button & Popover */}
+                    {(() => {
+                        const hasActiveLink = Boolean(link?.url || link?.moduleId || link?.sectionId)
+                        const linkTooltip = hasActiveLink
+                            ? `Link ativo: ${link?.type === 'url' ? link.url : link?.type === 'internal' ? (link.moduleTitle || 'Página') : (link?.sectionTitle || 'Seção')}`
+                            : "Adicionar link"
+
+                        return (
+                            <LinkSettingsPopover
+                                isOpen={isLinkOpen}
+                                onOpenChange={setIsLinkOpen}
+                                link={link}
+                                onSaveLink={onLinkChange || (() => { })}
+                                trigger={
+                                    <button
+                                        type="button"
+                                        className={cn(
+                                            "p-1 rounded transition-colors relative cursor-pointer",
+                                            hasActiveLink
+                                                ? "text-[#FF0054] bg-[#FF0054]/15 hover:bg-[#FF0054]/25"
+                                                : "text-gray-400 hover:text-white hover:bg-white/5",
+                                            isLinkOpen && "text-white bg-[#FF0054]/20 ring-1 ring-[#FF0054]/50"
+                                        )}
+                                        title={linkTooltip}
+                                    >
+                                        <Link className="w-4 h-4" />
+                                        {hasActiveLink && (
+                                            <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-[#FF0054] ring-1 ring-[#15161B]" />
+                                        )}
+                                    </button>
+                                }
+                            />
+                        )
+                    })()}
 
                     <TextSettingsPanel
                         isOpen={isSettingsOpen}
@@ -485,6 +548,8 @@ export const TextToolbar = ({
                         onOrderChange={onOrderChange || (() => { })}
                         outline={outline || { top: false, right: false, bottom: false, left: false }}
                         onOutlineChange={onOutlineChange || (() => { })}
+                        margin={margin}
+                        onMarginChange={onMarginChange}
                         trigger={
                             <button className={cn("text-gray-400 hover:text-white p-1", isSettingsOpen && "text-white")}>
                                 <Settings className="w-4 h-4" />
@@ -493,7 +558,16 @@ export const TextToolbar = ({
                     />
 
                     <button onClick={onDuplicate} className="text-gray-400 hover:text-blue-400 p-1" title="Duplicar bloco"><CopyPlus className="w-4 h-4" /></button>
-                    <button onClick={onCopy} className="text-gray-400 hover:text-blue-400 p-1" title="Copiar bloco"><Copy className="w-4 h-4" /></button>
+                    <button
+                        onClick={handleCopy}
+                        className={cn(
+                            "p-1 rounded transition-colors",
+                            isCopied ? "text-green-400 bg-green-500/10" : "text-gray-400 hover:text-blue-400"
+                        )}
+                        title={isCopied ? "Bloco copiado!" : "Copiar bloco"}
+                    >
+                        {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    </button>
                     <button onClick={onAnimate} className="text-gray-400 hover:text-[#FF0054] p-1" title="Animar bloco"><Zap className="w-4 h-4 fill-transparent hover:fill-[#FF0054]" /></button>
                     <button onClick={onDelete} className="text-gray-400 hover:text-red-500 p-1" title="Eliminar"><Trash className="w-4 h-4" /></button>
                 </div>

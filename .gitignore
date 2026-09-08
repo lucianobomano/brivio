@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+build/
+coverage/
+*.log
+.DS_Store
+.env*
+*.tsbuildinfo
+test_db.js
+scratch/
+apps/web/scratch/

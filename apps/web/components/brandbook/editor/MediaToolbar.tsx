@@ -1,5 +1,5 @@
-import React from "react"
-import { ArrowUp, ArrowDown, Paperclip, Link, MousePointer2, Settings, Trash2, Zap, RotateCcw, Copy } from "lucide-react"
+import React, { useState } from "react"
+import { ArrowUp, ArrowDown, Paperclip, Link, MousePointer2, Settings, Trash2, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface MediaToolbarProps {
@@ -29,9 +29,18 @@ export const MediaToolbar = ({
     onAnimate,
     className
 }: MediaToolbarProps) => {
+    const [isCopied, setIsCopied] = useState(false)
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        onCopy?.()
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
+
     return (
         <div className={cn(
-            "flex items-center bg-[#15161B] rounded-[4px] h-[36px] shadow-lg border border-[#333] relative",
+            "flex items-center bg-[#15161B] rounded-[4px] h-[36px] shadow-lg border border-[#333] relative whitespace-nowrap w-max min-w-max shrink-0 select-none",
             className
         )}>
             {/* Pointer triangle/arrow at bottom center */}
@@ -101,11 +110,14 @@ export const MediaToolbar = ({
                 </button>
                 {/* Copy */}
                 <button
-                    onClick={(e) => { e.stopPropagation(); onCopy?.() }}
-                    className="p-1.5 hover:bg-[#2A2B32] rounded text-[#888] hover:text-blue-400 transition-colors"
-                    title="Copy"
+                    onClick={handleCopy}
+                    className={cn(
+                        "p-1.5 rounded transition-colors",
+                        isCopied ? "text-green-400 bg-green-500/10" : "hover:bg-[#2A2B32] text-[#888] hover:text-blue-400"
+                    )}
+                    title={isCopied ? "Bloco copiado!" : "Copiar bloco"}
                 >
-                    <Copy className="w-4 h-4" />
+                    {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
                 <button
                     onClick={(e) => { e.stopPropagation(); onDelete?.() }}

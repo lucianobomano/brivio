@@ -6,42 +6,58 @@ import { Button } from "@/components/ui/button"
 import { AddSectionDialog } from "./AddSectionDialog"
 import { AddItemDialog } from "./AddItemDialog"
 import { SectionSettingsPanel, SectionSettings } from "./SectionSettingsPanel"
-import { Block } from "./types"
+import { Block, BrivioClipboardItem, ClipboardItemType } from "./types"
 import { BlockRenderer } from "./blocks/BlockRenderer"
-import { ArrowUp, ArrowDown, Clipboard, Check } from "lucide-react"
+import { ArrowUp, ArrowDown, Clipboard, Check, X } from "lucide-react"
 import { useBrandDesign } from "./BrandDesignContext"
+import { SectionContext } from "./SectionContext"
 import { EditorHistoryProvider, useEditorHistoryOptional } from "./EditorHistoryContext"
 import { EditorToast } from "./EditorToast"
 import { SaveComponentModal } from "./SaveComponentModal"
+import { toast } from "sonner"
 
 // Helper Component for Section Divider
 const SectionDivider = ({ onClick, onPaste, onClear, hasClipboard }: { onClick: () => void, onPaste?: () => void, onClear?: () => void, hasClipboard?: boolean }) => (
-    <div className="relative h-4 flex items-center justify-center group my-1">
-        <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t border-dashed border-gray-200" />
-        <div className="relative z-10 flex gap-2">
-            <button
-                onClick={onClick}
-                className="bg-[#FF0054] text-white px-4 py-1.5 rounded-full text-xs font-medium opacity-50 hover:opacity-100 transition-opacity duration-200 flex items-center gap-2"
-            >
-                <span>+ Add Section</span>
-            </button>
-            {hasClipboard && onPaste && (
-                <div className="flex gap-1">
+    <div className={cn(
+        "relative transition-all duration-200 flex items-center justify-center group my-2",
+        hasClipboard ? "h-11 py-1" : "h-4"
+    )}>
+        <div className={cn(
+            "absolute left-0 right-0 top-1/2 -translate-y-1/2 border-t border-dashed transition-colors",
+            hasClipboard ? "border-[#FF0054]/60" : "border-gray-200"
+        )} />
+        <div className="relative z-10 flex gap-2 items-center">
+            {hasClipboard && onPaste ? (
+                <div className="flex items-center gap-1.5 bg-[#15161B] p-1 rounded-full shadow-xl border border-[#FF0054]/50 animate-in fade-in zoom-in-95">
                     <button
                         onClick={onPaste}
-                        className="bg-[#111] text-white px-4 py-1.5 rounded-full text-xs font-medium opacity-50 hover:opacity-100 transition-opacity duration-200 flex items-center gap-2 border border-white/10"
+                        className="bg-[#FF0054] hover:bg-[#D90046] text-white px-4 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-2 shadow-sm animate-pulse cursor-pointer"
+                        title="Colar bloco copiado como nova seção aqui"
                     >
-                        <Clipboard className="w-3 h-3" />
-                        <span>Paste</span>
+                        <Clipboard className="w-3.5 h-3.5" />
+                        <span>Colar como nova seção</span>
+                    </button>
+                    <button
+                        onClick={onClick}
+                        className="text-gray-400 hover:text-white px-3 py-1.5 text-xs font-medium transition-colors rounded-full hover:bg-white/10 cursor-pointer"
+                    >
+                        + Add Section
                     </button>
                     <button
                         onClick={(e) => { e.stopPropagation(); onClear?.(); }}
-                        className="bg-[#111] text-white w-[30px] h-[30px] rounded-full text-xs font-medium opacity-50 hover:opacity-100 transition-opacity duration-200 flex items-center justify-center border border-white/10 hover:text-green-400 hover:border-green-400/50"
-                        title="Clear Clipboard"
+                        className="text-gray-400 hover:text-white p-1.5 rounded-full hover:bg-white/10 transition-colors cursor-pointer"
+                        title="Cancelar cópia"
                     >
-                        <Check className="w-3.5 h-3.5" />
+                        <X className="w-3.5 h-3.5" />
                     </button>
                 </div>
+            ) : (
+                <button
+                    onClick={onClick}
+                    className="bg-[#FF0054] text-white px-4 py-1.5 rounded-full text-xs font-medium opacity-50 hover:opacity-100 transition-opacity duration-200 flex items-center gap-2 cursor-pointer"
+                >
+                    <span>+ Add Section</span>
+                </button>
             )}
         </div>
     </div>
@@ -49,6 +65,7 @@ const SectionDivider = ({ onClick, onPaste, onClear, hasClipboard }: { onClick: 
 
 // Helper Component for Section Wrapper
 interface SectionWrapperProps {
+    id?: string
     children: React.ReactNode
     onMoveUp: () => void
     onMoveDown: () => void
@@ -62,7 +79,20 @@ interface SectionWrapperProps {
     responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
 }
 
+const getSectionHeight = (settingsHeight?: string) => {
+    if (!settingsHeight || settingsHeight === 'auto') return undefined
+    switch (settingsHeight) {
+        case 'XS': return '150px'
+        case 'S': return '250px'
+        case 'M': return '385px'
+        case 'L': return '500px'
+        case 'XL': return '650px'
+        default: return settingsHeight
+    }
+}
+
 const SectionWrapper = ({
+    id,
     children,
     onMoveUp,
     onMoveDown,
@@ -75,9 +105,6 @@ const SectionWrapper = ({
     responsiveDevice
 }: Omit<SectionWrapperProps, 'onAnimate'>) => {
     const getAlignItems = () => {
-        if (responsiveDevice === 'desktop' || responsiveDevice === 'widescreen' || responsiveDevice === 'mobile') {
-            return 'center'
-        }
         // Horizontal alignment (left/center/right)
         // For flex-col, alignItems controls horizontal alignment
         // Use 'stretch' as default to ensure children take full width
@@ -90,9 +117,6 @@ const SectionWrapper = ({
     }
 
     const getJustifyContent = () => {
-        if (responsiveDevice === 'desktop' || responsiveDevice === 'widescreen' || responsiveDevice === 'mobile') {
-            return 'center'
-        }
         // Vertical alignment (top/middle/bottom)
         switch (settings?.alignVertical) {
             case 'middle': return 'center'
@@ -101,14 +125,27 @@ const SectionWrapper = ({
         }
     }
 
+    const { settings: brandDesignSettings } = useBrandDesign()
+    const effectiveSectionBg = (
+        settings?.backgroundType === 'color' || !settings?.backgroundType
+            ? (settings?.backgroundColor && settings.backgroundColor !== 'transparent' ? settings.backgroundColor : undefined)
+            : settings?.backgroundType === 'gradient' && settings?.backgroundGradient?.stops?.[0]?.color
+                ? settings.backgroundGradient.stops[0].color
+                : undefined
+    ) || brandDesignSettings?.main_project_bg || '#ffffff'
+
     return (
-        <div
+        <SectionContext.Provider value={{ sectionId: id, backgroundColor: effectiveSectionBg }}>
+            <div
+                id={id ? `section-${id}` : undefined}
+                data-section-id={id}
             className={cn(
-                "relative transition-colors w-full",
+                "relative transition-colors w-full scroll-mt-6",
                 isReadOnly ? "border-0 mb-0" : "group border border-dashed border-gray-200 hover:border-[#FF0054] mb-4 mt-[32px]"
             )}
             style={{
                 height: settings?.aspectRatio === '16:9' ? '100vh' : undefined,
+                minHeight: settings?.aspectRatio === '16:9' ? '100vh' : getSectionHeight(settings?.height),
                 backgroundColor: settings?.backgroundType === 'color' || !settings?.backgroundType ? settings?.backgroundColor : undefined,
                 backgroundImage: settings?.backgroundType === 'image' && settings?.backgroundImage
                     ? `url(${settings.backgroundImage})`
@@ -167,18 +204,19 @@ const SectionWrapper = ({
             <div
                 className={cn(
                     "flex flex-col w-full min-h-0",
-                    settings?.aspectRatio === '16:9' && "h-full"
+                    (settings?.aspectRatio === '16:9' || (settings?.height && settings.height !== 'auto')) && "flex-1"
                 )}
                 style={{
                     justifyContent: getJustifyContent(),
                     alignItems: getAlignItems(),
-                    maxHeight: '100%'
+                    minHeight: getSectionHeight(settings?.height)
                 }}
             >
                 {children}
             </div>
             {/* Overlay for inactive blocks if needed, but not requested */}
         </div>
+        </SectionContext.Provider>
     )
 }
 
@@ -199,6 +237,7 @@ interface MainCanvasProps {
     isReadOnly?: boolean
     onAnimate?: () => void
     responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
+    footer?: React.ReactNode
 }
 
 export function MainCanvas({
@@ -209,33 +248,62 @@ export function MainCanvas({
     onSelectBlock,
     isReadOnly = false,
     onAnimate,
-    responsiveDevice = 'widescreen'
+    responsiveDevice = 'widescreen',
+    footer
 }: MainCanvasProps) {
     const [isAddSectionOpen, setIsAddSectionOpen] = useState(false)
     const [isAddItemOpen, setIsAddItemOpen] = useState(false)
     // Context for adding blocks (if null, adds to root)
     const [addingContext, setAddingContext] = useState<{ parentId?: string, columnId?: string, insertIndex?: number } | null>(null)
     const [panelInitialPos, setPanelInitialPos] = useState<{ top: number, left: number } | null>(null)
-    const [clipboard, setClipboard] = useState<Block | null>(null)
+    const [clipboard, setClipboard] = useState<BrivioClipboardItem | null>(null)
     const [isSaveComponentOpen, setIsSaveComponentOpen] = useState(false)
     const [blockToSave, setBlockToSave] = useState<Block | null>(null)
 
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('brivio_clipboard')
-            if (saved) {
-                try {
-                    const parsed = JSON.parse(saved)
-                    if (parsed && typeof parsed === 'object' && 'id' in parsed) {
-                        // Use a timeout to avoid calling setState synchronously in an effect
-                        setTimeout(() => {
-                            setClipboard(parsed as Block)
-                        }, 0)
+        const syncClipboard = () => {
+            if (typeof window !== 'undefined') {
+                const saved = localStorage.getItem('brivio_clipboard')
+                if (saved) {
+                    try {
+                        const parsed = JSON.parse(saved)
+                        if (parsed && typeof parsed === 'object') {
+                            if ('itemType' in parsed && 'data' in parsed) {
+                                setClipboard(parsed as BrivioClipboardItem)
+                            } else if ('id' in parsed) {
+                                const itemType: ClipboardItemType = parsed.type === 'layout' ? 'section' : 'block'
+                                setClipboard({
+                                    itemType,
+                                    data: parsed,
+                                    label: parsed.type || 'Bloco'
+                                })
+                            }
+                        }
+                    } catch (err) {
+                        console.error("Failed to parse clipboard", err)
                     }
-                } catch (err) {
-                    console.error("Failed to parse clipboard", err)
+                } else {
+                    setClipboard(null)
                 }
             }
+        }
+
+        syncClipboard()
+
+        const handleClipboardUpdate = (e: any) => {
+            if (e.detail) {
+                setClipboard(e.detail)
+            } else {
+                syncClipboard()
+            }
+        }
+
+        window.addEventListener('brivio_clipboard_update', handleClipboardUpdate)
+        window.addEventListener('storage', syncClipboard)
+
+        return () => {
+            window.removeEventListener('brivio_clipboard_update', handleClipboardUpdate)
+            window.removeEventListener('storage', syncClipboard)
         }
     }, [])
 
@@ -338,6 +406,34 @@ export function MainCanvas({
             }
         } else if (['image', 'video'].includes(type)) {
             content = { url: "", caption: "" }
+        } else if (type === 'story') {
+            content = {
+                slides: [
+                    {
+                        id: generateId(),
+                        title: "Brief but concise",
+                        description: "By keeping the brand message, image, and tone of voice consistent, remember, identity guidelines are for everyday life at the company."
+                    },
+                    {
+                        id: generateId(),
+                        title: "Consistent & clear",
+                        description: "Every touchpoint matters. Make sure visual and verbal identity work harmoniously across all mediums."
+                    },
+                    {
+                        id: generateId(),
+                        title: "Adaptable for the future",
+                        description: "Guidelines should evolve with your brand while staying true to its core foundation and principles."
+                    }
+                ],
+                settings: {
+                    autoplay: false,
+                    duration: 5,
+                    accentColor: '#2563EB',
+                    barColor: '#E2E8F0',
+                    buttonColor: '#2563EB',
+                    align: 'left'
+                }
+            }
         }
 
         const newBlock: Block = {
@@ -482,7 +578,36 @@ export function MainCanvas({
         }
     }
 
+    const handleCopySection = (sectionId: string) => {
+        const section = blocks.find(b => b.id === sectionId)
+        if (!section) return
+
+        const colCount = section.content?.columns?.length || 1
+        const clipboardItem: BrivioClipboardItem = {
+            itemType: 'section',
+            data: section,
+            label: `Seção (${colCount} ${colCount === 1 ? 'coluna' : 'colunas'})`
+        }
+        setClipboard(clipboardItem)
+        localStorage.setItem('brivio_clipboard', JSON.stringify(clipboardItem))
+        window.dispatchEvent(new CustomEvent('brivio_clipboard_update', { detail: clipboardItem }))
+        try {
+            navigator.clipboard.writeText(JSON.stringify(clipboardItem))
+        } catch { /* ignore */ }
+
+        toast.success("Seção copiada para a área de transferência!", {
+            description: "Opções de colar disponíveis apenas entre as seções."
+        })
+    }
+
     const handleCopyBlock = (blockId: string) => {
+        // Check if copying a root section
+        const rootSection = blocks.find(b => b.id === blockId)
+        if (rootSection) {
+            handleCopySection(blockId)
+            return
+        }
+
         const findBlock = (list: Block[]): Block | null => {
             for (const b of list) {
                 if (b.id === blockId) return b
@@ -498,17 +623,42 @@ export function MainCanvas({
 
         const block = findBlock(blocks)
         if (block) {
-            setClipboard(block)
-            localStorage.setItem('brivio_clipboard', JSON.stringify(block))
-            // Also try to copy to system clipboard
+            const blockNames: Record<string, string> = {
+                heading: 'Título',
+                text: 'Texto',
+                image: 'Imagem',
+                video: 'Vídeo',
+                layout: 'Layout',
+                button: 'Botão',
+                palette: 'Paleta de Cores',
+                gallery: 'Galeria',
+                carousel: 'Carrossel',
+                embed: 'Embed',
+                list: 'Lista',
+                story: 'Story Slider'
+            }
+            const name = blockNames[block.type] || block.type || 'Bloco'
+
+            const clipboardItem: BrivioClipboardItem = {
+                itemType: 'block',
+                data: block,
+                label: name
+            }
+            setClipboard(clipboardItem)
+            localStorage.setItem('brivio_clipboard', JSON.stringify(clipboardItem))
+            window.dispatchEvent(new CustomEvent('brivio_clipboard_update', { detail: clipboardItem }))
             try {
-                navigator.clipboard.writeText(JSON.stringify(block))
+                navigator.clipboard.writeText(JSON.stringify(clipboardItem))
             } catch { /* ignore */ }
+
+            toast.success(`${name} copiado para a área de transferência!`, {
+                description: "Opções de colar disponíveis dentro das colunas."
+            })
         }
     }
 
-    const handlePasteBlock = (parentId?: string, columnId?: string, insertIndex?: number) => {
-        if (!clipboard) return
+    const handlePasteSection = (insertIndex?: number) => {
+        if (!clipboard || clipboard.itemType !== 'section' || !clipboard.data) return
 
         const deepCloneWithNewIds = (obj: unknown): unknown => {
             if (Array.isArray(obj)) {
@@ -526,7 +676,49 @@ export function MainCanvas({
             return obj
         }
 
-        const newBlock = deepCloneWithNewIds(JSON.parse(JSON.stringify(clipboard))) as Block
+        const newSection = deepCloneWithNewIds(JSON.parse(JSON.stringify(clipboard.data))) as Block
+        let newBlocks = [...blocks]
+
+        if (insertIndex !== undefined && insertIndex >= 0 && insertIndex <= newBlocks.length) {
+            newBlocks.splice(insertIndex, 0, newSection)
+        } else {
+            newBlocks.push(newSection)
+        }
+
+        setBlocks(newBlocks, 'Paste section')
+        if (onUpdateModule && activeModule && !historyContext) {
+            onUpdateModule(activeModule.id, { ...activeModule.content_json, blocks: newBlocks })
+        }
+        toast.success("Seção colada com sucesso!")
+    }
+
+    const handlePasteBlock = (parentId?: string, columnId?: string, insertIndex?: number) => {
+        if (!clipboard) return
+
+        if (clipboard.itemType === 'section') {
+            handlePasteSection(insertIndex)
+            return
+        }
+
+        if (clipboard.itemType !== 'block' || !clipboard.data) return
+
+        const deepCloneWithNewIds = (obj: unknown): unknown => {
+            if (Array.isArray(obj)) {
+                return obj.map(item => deepCloneWithNewIds(item))
+            } else if (obj && typeof obj === 'object') {
+                const newObj: Record<string, unknown> = { ...(obj as Record<string, unknown>) }
+                if (newObj.id) newObj.id = generateId()
+                for (const key in newObj) {
+                    if (key !== 'id') {
+                        newObj[key] = deepCloneWithNewIds(newObj[key])
+                    }
+                }
+                return newObj
+            }
+            return obj
+        }
+
+        const newBlock = deepCloneWithNewIds(JSON.parse(JSON.stringify(clipboard.data))) as Block
         let newBlocks = [...blocks]
 
         if (parentId && columnId) {
@@ -543,15 +735,11 @@ export function MainCanvas({
                 }
                 return b
             })
-        } else if (insertIndex !== undefined) {
-            newBlocks.splice(insertIndex, 0, newBlock)
-        } else {
-            newBlocks.push(newBlock)
-        }
-
-        setBlocks(newBlocks, 'Paste element')
-        if (onUpdateModule && activeModule && !historyContext) {
-            onUpdateModule(activeModule.id, { ...activeModule.content_json, blocks: newBlocks })
+            setBlocks(newBlocks, 'Paste block')
+            if (onUpdateModule && activeModule && !historyContext) {
+                onUpdateModule(activeModule.id, { ...activeModule.content_json, blocks: newBlocks })
+            }
+            toast.success("Bloco colado com sucesso!")
         }
     }
 
@@ -562,6 +750,7 @@ export function MainCanvas({
         try {
             navigator.clipboard.writeText('')
         } catch { /* ignore */ }
+        toast.info("Área de transferência limpa.")
     }, [])
 
     const handleDeleteBlock = (blockId: string) => {
@@ -723,11 +912,11 @@ export function MainCanvas({
     return (
         <>
             <div
-                className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-white p-0 custom-scrollbar relative transition-colors duration-300"
+                className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-white p-0 custom-scrollbar relative transition-colors duration-300 flex flex-col"
                 style={{ backgroundColor: settings.main_project_bg }}
             >
                 <div className={cn(
-                    "w-full min-h-[800px] bg-transparent p-0 relative overflow-visible transition-all duration-300",
+                    "w-full flex-1 bg-transparent p-0 relative transition-all duration-300 flex flex-col",
                     getResponsiveWidth(),
                     responsiveDevice !== 'widescreen' && "mx-auto",
                     !isReadOnly && "pt-[80px]"
@@ -744,8 +933,8 @@ export function MainCanvas({
                             </div>
                         </div>
                     )}
-                    <div className="w-full text-gray-600 overflow-visible">
-                        <div className={cn("w-full", !isReadOnly ? "space-y-6" : "", "overflow-visible")}>
+                    <div className="w-full text-gray-600 flex-1 flex flex-col">
+                        <div className={cn("w-full flex-1 flex flex-col", !isReadOnly ? "space-y-6" : "")}>
                             {blocks.length > 0 ? (
                                 <>
                                     {/* Divider before first section */}
@@ -755,15 +944,16 @@ export function MainCanvas({
                                                 setAddingContext({ insertIndex: 0 })
                                                 setIsAddSectionOpen(true)
                                             }}
-                                            onPaste={() => handlePasteBlock(undefined, undefined, 0)}
+                                            onPaste={() => handlePasteSection(0)}
                                             onClear={handleClearClipboard}
-                                            hasClipboard={!!clipboard}
+                                            hasClipboard={clipboard?.itemType === 'section'}
                                         />
                                     )}
 
                                     {blocks.map((block, index) => (
                                         <React.Fragment key={block.id}>
                                             <SectionWrapper
+                                                id={block.id}
                                                 onMoveUp={() => handleMoveBlock(index, 'up')}
                                                 onMoveDown={() => handleMoveBlock(index, 'down')}
                                                 onEdit={(e: React.MouseEvent) => {
@@ -783,7 +973,7 @@ export function MainCanvas({
                                                             onCut={() => handleCutBlock(block.id)}
                                                             onSaveAsComponent={() => handleSaveAsComponent(block.id)}
                                                             onDuplicate={() => handleDuplicateBlock(block.id)}
-                                                            onCopy={() => handleCopyBlock(block.id)}
+                                                            onCopy={() => handleCopySection(block.id)}
                                                             onDelete={() => handleDeleteBlock(block.id)}
                                                             initialTop={panelInitialPos?.top}
                                                             initialLeft={panelInitialPos?.left}
@@ -809,6 +999,8 @@ export function MainCanvas({
                                                     onAnimate={() => onAnimate?.()}
                                                     align={block.content.settings?.alignHorizontal || 'center'}
                                                     responsiveDevice={responsiveDevice}
+                                                    clipboard={clipboard}
+                                                    onPasteBlock={handlePasteBlock}
                                                 />
                                             </SectionWrapper>
 
@@ -818,9 +1010,9 @@ export function MainCanvas({
                                                         setAddingContext({ insertIndex: index + 1 })
                                                         setIsAddSectionOpen(true)
                                                     }}
-                                                    onPaste={() => handlePasteBlock(undefined, undefined, index + 1)}
+                                                    onPaste={() => handlePasteSection(index + 1)}
                                                     onClear={handleClearClipboard}
-                                                    hasClipboard={!!clipboard}
+                                                    hasClipboard={clipboard?.itemType === 'section'}
                                                 />
                                             )}
                                         </React.Fragment>
@@ -841,19 +1033,19 @@ export function MainCanvas({
                                                 <span>+ Add Section</span>
                                             </Button>
 
-                                            {clipboard && (
+                                            {clipboard?.itemType === 'section' && (
                                                 <div className="flex gap-1 items-center">
                                                     <Button
-                                                        onClick={() => handlePasteBlock()}
+                                                        onClick={() => handlePasteSection()}
                                                         className="bg-[#8E8E8E] hover:bg-[#7A7A7A] text-white font-semibold px-6 shadow-sm rounded-full h-11 tracking-wide text-sm flex items-center gap-2 border-none"
                                                     >
                                                         <Clipboard className="w-4 h-4" />
-                                                        <span>Paste</span>
+                                                        <span>Colar Seção</span>
                                                     </Button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleClearClipboard(); }}
                                                         className="w-11 h-11 rounded-full bg-[#8E8E8E]/20 text-[#8E8E8E] hover:text-green-500 hover:bg-green-500/10 transition-all flex items-center justify-center border border-[#8E8E8E]/30"
-                                                        title="Clear Clipboard"
+                                                        title="Limpar Área de Transferência"
                                                     >
                                                         <Check className="w-5 h-5" />
                                                     </button>
@@ -868,6 +1060,11 @@ export function MainCanvas({
                             )}
                         </div>
                     </div>
+                </div>
+
+                {/* Brandbook Footer - Always strictly the last component */}
+                <div className={cn("w-full shrink-0 z-10", !isReadOnly && "mt-auto")}>
+                    {footer}
                 </div>
             </div>
 
@@ -888,8 +1085,8 @@ export function MainCanvas({
                     if (!open) setAddingContext(null)
                 }}
                 onSelectBlock={handleAddBlock}
-                hasClipboard={!!clipboard}
-                onPaste={() => handlePasteBlock(undefined, undefined, addingContext?.insertIndex)}
+                hasClipboard={clipboard?.itemType === 'section'}
+                onPaste={() => handlePasteSection(addingContext?.insertIndex)}
                 onClearClipboard={handleClearClipboard}
             />
 
@@ -900,10 +1097,48 @@ export function MainCanvas({
                     if (!open) setAddingContext(null)
                 }}
                 onSelectBlock={handleAddBlock}
-                hasClipboard={!!clipboard}
+                hasClipboard={clipboard?.itemType === 'block'}
                 onPaste={() => handlePasteBlock(addingContext?.parentId, addingContext?.columnId)}
                 onClearClipboard={handleClearClipboard}
             />
+
+            {/* Floating Clipboard Indicator Bar */}
+            {clipboard && !isReadOnly && (
+                <div className="fixed bottom-6 right-8 z-[9998] flex items-center gap-3 bg-[#15161B] text-white border-2 border-[#FF0054] px-4 py-3 rounded-xl shadow-2xl animate-in slide-in-from-bottom-5">
+                    <div className="flex items-center gap-3">
+                        <span className="relative flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF0054] opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-[#FF0054]"></span>
+                        </span>
+                        <div className="flex flex-col">
+                            <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                <Clipboard className="w-3.5 h-3.5 text-[#FF0054]" />
+                                {clipboard.itemType === 'section'
+                                    ? `Seção copiada (${clipboard.label || '1 seção'})`
+                                    : clipboard.itemType === 'column'
+                                    ? `Coluna copiada (${clipboard.label || '1 coluna'})`
+                                    : `Bloco copiado (${clipboard.label || '1 bloco'})`}
+                            </span>
+                            <span className="text-[11px] text-gray-400">
+                                {clipboard.itemType === 'section'
+                                    ? 'Opções de colar exibidas entre as seções'
+                                    : clipboard.itemType === 'column'
+                                    ? 'Opções de colar exibidas dentro das seções'
+                                    : 'Opções de colar exibidas dentro das colunas'}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="h-6 w-[1px] bg-white/20 mx-1" />
+                    <button
+                        onClick={handleClearClipboard}
+                        className="text-xs bg-white/10 hover:bg-white/20 text-gray-300 hover:text-white px-2.5 py-1.5 rounded-md transition-colors flex items-center gap-1 font-medium cursor-pointer"
+                        title="Limpar área de transferência"
+                    >
+                        <X className="w-3.5 h-3.5" />
+                        Limpar
+                    </button>
+                </div>
+            )}
         </>
     )
 }

@@ -5,6 +5,7 @@ import { RoadmapClient } from "./RoadmapClient"
 import { getProjectRoadmap, RoadmapStage } from "@/app/actions/roadmap"
 import { getProjectPipeline_v2 } from "@/app/actions/projects"
 import { getProjectNotes } from "@/app/actions/notes"
+import { getProjectMeetings } from "@/app/actions/meetings"
 import { AuthLayoutInner } from "@/components/layout/AuthLayoutInner"
 
 interface ProjectBase {
@@ -35,12 +36,14 @@ export default async function RoadmapPage({
     let roadmapData: RoadmapStage[] = []
     let selectedProject: ProjectBase | null = null
     let initialNotes: any[] = []
+    let initialMeetings: any[] = []
 
     if (selectedProjectId) {
         roadmapData = await getProjectRoadmap(selectedProjectId)
         selectedProject = projects.find(p => p.id === selectedProjectId) || null
         const notesRes = await getProjectNotes(selectedProjectId)
         initialNotes = notesRes.notes || []
+        initialMeetings = await getProjectMeetings(selectedProjectId)
     }
 
     const userData = {
@@ -60,6 +63,7 @@ export default async function RoadmapPage({
                         selectedProjectId={selectedProjectId}
                         selectedProject={selectedProject}
                         initialNotes={initialNotes}
+                        initialMeetings={initialMeetings}
                     />
                 </div>
             </div>

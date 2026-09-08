@@ -1,9 +1,10 @@
 "use client"
 
-import React, { useState } from "react"
-import { X, Save, Loader2, Globe, Lock } from "lucide-react"
+import React, { useState, useEffect } from "react"
+import { X, Save, Loader2, Globe, Lock, ShieldCheck } from "lucide-react"
 import { saveBrandbookAsTemplate } from "@/app/actions/brandbook-templates"
 import { BrandbookModule } from "./AddPagesModal"
+import { toast } from "sonner"
 
 interface SaveAsTemplateModalProps {
     isOpen: boolean
@@ -11,24 +12,40 @@ interface SaveAsTemplateModalProps {
     modules: BrandbookModule[]
     brandId: string
     brandName?: string
+    isSuperAdmin?: boolean
 }
 
 const TEMPLATE_CATEGORIES = [
-    { value: 'custom', label: 'Personalizado' },
-    { value: 'agency', label: 'Agência' },
+    { value: 'agency', label: 'Agência & Criativo' },
+    { value: 'minimalist', label: 'Editorial & Minimal' },
+    { value: 'tech', label: 'Tech & SaaS' },
+    { value: 'luxury', label: 'Luxo & Lifestyle' },
     { value: 'corporate', label: 'Corporativo' },
-    { value: 'startup', label: 'Startup' },
-    { value: 'creative', label: 'Criativo' },
-    { value: 'minimal', label: 'Minimalista' },
+    { value: 'custom', label: 'Personalizado' },
 ]
 
-export function SaveAsTemplateModal({ isOpen, onClose, modules, brandId, brandName }: SaveAsTemplateModalProps) {
+export function SaveAsTemplateModal({
+    isOpen,
+    onClose,
+    modules,
+    brandId,
+    brandName,
+    isSuperAdmin = false
+}: SaveAsTemplateModalProps) {
     const [name, setName] = useState(brandName ? `${brandName} Template` : '')
     const [description, setDescription] = useState('')
-    const [category, setCategory] = useState('custom')
-    const [isPublic, setIsPublic] = useState(false)
+    const [category, setCategory] = useState('agency')
+    const [isPublic, setIsPublic] = useState(isSuperAdmin)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (isOpen) {
+            setName(brandName ? `${brandName} Template` : '')
+            setIsPublic(isSuperAdmin)
+            setError(null)
+        }
+    }, [isOpen, brandName, isSuperAdmin])
 
     if (!isOpen) return null
 
@@ -52,18 +69,17 @@ export function SaveAsTemplateModal({ isOpen, onClose, modules, brandId, brandNa
             })
 
             if (result.success) {
-                // Success! Close modal
+                toast.success('Template salvo com sucesso! Já está disponível no modal de templates.')
                 onClose()
-                // Reset form
                 setName('')
                 setDescription('')
-                setCategory('custom')
-                setIsPublic(false)
+                setCategory('agency')
+                setIsPublic(isSuperAdmin)
             } else {
                 setError(result.error || 'Erro ao salvar template')
             }
-        } catch (err) {
-            setError('Erro inesperado. Tente novamente.')
+        } catch (err: any) {
+            setError(err?.message || 'Erro inesperado. Tente novamente.')
             console.error('Save template error:', err)
         } finally {
             setIsSaving(false)
@@ -85,6 +101,11 @@ export function SaveAsTemplateModal({ isOpen, onClose, modules, brandId, brandNa
                     <div className="flex items-center gap-3">
                         <Save className="w-5 h-5 text-white" />
                         <span className="text-white font-bold text-lg">Salvar como Template</span>
+                        {isSuperAdmin && (
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-widest bg-black/30 text-white border border-white/20 flex items-center gap-1 backdrop-blur-sm">
+                                <ShieldCheck className="w-3 h-3 text-[#00FF94]" /> Super Admin
+                            </span>
+                        )}
                     </div>
                     <button
                         onClick={onClose}
@@ -151,13 +172,20 @@ export function SaveAsTemplateModal({ isOpen, onClose, modules, brandId, brandNa
                                 <Lock className="w-5 h-5 text-[#888]" />
                             )}
                             <div>
-                                <p className="text-white font-medium text-sm">
-                                    {isPublic ? 'Template Público' : 'Template Privado'}
-                                </p>
-                                <p className="text-[#666] text-xs">
+                                <div className="flex items-center gap-2">
+                                    <p className="text-white font-medium text-sm">
+                                        {isPublic ? 'Template Público' : 'Template Privado'}
+                                    </p>
+                                    {isSuperAdmin && isPublic && (
+                                        <span className="px-1.5 py-0.5 text-[9px] font-bold bg-[#00FF94]/20 text-[#00FF94] rounded">
+                                            Catálogo Geral
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-[#666] text-xs mt-0.5">
                                     {isPublic
-                                        ? 'Outros utilizadores poderão ver e usar este template'
-                                        : 'Apenas você poderá ver e usar este template'}
+                                        ? 'Ficará listado no catálogo geral de templates de Brand Book para todos os utilizadores.'
+                                        : 'Apenas você e os administradores poderão ver e utilizar este template.'}
                                 </p>
                             </div>
                         </div>

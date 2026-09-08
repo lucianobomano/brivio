@@ -1,8 +1,100 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
-import { getRoadmapStats } from "@/app/actions/roadmap"
 import { getProjectNotes } from "@/app/actions/notes"
+import { getProjectMeetings } from "@/app/actions/meetings"
 import { ClientRoadmapView } from "./ClientRoadmapView"
+
+/**
+ * Public roadmap data fetcher using admin client (bypasses RLS).
+ * This is needed because the share page is public and viewers are not authenticated.
+ */
+async function getPublicRoadmapStats(projectId: string) {
+    const supabase = await createAdminClient()
+
+    // 1. Get Project to find workspace_id
+    const { data: project, error: pError } = await supabase
+        .from('projects')
+        .select('workspace_id')
+        .eq('id', projectId)
+        .single()
+
+    if (pError || !project?.workspace_id) {
+        return null
+    }
+
+    // 2. Get Stages for that workspace
+    const { data: stages, error: sError } = await supabase
+        .from('project_stages')
+        .select('id, name, color, position, start_date, due_date')
+        .eq('workspace_id', project.workspace_id)
+        .order('position', { ascending: true })
+
+    if (sError || !stages) {
+        return null
+    }
+
+    // 3. Get Tasks for this project
+    const { data: tasks } = await supabase
+        .from('tasks')
+        .select('id, title, status, stage_id, completed, cover_url, description, estimated_time, start_date, due_date, elapsed_time, sprint_id, priority')
+        .eq('project_id', projectId)
+
+    // 4. Group tasks by stage and filter stages without tasks
+    const roadmap = stages
+        .map(stage => {
+            const stageTasks = (tasks || [])
+                .filter(t => t.stage_id === stage.id)
+                .map(t => ({
+                    id: t.id,
+                    title: t.title,
+                    status: t.status,
+                    completed: t.completed || t.status === 'done',
+                    cover_url: t.cover_url,
+                    description: t.description,
+                    estimated_time: t.estimated_time,
+                    elapsed_time: t.elapsed_time || 0,
+                    start_date: t.start_date,
+                    due_date: t.due_date,
+                    sprint_id: t.sprint_id,
+                    stage_id: t.stage_id,
+                    priority: t.priority,
+                }))
+
+            const completedCount = stageTasks.filter(t => t.completed).length
+            const totalCount = stageTasks.length
+            const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0
+
+            return {
+                id: stage.id,
+                name: stage.name,
+                color: stage.color,
+                position: stage.position,
+                start_date: stage.start_date || null,
+                due_date: stage.due_date || null,
+                tasks: stageTasks,
+                progress
+            }
+        })
+        .filter(stage => stage.tasks.length > 0)
+
+    if (roadmap.length === 0) {
+        return null
+    }
+
+    const totalTasks = roadmap.reduce((acc, stage) => acc + stage.tasks.length, 0)
+    const completedTasks = roadmap.reduce((acc, stage) => acc + stage.tasks.filter(t => t.completed).length, 0)
+    const globalProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
+    const currentPhase = roadmap.find(stage => stage.progress < 100) || roadmap[roadmap.length - 1]
+    const currentPhaseName = currentPhase?.name || 'Início'
+
+    return {
+        phases: roadmap,
+        globalProgress,
+        currentPhaseName,
+        totalTasks,
+        completedTasks
+    }
+}
 
 export default async function ClientRoadmapPage({ 
     params,
@@ -16,7 +108,8 @@ export default async function ClientRoadmapPage({
     const initialLayout = typeof resolvedSearchParams.layout === 'string' ? resolvedSearchParams.layout : 'default'
     const initialBg = typeof resolvedSearchParams.bg === 'string' ? resolvedSearchParams.bg : 'default'
     
-    const supabase = await createClient()
+    // Use admin client to bypass RLS — this is a public page
+    const supabase = await createAdminClient()
 
     // Fetch project details
     const { data: project, error: pError } = await supabase
@@ -29,8 +122,9 @@ export default async function ClientRoadmapPage({
         return notFound()
     }
 
-    const roadmapStats = await getRoadmapStats(assetId)
+    const roadmapStats = await getPublicRoadmapStats(assetId)
     const { notes } = await getProjectNotes(assetId)
+    const meetings = await getProjectMeetings(assetId)
 
     // If no roadmap data, show empty state instead of 404
     const emptyRoadmap = {
@@ -52,6 +146,7 @@ export default async function ClientRoadmapPage({
             initialLayout={initialLayout as any}
             initialBg={initialBg}
             initialNotes={notes || []}
+            initialMeetings={meetings || []}
         />
     )
 }

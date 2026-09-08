@@ -15,7 +15,7 @@ import { VideoSettingsPanel } from "./VideoSettingsPanel"
 import { AudioToolbar } from "./AudioToolbar"
 import { AudioSettingsPanel } from "./AudioSettingsPanel"
 import { AttachmentPopup } from "./AttachmentPopup"
-import { useBrandDesign } from "../BrandDesignContext"
+import { useBrandDesign, useAudioPlayer } from "../BrandDesignContext"
 
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 
@@ -31,11 +31,13 @@ interface MediaBlockProps {
     onAnimate?: () => void
     deleteButtonClassName?: string
     isFreeFlow?: boolean
+    align?: 'left' | 'center' | 'right'
 }
 
-export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onDuplicate, onCopy, onAnimate, deleteButtonClassName }: MediaBlockProps) => {
+export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onDuplicate, onCopy, onAnimate, deleteButtonClassName, align }: MediaBlockProps) => {
     const { url, caption, items, link, style } = block.content || {}
     const { settings, brandId } = useBrandDesign()
+    const audioPlayer = useAudioPlayer()
     const isActive = activeBlockId === block.id
     const [isUploadOpen, setIsUploadOpen] = React.useState(false)
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
@@ -336,6 +338,9 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
         if (!currentItems[index]) return
         currentItems[index] = { ...currentItems[index], caption: newCaption }
         onUpdate(block.id, { ...block.content, items: currentItems, url: undefined })
+        if (currentItems[index].url && audioPlayer) {
+            audioPlayer.updateTrackCaption(currentItems[index].url, newCaption)
+        }
     }
 
     const deleteAudioItem = (index: number) => {
@@ -377,8 +382,6 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
         }
     }
 
-
-
     const handleSettingsUpdate = (newSettings: any) => {
         onUpdate(block.id, {
             ...block.content,
@@ -393,9 +396,38 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     // Audio Item Component Helper
     const AudioItemCard = ({ item, index }: { item: any, index: number }) => {
         const itemStyle = item.style || {}
-        const [itemPlaying, setItemPlaying] = React.useState(false)
-        const itemAudioRef = React.useRef<HTMLAudioElement>(null)
         const isThisSettingsOpen = activeSettingsIndex === index
+
+        const isThisTrackActive = audioPlayer?.activeTrack?.url === item.url
+        const isThisTrackPlaying = isThisTrackActive && !!audioPlayer?.isPlaying
+
+        const currentTrackProgress = isThisTrackActive && audioPlayer && audioPlayer.duration > 0
+            ? Math.min(100, (audioPlayer.currentTime / audioPlayer.duration) * 100)
+            : 0
+
+        const handlePlayToggle = (e: React.MouseEvent) => {
+            e.stopPropagation()
+            if (!item.url) return
+
+            const audioItems = items || (url ? [{ url, caption, style, link }] : [])
+            const playlist = audioItems.map((ai: any, idx: number) => ({
+                url: ai.url,
+                title: ai.caption || `Faixa ${idx + 1}`,
+                caption: ai.caption,
+                style: ai.style || {},
+                blockTitle: block.content?.title || block.content?.headline || 'Audio Logo',
+                index: idx
+            }))
+
+            audioPlayer?.togglePlayPause({
+                url: item.url,
+                title: item.caption || `Faixa ${index + 1}`,
+                caption: item.caption,
+                style: itemStyle,
+                blockTitle: block.content?.title || block.content?.headline || 'Audio Logo',
+                index
+            }, playlist)
+        }
 
         return (
             <div
@@ -434,27 +466,18 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                 <div className="w-full h-full rounded-lg overflow-hidden relative bg-white shadow-sm flex flex-col">
                     <div className="absolute inset-0 border border-[#FF0054] opacity-0 group-hover/audio:opacity-100 pointer-events-none z-20 transition-opacity" />
 
-                    <audio
-                        ref={itemAudioRef}
-                        src={item.url}
-                        onPlay={() => setItemPlaying(true)}
-                        onPause={() => setItemPlaying(false)}
-                        onEnded={() => setItemPlaying(false)}
-                        loop={itemStyle.isLoop}
-                    />
-
                     <div
                         className="h-[256px] w-full flex items-center justify-center relative transition-all duration-500 bg-cover bg-center bg-no-repeat shrink-0"
                         style={{
-                            ...(!itemPlaying && itemStyle.backgroundType === 'image' && itemStyle.backgroundImage ? {
+                            ...(!isThisTrackPlaying && itemStyle.backgroundType === 'image' && itemStyle.backgroundImage ? {
                                 backgroundImage: `url(${itemStyle.backgroundImage})`
                             } : {
-                                background: itemPlaying
+                                background: isThisTrackPlaying
                                     ? 'linear-gradient(45deg, #FF0054, #88007F, #06D6A0, #311C99)'
                                     : (itemStyle.backgroundColor || settings.play_audio_bg || '#422600')
                             }),
-                            backgroundSize: itemPlaying ? '400% 400%' : 'cover',
-                            animation: itemPlaying ? 'liquidGradient 10s ease infinite' : 'none'
+                            backgroundSize: isThisTrackPlaying ? '400% 400%' : 'cover',
+                            animation: isThisTrackPlaying ? 'liquidGradient 10s ease infinite' : 'none'
                         }}
                     >
                         <style>{`
@@ -465,19 +488,30 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                               }
                           `}</style>
                         <button
-                            onClick={(e) => {
-                                e.stopPropagation()
-                                if (itemPlaying) itemAudioRef.current?.pause()
-                                else itemAudioRef.current?.play()
-                            }}
-                            className="w-[100px] h-[100px] rounded-full bg-[#FF0054] border-[10px] border-white flex items-center justify-center z-10 hover:scale-105 transition-transform shadow-lg"
+                            onClick={handlePlayToggle}
+                            className="w-[100px] h-[100px] rounded-full bg-[#FF0054] border-[10px] border-white flex items-center justify-center z-10 hover:scale-105 transition-transform shadow-lg cursor-pointer"
+                            style={{ backgroundColor: settings.play_audio_bg || '#FF0054' }}
+                            title={isThisTrackPlaying ? "Pausar áudio" : "Reproduzir áudio"}
                         >
-                            {itemPlaying ? (
+                            {isThisTrackPlaying ? (
                                 <Pause className="w-8 h-8 text-white fill-white" />
                             ) : (
                                 <Play className="w-8 h-8 text-white fill-white ml-2" />
                             )}
                         </button>
+
+                        {/* Progress Bar Indicator along bottom of artwork container */}
+                        {isThisTrackActive && (
+                            <div className="absolute bottom-0 left-0 right-0 h-1.5 bg-black/30 z-20 overflow-hidden">
+                                <div
+                                    className="h-full transition-all duration-100"
+                                    style={{
+                                        width: `${currentTrackProgress}%`,
+                                        backgroundColor: settings.play_audio_bg || '#FF0054'
+                                    }}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div className="h-[40px] w-full px-4 flex items-center justify-center bg-white border-t border-gray-50 relative z-10 shrink-0">
@@ -663,8 +697,12 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                 }}
                 style={{
                     display: 'flex',
-                    justifyContent: (style?.align === 'center' ? 'center' : style?.align === 'right' ? 'flex-end' : 'flex-start'),
-                    width: (block.type === 'image' || block.type === 'video') && style?.width ? `${style.width}px` : (style?.align ? 'auto' : '100%'),
+                    justifyContent: (style?.align === 'center' || (!style?.align && align === 'center'))
+                        ? 'center'
+                        : (style?.align === 'right' || (!style?.align && align === 'right'))
+                            ? 'flex-end'
+                            : 'flex-start',
+                    width: (block.type === 'image' || block.type === 'video') && style?.width ? `${style.width}px` : ((style?.align || align) ? 'auto' : '100%'),
                     maxWidth: '100%'
                 }}
             >

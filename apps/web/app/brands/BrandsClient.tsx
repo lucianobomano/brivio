@@ -1,9 +1,10 @@
 "use client"
 
 import * as React from "react"
-import { Filter, List, ChevronLeft, ChevronRight } from "lucide-react"
+import { Filter, List, ChevronLeft, ChevronRight, Sparkles } from "lucide-react"
 import { BrandCard } from "@/components/brands/BrandCard"
 import { CreateBrandCard } from "@/components/brands/CreateBrandCard"
+import { CreateBrandbookFromTemplateModal } from "@/components/brandbook/CreateBrandbookFromTemplateModal"
 import { motion, AnimatePresence } from "framer-motion"
 
 interface Brand {
@@ -23,6 +24,7 @@ interface BrandsClientProps {
 export function BrandsClient({ brandsList, user }: BrandsClientProps) {
     const [searchTerm, setSearchTerm] = React.useState("")
     const [currentPage, setCurrentPage] = React.useState(1)
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = React.useState(false)
     const itemsPerPage = 3
 
     // Filter brands based on search term
@@ -81,6 +83,13 @@ export function BrandsClient({ brandsList, user }: BrandsClientProps) {
                                 className="w-full bg-transparent border-b border-gray-700 px-4 py-2 text-white placeholder:text-gray-600 focus:outline-none focus:border-gray-500 transition-colors"
                             />
                         </div>
+                        <button
+                            onClick={() => setIsTemplateModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold text-white bg-gradient-to-r from-[#FF0054] to-[#88007F] hover:opacity-95 shadow-md shadow-[#FF0054]/20 hover:scale-[1.02] active:scale-[0.98] transition-all shrink-0 cursor-pointer"
+                        >
+                            <Sparkles className="w-3.5 h-3.5" />
+                            <span>Criar com Template</span>
+                        </button>
                         <button className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm">
                             <Filter className="w-4 h-4" />
                             <span>Filtrar por</span>
@@ -92,6 +101,13 @@ export function BrandsClient({ brandsList, user }: BrandsClientProps) {
                     </div>
                 </div>
             </div>
+
+            {/* Modal for Creating Brandbook from Template */}
+            <CreateBrandbookFromTemplateModal
+                open={isTemplateModalOpen}
+                onOpenChange={setIsTemplateModalOpen}
+                initialBrands={brandsList}
+            />
 
             {/* Cards Grid - Single Row (max 4 cards total: 1 create brand + 3 brand cards) */}
             <div className="pb-8 flex justify-center px-[40px]">

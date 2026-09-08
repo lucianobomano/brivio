@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useRef } from "react"
-import { Paperclip, Link as LinkIcon, MousePointer2, Trash2, Settings, Download, X, Zap, RotateCcw, Copy } from "lucide-react"
+import { Paperclip, Link as LinkIcon, MousePointer2, Trash2, Settings, Download, X, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ImageToolbarProps {
@@ -37,7 +37,15 @@ export const ImageToolbar = ({
     activeSettings
 }: ImageToolbarProps) => {
     const [isLinkOpen, setIsLinkOpen] = useState(false)
+    const [isCopied, setIsCopied] = useState(false)
     const [linkInput, setLinkInput] = useState(activeSettings.link || "")
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        onCopy?.()
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
     const linkInputRef = useRef<HTMLInputElement>(null)
 
     useEffect(() => {
@@ -54,7 +62,7 @@ export const ImageToolbar = ({
 
     return (
         <div
-            className="flex items-center bg-[#111116] rounded-[4px] px-1 py-1 h-[32px] gap-[1px] shadow-xl border border-white/10"
+            className="flex items-center bg-[#111116] rounded-[4px] px-1 py-1 h-[32px] gap-[1px] shadow-xl border border-white/10 whitespace-nowrap w-max min-w-max shrink-0 select-none"
             onClick={(e) => e.stopPropagation()}
         >
             {/* Change Button */}
@@ -158,11 +166,14 @@ export const ImageToolbar = ({
 
             {/* Copy */}
             <button
-                onClick={(e) => { e.stopPropagation(); onCopy?.() }}
-                className="w-[28px] h-full flex items-center justify-center text-gray-400 hover:text-blue-400 transition-colors"
-                title="Copy"
+                onClick={handleCopy}
+                className={cn(
+                    "w-[28px] h-full flex items-center justify-center transition-colors",
+                    isCopied ? "text-green-400 bg-green-500/10" : "text-gray-400 hover:text-blue-400"
+                )}
+                title={isCopied ? "Bloco copiado!" : "Copiar bloco"}
             >
-                <Copy className="w-4 h-4" />
+                {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
             </button>
 
             {/* Delete */}

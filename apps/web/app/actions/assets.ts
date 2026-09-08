@@ -547,16 +547,16 @@ export async function getShareSettings(id: string, type: 'asset' | 'folder' | 'r
     if (!user) return null
 
     if (type === 'asset') {
-        const { data } = await supabase.from('assets').select('metadata').eq('id', id).single()
+        const { data } = await supabase.from('assets').select('metadata').eq('id', id).maybeSingle()
         const metadata = data?.metadata as Record<string, unknown> | null
         return metadata?.share as ShareSettings | undefined
     } else if (type === 'root') {
-        const { data } = await supabase.from('assets')
+        let query = supabase.from('assets')
             .select('metadata')
-            .eq('brand_id', id)
             .is('folder_id', null)
             .eq('name', '.share_settings')
-            .single()
+        query = query.or(`brand_id.eq.${id},workspace_id.eq.${id}`)
+        const { data } = await query.maybeSingle()
         const metadata = data?.metadata as Record<string, unknown> | null
         return metadata?.share as ShareSettings | undefined
     } else {
@@ -564,7 +564,7 @@ export async function getShareSettings(id: string, type: 'asset' | 'folder' | 'r
             .select('metadata')
             .eq('folder_id', id)
             .eq('name', '.share_settings')
-            .single()
+            .maybeSingle()
         const metadata = data?.metadata as Record<string, unknown> | null
         return metadata?.share as ShareSettings | undefined
     }
@@ -581,9 +581,10 @@ export async function updateShareSettings(id: string, type: 'asset' | 'folder' |
                 .from('assets')
                 .select('metadata')
                 .eq('id', id)
-                .single()
+                .maybeSingle()
 
             if (fetchError) throw fetchError
+            if (!asset) throw new Error("Asset not found")
 
             const currentMetadata = (asset.metadata as Record<string, unknown> | null) || {}
             const updatedMetadata = { ...currentMetadata, share: settings }
@@ -594,15 +595,15 @@ export async function updateShareSettings(id: string, type: 'asset' | 'folder' |
                 .eq('id', id)
             if (updateError) throw updateError
         } else if (type === 'root') {
-            // Root Sharing (Brand Level)
-            // ID passed is brandId
-            const { data: existingConfig } = await supabase
+            // Root Sharing (Brand Level or Workspace Level)
+            let query = supabase
                 .from('assets')
                 .select('id, metadata')
-                .eq('brand_id', id)
                 .is('folder_id', null)
                 .eq('name', '.share_settings')
-                .single()
+                .or(`brand_id.eq.${id},workspace_id.eq.${id}`)
+
+            const { data: existingConfig } = await query.maybeSingle()
 
             if (existingConfig) {
                 const currentMetadata = (existingConfig.metadata as Record<string, unknown> | null) || {}
@@ -613,6 +614,7 @@ export async function updateShareSettings(id: string, type: 'asset' | 'folder' |
                     name: '.share_settings',
                     folder_id: null,
                     brand_id: id,
+                    workspace_id: id,
                     uploader_id: user.id,
                     type: 'other',
                     file_url: 'internal://root-share-settings',
@@ -622,13 +624,12 @@ export async function updateShareSettings(id: string, type: 'asset' | 'folder' |
             }
         } else {
             // Folder Sharing
-            // Check if config asset exists
             const { data: existingConfig } = await supabase
                 .from('assets')
                 .select('id, metadata')
                 .eq('folder_id', id)
                 .eq('name', '.share_settings')
-                .single()
+                .maybeSingle()
 
             if (existingConfig) {
                 const currentMetadata = (existingConfig.metadata as Record<string, unknown> | null) || {}
@@ -636,17 +637,17 @@ export async function updateShareSettings(id: string, type: 'asset' | 'folder' |
                 await supabase.from('assets').update({ metadata: updatedMetadata }).eq('id', existingConfig.id)
             } else {
                 // Create config asset
-                // Need brand_id from folder
-                const { data: folder } = await supabase.from('asset_folders').select('brand_id').eq('id', id).single()
+                const { data: folder } = await supabase.from('asset_folders').select('brand_id, workspace_id').eq('id', id).maybeSingle()
                 if (!folder) throw new Error("Folder not found")
 
                 await supabase.from('assets').insert({
                     name: '.share_settings',
                     folder_id: id,
-                    brand_id: folder.brand_id, // Important
+                    brand_id: folder.brand_id || null,
+                    workspace_id: folder.workspace_id || null,
                     uploader_id: user.id,
                     type: 'other',
-                    file_url: 'internal://share-settings', // Dummy non-empty
+                    file_url: 'internal://share-settings',
                     metadata: { share: settings },
                     is_downloadable: false
                 })

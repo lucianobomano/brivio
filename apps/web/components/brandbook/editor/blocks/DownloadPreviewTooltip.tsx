@@ -16,6 +16,21 @@ interface DownloadPreviewTooltipProps {
     headerColor?: string
 }
 
+const getContrastColor = (hexColor?: string) => {
+    if (!hexColor || hexColor === 'transparent') return '#ffffff'
+    let hex = hexColor.trim().replace('#', '')
+    if (hex.length === 3) {
+        hex = hex.split('').map(c => c + c).join('')
+    }
+    if (hex.length !== 6) return '#ffffff'
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+    if (isNaN(r) || isNaN(g) || isNaN(b)) return '#ffffff'
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000
+    return yiq >= 160 ? '#111827' : '#ffffff'
+}
+
 export const DownloadPreviewTooltip = ({ file, headerColor }: DownloadPreviewTooltipProps) => {
     // Mock data if missing, to match image
     const {
@@ -28,11 +43,14 @@ export const DownloadPreviewTooltip = ({ file, headerColor }: DownloadPreviewToo
         url
     } = file
 
+    const activeHeaderColor = headerColor || '#05AB80'
+    const textColor = getContrastColor(activeHeaderColor)
+
     return (
         <div className="w-[320px] bg-[#F9FAFB] rounded-lg shadow-xl flex flex-col font-sans border border-gray-100 z-[100] relative">
             {/* Header */}
-            <div className="px-5 py-4 rounded-t-lg transition-colors duration-200" style={{ backgroundColor: headerColor || '#05AB80' }}>
-                <h3 className="text-white font-bold text-base truncate" title={name}>
+            <div className="px-5 py-4 rounded-t-lg transition-colors duration-200" style={{ backgroundColor: activeHeaderColor }}>
+                <h3 className="font-bold text-base truncate" style={{ color: textColor }} title={name}>
                     {name}
                 </h3>
             </div>
@@ -42,17 +60,17 @@ export const DownloadPreviewTooltip = ({ file, headerColor }: DownloadPreviewToo
 
                 {/* Details Section 1 */}
                 <div className="flex flex-col gap-1.5">
-                    <div className="flex">
-                        <span className="w-24 text-gray-900 font-medium">Kind:</span>
-                        <span className="text-gray-900">{type}</span>
+                    <div className="flex items-baseline">
+                        <span className="w-32 text-gray-900 font-medium shrink-0">Kind:</span>
+                        <span className="text-gray-900 truncate">{type}</span>
                     </div>
-                    <div className="flex">
-                        <span className="w-24 text-gray-900 font-medium">Size:</span>
-                        <span className="text-gray-900">{size}</span>
+                    <div className="flex items-baseline">
+                        <span className="w-32 text-gray-900 font-medium shrink-0">Size:</span>
+                        <span className="text-gray-900 truncate">{size}</span>
                     </div>
-                    <div className="flex">
-                        <span className="w-24 text-gray-900 font-medium">Dimensions:</span>
-                        <span className="text-gray-900">{dimensions}</span>
+                    <div className="flex items-baseline">
+                        <span className="w-32 text-gray-900 font-medium shrink-0">Dimensions:</span>
+                        <span className="text-gray-900 truncate">{dimensions}</span>
                     </div>
                 </div>
 
@@ -61,19 +79,14 @@ export const DownloadPreviewTooltip = ({ file, headerColor }: DownloadPreviewToo
 
                 {/* Details Section 2 */}
                 <div className="flex flex-col gap-1.5">
-                    <div className="flex">
-                        <span className="w-28 text-gray-900 font-medium">Uploaded:</span>
-                        <span className="text-gray-900 whitespace-nowrap">{uploadedDate}</span>
+                    <div className="flex items-baseline">
+                        <span className="w-32 text-gray-900 font-medium shrink-0">Uploaded:</span>
+                        <span className="text-gray-900 truncate">{uploadedDate}</span>
                     </div>
-                    <div className="flex">
-                        <span className="w-28 text-gray-900 font-medium whitespace-nowrap">Last downloaded:</span>
-                        <span className="text-gray-900">{lastDownloaded}</span>
+                    <div className="flex items-baseline">
+                        <span className="w-32 text-gray-900 font-medium shrink-0">Last downloaded:</span>
+                        <span className="text-gray-900 truncate">{lastDownloaded}</span>
                     </div>
-                    {/* The image shows Last downloaded: ... on the next line or wrapped? 
-                       Image: "Last downloaded: Not downloaded yet"
-                       Layout seems to be Grid or Flex Row.
-                       "Last downloaded:" label is quite long. The value is "Not downloaded yet".
-                    */}
                 </div>
 
                 {/* Separator */}

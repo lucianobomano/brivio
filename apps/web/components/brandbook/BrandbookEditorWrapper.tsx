@@ -39,6 +39,7 @@ interface BrandbookEditorProps {
     brandLogoUrl?: string | null
     isReadOnly?: boolean
     userData?: UserData | null
+    isSuperAdmin?: boolean
 }
 
 export default function BrandbookEditorWrapper(props: BrandbookEditorProps) {

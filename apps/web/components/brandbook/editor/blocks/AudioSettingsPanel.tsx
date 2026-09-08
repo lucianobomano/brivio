@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { X, Upload, Trash } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MarginSettingsControl } from "./MarginSettingsControl"
 
 interface AudioSettingsPanelProps {
     onClose: () => void
@@ -179,6 +180,12 @@ export const AudioSettingsPanel = ({ onClose, settings, onUpdate, onUploadAudio,
                         </div>
                     </div>
                 )}
+
+                {/* Margins */}
+                <MarginSettingsControl
+                    margin={settings?.margin}
+                    onChange={(m) => onUpdate({ margin: m })}
+                />
 
             </div>
 

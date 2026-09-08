@@ -32,9 +32,11 @@ interface CompositeBlockProps {
     activeBlockId?: string | null
     align?: 'left' | 'center' | 'right'
     responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
+    onCopy?: (id: string) => void
+    onDuplicate?: (id: string) => void
 }
 
-export const CompositeBlock = ({ block, isReadOnly, onUpdate, onDelete, onSelect, onMove, align, activeBlockId, responsiveDevice }: CompositeBlockProps) => {
+export const CompositeBlock = ({ block, isReadOnly, onUpdate, onDelete, onSelect, onMove, align, activeBlockId, responsiveDevice, onCopy, onDuplicate }: CompositeBlockProps) => {
     const { getStyleById } = useBrandDesign()
     const globalStyle = getStyleById('body') // Fallback to body for composite text
 
@@ -97,6 +99,8 @@ export const CompositeBlock = ({ block, isReadOnly, onUpdate, onDelete, onSelect
                     )}>
                         <TextToolbar
                             onDelete={onDelete ? () => onDelete(block.id) : undefined}
+                            onDuplicate={onDuplicate ? () => onDuplicate(block.id) : undefined}
+                            onCopy={onCopy ? () => onCopy(block.id) : undefined}
                             activeTransform={detectTransform(text || "")}
                             onTransform={(type) => {
                                 const currentText = text || ""
@@ -204,6 +208,10 @@ export const CompositeBlock = ({ block, isReadOnly, onUpdate, onDelete, onSelect
                                 }
                                 updateContent('style', style)
                             }}
+                            margin={block.content?.style?.margin}
+                            onMarginChange={(m) => {
+                                updateContent('style', { ...block.content?.style, margin: m })
+                            }}
                             currentFontSize={detectFontSize(block.content?.style) || (globalStyle?.size ? `${globalStyle.size}px` : '16px')}
                             onFontSizeChange={(size) => {
                                 updateContent('style', { ...block.content?.style, fontSize: size })
@@ -243,7 +251,8 @@ export const CompositeBlock = ({ block, isReadOnly, onUpdate, onDelete, onSelect
                             fontSize: globalStyle?.size ? `${globalStyle.size}px` : undefined,
                             color: globalStyle?.color,
                             textTransform: (globalStyle?.casing === 'none' ? undefined : globalStyle?.casing) as any,
-                            ...block.content?.style
+                            ...block.content?.style,
+                            textAlign: block.content?.style?.textAlign || align || 'left'
                         }}
                     />
                 </ResizableWrapper>

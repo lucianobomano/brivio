@@ -1,5 +1,6 @@
 import { X, AlignLeft, AlignCenter, AlignRight, RotateCcw, Grid, Layout } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MarginSettingsControl, BlockMargin } from "./blocks/MarginSettingsControl"
 
 interface MediaSettingsPanelProps {
     onClose: () => void
@@ -13,6 +14,7 @@ interface MediaSettingsPanelProps {
         height?: string
         galleryType?: 'grid' | 'masonry' | 'carousel'
         columns?: number
+        margin?: BlockMargin
     }
     onUpdate: (settings: Partial<MediaSettingsPanelProps['settings']>) => void
     className?: string
@@ -61,7 +63,7 @@ export const MediaSettingsPanel = ({ onClose, settings, onUpdate, className, blo
                                 ].map((type) => (
                                     <button
                                         key={type.id}
-                                        onClick={(e) => { e.stopPropagation(); onUpdate({ ...settings, galleryType: type.id }) }}
+                                        onClick={(e) => { e.stopPropagation(); onUpdate({ ...settings, galleryType: type.id as 'grid' | 'masonry' | 'carousel' }) }}
                                         className={cn(
                                             "flex-1 flex flex-col items-center gap-1 py-2 rounded transition-all",
                                             (settings.galleryType === type.id || (!settings.galleryType && type.id === 'masonry' && blockType === 'gallery') || (!settings.galleryType && type.id === 'carousel' && blockType === 'carousel'))
@@ -108,9 +110,9 @@ export const MediaSettingsPanel = ({ onClose, settings, onUpdate, className, blo
                     <span className="text-[#888] text-xs font-medium uppercase tracking-wider">Alinhamento</span>
                     <div className="flex items-center gap-1">
                         {[
-                            { id: 'left', icon: AlignLeft },
-                            { id: 'center', icon: AlignCenter },
-                            { id: 'right', icon: AlignRight }
+                            { id: 'left' as const, icon: AlignLeft },
+                            { id: 'center' as const, icon: AlignCenter },
+                            { id: 'right' as const, icon: AlignRight }
                         ].map((align) => (
                             <button
                                 key={align.id}
@@ -277,6 +279,14 @@ export const MediaSettingsPanel = ({ onClose, settings, onUpdate, className, blo
                         ))}
                     </div>
                 </div>
+
+                <div className="h-px bg-[#333] w-full" />
+
+                {/* 6. Margem */}
+                <MarginSettingsControl
+                    margin={settings.margin}
+                    onChange={(m) => onUpdate({ ...settings, margin: m })}
+                />
 
             </div>
         </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react"
 import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MarginSettingsControl, BlockMargin } from "./MarginSettingsControl"
 
 export interface PaletteSettings {
     aspectRatio?: string
@@ -30,6 +31,7 @@ export interface PaletteSettings {
         fontColor?: string
         previewColor?: string
     }
+    margin?: BlockMargin
 }
 
 export const DEFAULT_PALETTE_SETTINGS: PaletteSettings = {
@@ -68,10 +70,20 @@ export function PaletteSettingsPanel({
     initialTop = 100,
     initialLeft = 100
 }: PaletteSettingsPanelProps) {
-    // Draggable state
     const [position, setPosition] = useState({ x: 0, y: 0 })
     const [isDragging, setIsDragging] = useState(false)
     const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
+
+    const [gapHInput, setGapHInput] = useState<string>(() => String(settings?.gapHorizontal ?? DEFAULT_PALETTE_SETTINGS.gapHorizontal ?? 32))
+    const [gapVInput, setGapVInput] = useState<string>(() => String(settings?.gapVertical ?? DEFAULT_PALETTE_SETTINGS.gapVertical ?? 32))
+
+    useEffect(() => {
+        setGapHInput(String(settings?.gapHorizontal ?? DEFAULT_PALETTE_SETTINGS.gapHorizontal ?? 32))
+    }, [settings?.gapHorizontal])
+
+    useEffect(() => {
+        setGapVInput(String(settings?.gapVertical ?? DEFAULT_PALETTE_SETTINGS.gapVertical ?? 32))
+    }, [settings?.gapVertical])
 
     useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
@@ -274,17 +286,27 @@ export function PaletteSettingsPanel({
                     </div>
                 </div>
 
-                {/* 4. Espaçamento Horizontal */}
+                {/* 4. Espaçamento entre Colunas (Horizontal) */}
                 <div className="flex items-center justify-between mt-1">
-                    <span className="text-[#A0A0A0] text-[13px] font-medium">Espaçamento Cores</span>
+                    <span className="text-[#A0A0A0] text-[13px] font-medium">Espaçamento entre colunas</span>
                     <div className="relative group/input">
                         <div className="flex items-center bg-transparent border border-white/10 rounded px-3 h-[28px] w-[75px] group-hover/input:border-white/20 transition-colors">
                             <input
                                 type="text"
-                                value={(settings?.gapHorizontal ?? DEFAULT_PALETTE_SETTINGS.gapHorizontal ?? 0).toString().padStart(2, '0')}
+                                value={gapHInput}
                                 onChange={(e) => {
-                                    const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
-                                    updateValue('gapHorizontal', val)
+                                    const text = e.target.value
+                                    setGapHInput(text)
+                                    const val = parseInt(text.replace(/\D/g, ''))
+                                    if (!isNaN(val)) {
+                                        updateValue('gapHorizontal', val)
+                                    }
+                                }}
+                                onBlur={() => {
+                                    const val = parseInt(gapHInput.replace(/\D/g, ''))
+                                    const finalVal = isNaN(val) ? 0 : val
+                                    setGapHInput(String(finalVal))
+                                    updateValue('gapHorizontal', finalVal)
                                 }}
                                 className="bg-transparent border-none text-white text-[12px] w-full text-right outline-none pr-1"
                             />
@@ -293,17 +315,27 @@ export function PaletteSettingsPanel({
                     </div>
                 </div>
 
-                {/* 4.5. Espaçamento Vertical */}
+                {/* 4.5. Espaçamento entre Linhas (Vertical) */}
                 <div className="flex items-center justify-between mt-1">
-                    <span className="text-[#A0A0A0] text-[13px] font-medium">Espaçamento Cards</span>
+                    <span className="text-[#A0A0A0] text-[13px] font-medium">Espaçamento entre linhas</span>
                     <div className="relative group/input">
                         <div className="flex items-center bg-transparent border border-white/10 rounded px-3 h-[28px] w-[75px] group-hover/input:border-white/20 transition-colors">
                             <input
                                 type="text"
-                                value={(settings?.gapVertical ?? DEFAULT_PALETTE_SETTINGS.gapVertical ?? 0).toString().padStart(2, '0')}
+                                value={gapVInput}
                                 onChange={(e) => {
-                                    const val = parseInt(e.target.value.replace(/\D/g, '')) || 0
-                                    updateValue('gapVertical', val)
+                                    const text = e.target.value
+                                    setGapVInput(text)
+                                    const val = parseInt(text.replace(/\D/g, ''))
+                                    if (!isNaN(val)) {
+                                        updateValue('gapVertical', val)
+                                    }
+                                }}
+                                onBlur={() => {
+                                    const val = parseInt(gapVInput.replace(/\D/g, ''))
+                                    const finalVal = isNaN(val) ? 0 : val
+                                    setGapVInput(String(finalVal))
+                                    updateValue('gapVertical', finalVal)
                                 }}
                                 className="bg-transparent border-none text-white text-[12px] w-full text-right outline-none pr-1"
                             />
@@ -360,6 +392,12 @@ export function PaletteSettingsPanel({
                         </div>
                     </div>
                 </div>
+
+                {/* Margins */}
+                <MarginSettingsControl
+                    margin={settings?.margin}
+                    onChange={(m) => onUpdate({ ...settings, margin: m })}
+                />
 
             </div>
 

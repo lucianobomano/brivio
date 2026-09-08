@@ -3,6 +3,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { getBrandSettings, updateBrandSettings, updateBrandFontStyles, updateBrandInfo } from '@/app/actions/brand-settings'
 import { debounce } from '@/lib/utils'
+import { AudioPlayerProvider, useAudioPlayer } from './AudioPlayerContext'
+import { AudioPlayerBar } from './AudioPlayerBar'
+
+export { useAudioPlayer }
 
 export interface FontStyle {
     id: string
@@ -37,6 +41,32 @@ export interface BrandInfoState {
     favicon_url: string
 }
 
+export interface FooterSettings {
+    paddingTop: number
+    paddingBottom: number
+    backgroundColor: string
+    textColor: string
+    backgroundImage: string | null
+    isVisible: boolean
+    showNext: boolean
+    showPrevious: boolean
+    legalContactFooter: boolean
+    brandingTag: boolean
+}
+
+export const DEFAULT_FOOTER_SETTINGS: FooterSettings = {
+    paddingTop: 50,
+    paddingBottom: 50,
+    backgroundColor: '#ffffff',
+    textColor: '#000000',
+    backgroundImage: null,
+    isVisible: true,
+    showNext: true,
+    showPrevious: false,
+    legalContactFooter: false,
+    brandingTag: true,
+}
+
 interface BrandDesignContextType {
     brandId: string
     fontStyles: FontStyle[]
@@ -53,6 +83,12 @@ interface BrandDesignContextType {
     isLoading: boolean
     isResizingGlobal: boolean
     setIsResizingGlobal: (resizing: boolean) => void
+    footerSettings: FooterSettings
+    updateFooterSettings: (newSettings: Partial<FooterSettings>) => void
+    modules: Array<{ id: string; title: string }>
+    selectedModuleId?: string | null
+    onSelectModule?: (id: string) => void
+    sections: Array<{ id: string; title: string }>
 }
 
 const DEFAULT_FONT_STYLES: FontStyle[] = [
@@ -85,10 +121,25 @@ const DEFAULT_BRAND_INFO: BrandInfoState = {
 
 const BrandDesignContext = createContext<BrandDesignContextType | undefined>(undefined)
 
-export function BrandDesignProvider({ children, brandId }: { children: React.ReactNode, brandId: string }) {
+export function BrandDesignProvider({
+    children,
+    brandId,
+    modules = [],
+    selectedModuleId = null,
+    onSelectModule,
+    sections = []
+}: {
+    children: React.ReactNode
+    brandId: string
+    modules?: Array<{ id: string; title: string }>
+    selectedModuleId?: string | null
+    onSelectModule?: (id: string) => void
+    sections?: Array<{ id: string; title: string }>
+}) {
     const [fontStyles, setFontStyles] = useState<FontStyle[]>(DEFAULT_FONT_STYLES)
     const [settings, setSettings] = useState<BrandSettingsState>(DEFAULT_SETTINGS)
     const [brandInfo, setBrandInfo] = useState<BrandInfoState>(DEFAULT_BRAND_INFO)
+    const [footerSettings, setFooterSettings] = useState<FooterSettings>(DEFAULT_FOOTER_SETTINGS)
     const [isLoading, setIsLoading] = useState(true)
     const [isResizingGlobal, setIsResizingGlobal] = useState(false)
 
@@ -125,6 +176,10 @@ export function BrandDesignProvider({ children, brandId }: { children: React.Rea
                             : DEFAULT_FONT_STYLES
                         setFontStyles(storedFonts)
                     }
+
+                    if (dbSettings.footer_settings && typeof dbSettings.footer_settings === 'object' && Object.keys(dbSettings.footer_settings).length > 0) {
+                        setFooterSettings(prev => ({ ...prev, ...dbSettings.footer_settings }))
+                    }
                 }
 
                 if (brand) {
@@ -158,6 +213,10 @@ export function BrandDesignProvider({ children, brandId }: { children: React.Rea
     const saveFonts = useCallback(debounce((styles: FontStyle[]) => {
         updateBrandFontStyles(brandId, styles)
     }, 1000), [brandId])
+
+    const saveFooterSettings = useCallback(debounce((fSettings: FooterSettings) => {
+        updateBrandSettings(brandId, 'footer_settings', fSettings)
+    }, 500), [brandId])
 
 
     // --- Actions ---
@@ -228,6 +287,14 @@ export function BrandDesignProvider({ children, brandId }: { children: React.Rea
         })
     }
 
+    const updateFooterSettings = (newSettings: Partial<FooterSettings>) => {
+        setFooterSettings(prev => {
+            const next = { ...prev, ...newSettings }
+            saveFooterSettings(next)
+            return next
+        })
+    }
+
     const getStyleById = (id: string) => fontStyles.find(s => s.id === id)
 
     return (
@@ -246,9 +313,18 @@ export function BrandDesignProvider({ children, brandId }: { children: React.Rea
             updatePaletteColor,
             isLoading,
             isResizingGlobal,
-            setIsResizingGlobal
+            setIsResizingGlobal,
+            footerSettings,
+            updateFooterSettings,
+            modules,
+            selectedModuleId,
+            onSelectModule,
+            sections
         }}>
-            {children}
+            <AudioPlayerProvider accentColor={settings.play_audio_bg || '#FF0054'}>
+                {children}
+                <AudioPlayerBar />
+            </AudioPlayerProvider>
         </BrandDesignContext.Provider>
     )
 }

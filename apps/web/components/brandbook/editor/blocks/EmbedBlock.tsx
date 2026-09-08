@@ -10,6 +10,7 @@ import { DownloadSettingsPanel } from "./DownloadSettingsPanel"
 import { DownloadPreviewTooltip } from "./DownloadPreviewTooltip"
 import { UploadAssetDialog } from "../UploadAssetDialog"
 import { useBrandDesign } from "../BrandDesignContext"
+import { useSection } from "../SectionContext"
 import { uploadBrandbookMedia } from "@/app/actions/brandbook"
 import { cn } from "@/lib/utils"
 
@@ -21,11 +22,14 @@ interface EmbedBlockProps {
     onSelect?: (id: string | null) => void
     activeBlockId?: string | null
     onDelete?: (id: string) => void
+    onCopy?: (id: string) => void
+    onDuplicate?: (id: string) => void
     isFreeFlow?: boolean
 }
 
-export const EmbedBlock = ({ block, isReadOnly, onUpdate, onAnimate, onSelect, activeBlockId, onDelete, isFreeFlow }: EmbedBlockProps) => {
+export const EmbedBlock = ({ block, isReadOnly, onUpdate, onAnimate, onSelect, activeBlockId, onDelete, onCopy, onDuplicate, isFreeFlow }: EmbedBlockProps) => {
     const { brandId } = useBrandDesign()
+    const { backgroundColor: sectionBg } = useSection()
     const { url, title, filesize, type } = block.content || {}
     const isFigma = block.variant === 'figma' || block.id.includes('figma')
 
@@ -70,6 +74,8 @@ export const EmbedBlock = ({ block, isReadOnly, onUpdate, onAnimate, onSelect, a
                                 onSettings={() => setIsSettingsOpen(true)}
                                 onDelete={() => onUpdate(block.id, { ...block.content, url: undefined })}
                                 onAnimate={onAnimate}
+                                onCopy={onCopy ? () => onCopy(block.id) : undefined}
+                                onDuplicate={onDuplicate ? () => onDuplicate(block.id) : undefined}
                             />
                         </div>
                     )}
@@ -86,7 +92,7 @@ export const EmbedBlock = ({ block, isReadOnly, onUpdate, onAnimate, onSelect, a
                                     lastDownloaded: "Not downloaded yet",
                                     url: url
                                 }}
-                                headerColor={style?.hoverEnabled ? (style.hoverBackgroundColor || '#FF0054') : undefined}
+                                headerColor={sectionBg}
                             />
                         </div>
                     )}

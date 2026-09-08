@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { Upload, Download, Trash } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MarginSettingsControl } from "./MarginSettingsControl"
 import { Switch } from "@/components/ui/switch" // Assuming Switch exists, or I will implement a custom one to match design exactly
 // If Switch doesn't exist, I'll build a custom toggle.
 // I will verify common UI components later, but for now I'll write the code assuming I can use standard HTML/CSS for the specific toggle design requested.
@@ -235,6 +236,14 @@ export const DownloadSettingsPanel = ({ onClose, settings, onUpdate, onUpload, o
                         />
                     </div>
                 </div>
+
+                <div className="h-px bg-[#333] w-full" />
+
+                {/* Margins */}
+                <MarginSettingsControl
+                    margin={settings?.margin}
+                    onChange={(m) => onUpdate({ margin: m })}
+                />
 
             </div>
         </div>

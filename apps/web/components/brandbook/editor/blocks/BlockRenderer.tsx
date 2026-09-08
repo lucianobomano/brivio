@@ -1,7 +1,7 @@
 "use client"
 
 import React from "react"
-import { Block } from "../types"
+import { Block, BrivioClipboardItem, BlockLink } from "../types"
 
 import { cn } from "@/lib/utils"
 
@@ -13,13 +13,14 @@ import { CompositeBlock } from "./CompositeBlock"
 import { ButtonBlock } from "./ButtonBlock"
 import { PaletteBlock } from "./PaletteBlock"
 import { SeparatorBlock } from "./SeparatorBlock"
+import { StoryBlock } from "./StoryBlock"
 import { TextToolbar } from "../TextToolbar"
 import { useBrandDesign } from "../BrandDesignContext"
 import { AnimatedBlock } from "../AnimatedBlock"
 import { DraggableBlockWrapper } from "./DraggableBlockWrapper"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { DialogClose, DialogTitle } from "@radix-ui/react-dialog"
-import { Clipboard } from "lucide-react"
+import { Clipboard, Link as LinkIcon } from "lucide-react"
 
 interface BlockProps {
     block: Block
@@ -36,6 +37,8 @@ interface BlockProps {
     align?: 'left' | 'center' | 'right'
     isFreeFlow?: boolean
     responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
+    clipboard?: BrivioClipboardItem | null
+    onPasteBlock?: (parentId?: string, columnId?: string, insertIndex?: number) => void
 }
 
 import {
@@ -54,10 +57,11 @@ import {
 } from "./BlockUtils"
 
 const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, responsiveDevice, type }: BlockProps & { type: 'heading' | 'body' }) => {
-    const { getStyleById } = useBrandDesign()
+    const { getStyleById, onSelectModule } = useBrandDesign()
     const [isFocused, setIsFocused] = React.useState(false)
     const [isHovered, setIsHovered] = React.useState(false)
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
+    const [isLinkOpen, setIsLinkOpen] = React.useState(false)
 
     // Determine global style
     const styleId = type === 'heading'
@@ -66,12 +70,38 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     const globalStyle = getStyleById(styleId)
     const isHeading = type === 'heading'
 
-    const isToolbarVisible = !isReadOnly && (isHovered || isSettingsOpen || (activeBlockId === block.id && isFocused))
+    const isToolbarVisible = !isReadOnly && (isHovered || isSettingsOpen || isLinkOpen || (activeBlockId === block.id && isFocused))
+    const hasCustomBottomMargin = block.content?.style?.margin?.bottom !== undefined && block.content?.style?.margin?.bottom !== ''
+
+    const blockLink = block.content?.link as BlockLink | undefined
+
+    const handleLinkClick = (e: React.MouseEvent) => {
+        if (!blockLink) return
+        e.stopPropagation()
+
+        if (blockLink.type === 'url' && blockLink.url) {
+            let targetUrl = blockLink.url.trim()
+            if (!/^https?:\/\//i.test(targetUrl) && !targetUrl.startsWith('/') && !targetUrl.startsWith('#') && !targetUrl.startsWith('mailto:')) {
+                targetUrl = 'https://' + targetUrl
+            }
+            window.open(targetUrl, blockLink.target || '_blank', 'noopener,noreferrer')
+        } else if (blockLink.type === 'internal' && blockLink.moduleId) {
+            if (onSelectModule) {
+                onSelectModule(blockLink.moduleId)
+            }
+        } else if (blockLink.type === 'section' && blockLink.sectionId) {
+            const targetEl = document.getElementById(`section-${blockLink.sectionId}`) || document.getElementById(blockLink.sectionId)
+            if (targetEl) {
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }
+        }
+    }
 
     return (
         <div
             className={cn(
-                "mb-4 group/block relative w-full overflow-visible hover:z-50",
+                !hasCustomBottomMargin && "mb-4",
+                "group/block relative w-full overflow-visible hover:z-50",
                 activeBlockId === block.id && "z-50"
             )}
             onMouseEnter={() => setIsHovered(true)}
@@ -125,12 +155,12 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         const style = { ...block.content.style }
                                         if (fmt === 'italic') style.fontStyle = style.fontStyle === 'italic' ? 'normal' : 'italic'
                                         if (fmt === 'underline') {
-                                            const dec = style.textDecoration || ''
-                                            style.textDecoration = dec.includes('underline') ? dec.replace('underline', '').trim() : `${dec} underline`.trim()
+                                             const dec = style.textDecoration || ''
+                                             style.textDecoration = dec.includes('underline') ? dec.replace('underline', '').trim() : `${dec} underline`.trim()
                                         }
                                         if (fmt === 'strikethrough') {
-                                            const dec = style.textDecoration || ''
-                                            style.textDecoration = dec.includes('line-through') ? dec.replace('line-through', '').trim() : `${dec} line-through`.trim()
+                                             const dec = style.textDecoration || ''
+                                             style.textDecoration = dec.includes('line-through') ? dec.replace('line-through', '').trim() : `${dec} line-through`.trim()
                                         }
                                         onUpdate(block.id, { ...block.content, style })
                                     }}
@@ -195,8 +225,18 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         if (style[key]) delete style[key]; else style[key] = `2px solid currentColor`
                                         onUpdate(block.id, { ...block.content, style })
                                     }}
+                                    margin={block.content.style?.margin}
+                                    onMarginChange={(m) => {
+                                        onUpdate(block.id, {
+                                            ...block.content,
+                                            style: { ...block.content.style, margin: m }
+                                        })
+                                    }}
                                     onAnimate={onAnimate}
                                     onSettingsOpenChange={setIsSettingsOpen}
+                                    link={blockLink}
+                                    onLinkChange={(newLink) => onUpdate(block.id, { ...block.content, link: newLink })}
+                                    onLinkOpenChange={setIsLinkOpen}
                                 />
                             </div>
                         </PopoverPrimitive.Content>
@@ -222,11 +262,18 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
             >
                 {isReadOnly ? (
                     <div
+                        onClick={blockLink ? handleLinkClick : undefined}
                         className={cn(
                             "w-full max-w-full min-h-0 bg-transparent border border-transparent rounded-none shadow-none focus:ring-0 outline-none focus:outline-none transition-colors whitespace-pre-wrap break-words",
                             isHeading ? "placeholder:text-gray-400/50 leading-tight text-gray-900" : "text-gray-600 leading-relaxed",
-                            block.content.style?.backgroundColor ? "p-4" : "p-0"
+                            block.content.style?.backgroundColor ? "p-4" : "p-0",
+                            blockLink && "cursor-pointer hover:opacity-85 transition-all underline underline-offset-4 decoration-[#FF0054]/40 hover:decoration-[#FF0054]"
                         )}
+                        title={
+                            blockLink
+                                ? `Link: ${blockLink.type === 'url' ? blockLink.url : blockLink.type === 'internal' ? (blockLink.moduleTitle || 'Página') : (blockLink.sectionTitle || 'Seção')}`
+                                : undefined
+                        }
                         style={{
                             fontFamily: globalStyle?.font,
                             fontWeight: globalStyle?.weight,
@@ -236,6 +283,7 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             color: globalStyle?.color,
                             textTransform: (globalStyle?.casing === 'none' ? undefined : globalStyle?.casing) as React.CSSProperties['textTransform'],
                             ...block.content.style,
+                            textAlign: block.content.style?.textAlign || align || 'left',
                             maxWidth: '100%',
                             height: block.content.style?.height || 'auto',
                             minHeight: '0px'
@@ -244,44 +292,66 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                         {block.content.text || ""}
                     </div>
                 ) : (
-                    <AutoResizeTextarea
-                        value={block.content.text || ""}
-                        readOnly={isReadOnly}
-                        onChange={(e) => onUpdate(block.id, { ...block.content, text: e.target.value })}
-                        onFocus={() => {
-                            onSelect?.(block.id)
-                            setIsFocused(true)
-                        }}
-                        onBlur={() => setIsFocused(false)}
-                        placeholder={isHeading ? "Heading" : "Type something..."}
-                        fixedHeight={block.content.style?.height}
-                        className={cn(
-                            "break-words max-w-full w-full min-h-0 bg-transparent border rounded-none shadow-none focus:ring-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors",
-                            isHeading ? "placeholder:text-gray-400/50 leading-tight text-gray-900" : "text-gray-600 leading-relaxed",
-                            isToolbarVisible ? "border-[#FF0054]" : "border-transparent hover:border-[#FF0054] focus:border-[#FF0054]",
-                            block.content.style?.backgroundColor ? "p-4" : "p-0"
+                    <div className="relative w-full">
+                        <AutoResizeTextarea
+                            value={block.content.text || ""}
+                            readOnly={isReadOnly}
+                            onChange={(e) => onUpdate(block.id, { ...block.content, text: e.target.value })}
+                            onFocus={() => {
+                                onSelect?.(block.id)
+                                setIsFocused(true)
+                            }}
+                            onBlur={() => setIsFocused(false)}
+                            placeholder={isHeading ? "Heading" : "Type something..."}
+                            fixedHeight={block.content.style?.height}
+                            className={cn(
+                                "break-words max-w-full w-full min-h-0 bg-transparent border rounded-none shadow-none focus:ring-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors",
+                                isHeading ? "placeholder:text-gray-400/50 leading-tight text-gray-900" : "text-gray-600 leading-relaxed",
+                                isToolbarVisible ? "border-[#FF0054]" : "border-transparent hover:border-[#FF0054] focus:border-[#FF0054]",
+                                block.content.style?.backgroundColor ? "p-4" : "p-0"
+                            )}
+                            style={{
+                                fontFamily: globalStyle?.font,
+                                fontWeight: globalStyle?.weight,
+                                letterSpacing: globalStyle?.spacing ? `${globalStyle.spacing}em` : undefined,
+                                lineHeight: globalStyle?.height,
+                                fontSize: globalStyle?.size ? `${globalStyle.size}px` : undefined,
+                                color: globalStyle?.color,
+                                textTransform: (globalStyle?.casing === 'none' ? undefined : globalStyle?.casing) as React.CSSProperties['textTransform'],
+                                ...block.content.style,
+                                textAlign: block.content.style?.textAlign || align || 'left'
+                            }}
+                        />
+                        {blockLink && (
+                            <div
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    setIsLinkOpen(true)
+                                }}
+                                className="inline-flex items-center gap-1.5 mt-1.5 text-[11px] text-[#FF0054] bg-[#FF0054]/10 border border-[#FF0054]/25 px-2 py-0.5 rounded-md select-none max-w-max hover:bg-[#FF0054]/20 transition-colors cursor-pointer"
+                                title="Editar link configurado"
+                            >
+                                <LinkIcon className="w-3 h-3 shrink-0" />
+                                <span className="truncate max-w-[260px]">
+                                    {blockLink.type === 'url'
+                                        ? blockLink.url
+                                        : blockLink.type === 'internal'
+                                            ? `Página: ${blockLink.moduleTitle || 'Interna'}`
+                                            : `Seção: ${blockLink.sectionTitle || 'Seção'}`}
+                                </span>
+                            </div>
                         )}
-                        style={{
-                            fontFamily: globalStyle?.font,
-                            fontWeight: globalStyle?.weight,
-                            letterSpacing: globalStyle?.spacing ? `${globalStyle.spacing}em` : undefined,
-                            lineHeight: globalStyle?.height,
-                            fontSize: globalStyle?.size ? `${globalStyle.size}px` : undefined,
-                            color: globalStyle?.color,
-                            textTransform: (globalStyle?.casing === 'none' ? undefined : globalStyle?.casing) as React.CSSProperties['textTransform'],
-                            ...block.content.style
-                        }}
-                    />
+                    </div>
                 )}
             </ResizableWrapper>
         </div>
     )
 }
 
-export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice }: BlockProps) {
+export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice, clipboard, onPasteBlock }: BlockProps) {
     if (!block) return null
 
-    const commonProps = { block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice }
+    const commonProps = { block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice, clipboard, onPasteBlock }
 
     const renderBlock = () => {
         switch (block.type as string) {
@@ -318,10 +388,26 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
                 return <ButtonBlock {...commonProps} />
             case 'palette':
                 return <PaletteBlock {...commonProps} />
+            case 'story':
+                return <StoryBlock {...commonProps} />
             default:
                 return <EditableTextBlock {...commonProps} type="body" />
         }
     }
+
+    const margin = block.content?.style?.margin
+    const hasMargin = margin && (
+        (margin.top !== undefined && margin.top !== '') ||
+        (margin.bottom !== undefined && margin.bottom !== '') ||
+        (margin.left !== undefined && margin.left !== '') ||
+        (margin.right !== undefined && margin.right !== '')
+    )
+    const marginStyle: React.CSSProperties = hasMargin ? {
+        marginTop: margin.top !== undefined && margin.top !== '' ? `${margin.top}px` : undefined,
+        marginBottom: margin.bottom !== undefined && margin.bottom !== '' ? `${margin.bottom}px` : undefined,
+        marginLeft: margin.left !== undefined && margin.left !== '' ? `${margin.left}px` : undefined,
+        marginRight: margin.right !== undefined && margin.right !== '' ? `${margin.right}px` : undefined,
+    } : {}
 
     return (
         <AnimatedBlock
@@ -336,7 +422,9 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
                 onSelect={() => onSelect?.(block.id)}
                 responsiveDevice={responsiveDevice}
             >
-                {renderBlock()}
+                <div className="w-full transition-all duration-200 overflow-visible" style={marginStyle}>
+                    {renderBlock()}
+                </div>
             </DraggableBlockWrapper>
         </AnimatedBlock>
     )

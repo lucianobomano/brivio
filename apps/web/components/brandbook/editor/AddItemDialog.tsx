@@ -23,7 +23,8 @@ import {
     CheckSquare,
     SeparatorVertical,
     List,
-    LayoutTemplate
+    LayoutTemplate,
+    SlidersHorizontal
 } from "lucide-react"
 
 interface AddItemDialogProps {
@@ -61,7 +62,8 @@ const ITEMS = [
     { id: 'do-dont', label: 'Fazer e Não fazer', icon: CheckSquare, type: 'list', variant: 'do-dont' },
     { id: 'separator-v', label: 'Separador Vertical', icon: SeparatorVertical, type: 'separator', variant: 'vertical' },
 
-    { id: 'list', label: 'Lista de texto', icon: List, type: 'list' }
+    { id: 'list', label: 'Lista de texto', icon: List, type: 'list' },
+    { id: 'story', label: 'Story Slider', icon: SlidersHorizontal, type: 'story' }
 ]
 
 export function AddItemDialog({ isOpen, onOpenChange, onSelectBlock, onPaste, hasClipboard, onClearClipboard }: AddItemDialogProps) {

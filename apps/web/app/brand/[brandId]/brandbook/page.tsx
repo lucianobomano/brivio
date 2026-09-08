@@ -1,6 +1,7 @@
 import { createAdminClient, createClient } from "@/lib/supabase/server"
 import BrandbookEditorWrapper from "@/components/brandbook/BrandbookEditorWrapper"
 import { GUIDE_INTRO_TEMPLATE, DNA_TEMPLATE, HISTORY_TEMPLATE } from "@/lib/brandbook-templates"
+import { checkIsAdmin } from "@/app/actions/admin"
 
 
 export const dynamic = 'force-dynamic'
@@ -18,14 +19,19 @@ export default async function BrandbookPage({
     // Fetch Auth User
     const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    // Fetch DB User Profile
+    // Fetch DB User Profile & Super Admin Status
     let userData = null
+    let isSuperAdmin = false
+
     if (authUser) {
         const { data: dbUser } = await supabaseAdmin
             .from('users')
             .select('name, avatar_url')
             .eq('id', authUser.id)
             .single()
+
+        const { isAdmin, role } = await checkIsAdmin(authUser.email)
+        isSuperAdmin = (isAdmin && role === 'superadmin') || authUser.user_metadata?.is_superadmin === true
 
         userData = {
             name: dbUser?.name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
@@ -156,6 +162,7 @@ export default async function BrandbookPage({
                     brandLogoUrl={brandLogoUrl}
                     isReadOnly={isReadOnly}
                     userData={userData}
+                    isSuperAdmin={isSuperAdmin}
                 />
             </div>
         </div>

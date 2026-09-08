@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client'
 const prisma = new PrismaClient()
 
 async function main() {
-    const email = 'testuser@brivio.com'
+    const email = 'admin@brivio.com'
     console.log(`--- Promoting ${email} to admin ---`)
 
     const user = await prisma.user.update({

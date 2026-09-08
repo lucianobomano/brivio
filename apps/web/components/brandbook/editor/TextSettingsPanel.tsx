@@ -2,6 +2,7 @@ import React from "react"
 import { Check, ArrowUp, ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { MarginSettingsControl, BlockMargin } from "./blocks/MarginSettingsControl"
 
 interface TextSettingsPanelProps {
     isOpen: boolean
@@ -19,6 +20,8 @@ interface TextSettingsPanelProps {
     onOrderChange: (direction: 'up' | 'down') => void
     outline: { top: boolean; right: boolean; bottom: boolean; left: boolean }
     onOutlineChange: (side: 'top' | 'right' | 'bottom' | 'left') => void
+    margin?: BlockMargin
+    onMarginChange?: (margin: BlockMargin) => void
     trigger?: React.ReactNode
 }
 
@@ -46,6 +49,8 @@ export function TextSettingsPanel({
     onOrderChange,
     outline,
     onOutlineChange,
+    margin,
+    onMarginChange,
     trigger
 }: TextSettingsPanelProps) {
     // Local state for hex input to allow typing before commit
@@ -406,6 +411,12 @@ export function TextSettingsPanel({
                             </button>
                         </div>
                     </div>
+
+                    {/* Margins (Margens) */}
+                    <MarginSettingsControl
+                        margin={margin}
+                        onChange={onMarginChange || (() => {})}
+                    />
                 </div>
             </PopoverContent>
         </Popover>

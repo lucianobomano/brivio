@@ -464,6 +464,31 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
         email: ""
     })
 
+    const handleOpenShare = () => {
+        if (selectedFolderIds.size === 1) {
+            const folderId = Array.from(selectedFolderIds)[0]
+            setShareModal({ isOpen: true, assetId: folderId, type: 'folder' })
+        } else if (selectedAssetIds.size === 1) {
+            const assetId = Array.from(selectedAssetIds)[0]
+            setShareModal({ isOpen: true, assetId: assetId, type: 'asset' })
+        } else if (selectedFolderIds.size > 1) {
+            const folderId = Array.from(selectedFolderIds)[0]
+            setShareModal({ isOpen: true, assetId: folderId, type: 'folder' })
+        } else if (selectedAssetIds.size > 1) {
+            const assetId = Array.from(selectedAssetIds)[0]
+            setShareModal({ isOpen: true, assetId: assetId, type: 'asset' })
+        } else if (currentFolderId) {
+            setShareModal({ isOpen: true, assetId: currentFolderId, type: 'folder' })
+        } else {
+            const targetId = brandId || workspaceId || null
+            if (targetId) {
+                setShareModal({ isOpen: true, assetId: targetId, type: 'root' })
+            } else {
+                toast.error("Nenhum item selecionado para compartilhar")
+            }
+        }
+    }
+
     const handleDeleteAsset = (assetId: string) => {
         setDeleteConfirmation({ isOpen: true, type: 'asset', id: assetId })
     }
@@ -585,10 +610,11 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
     useEffect(() => {
         if (shareModal.isOpen && shareModal.assetId) {
             getShareSettings(shareModal.assetId, shareModal.type as any).then(s => {
+                const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://brivio.app'
                 if (s) {
                     setShareSettings({
                         isLinkActive: s.active,
-                        linkUrl: s.active ? `https://brivio.app/share/${shareModal.assetId}` : '',
+                        linkUrl: s.active ? `${baseUrl}/share/${shareModal.assetId}` : '',
                         passcodeEnabled: s.passcodeEnabled,
                         passcode: s.passcode || '',
                         expirationEnabled: s.expirationEnabled,
@@ -703,22 +729,17 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
                                 </Popover>
 
                                 <div className="flex items-center gap-3 mr-4 border-r border-[#333] pr-6">
-                                    <button className="text-[#666] hover:text-white transition-colors">
+                                    <button
+                                        onClick={handleOpenShare}
+                                        className="text-[#666] hover:text-white transition-colors p-1"
+                                        title="Compartilhar"
+                                    >
                                         <UserPlus className="w-[18px] h-[18px]" />
                                     </button>
-                                    <button className="text-[#666] hover:text-white transition-colors"
-                                        onClick={() => {
-                                            if (selectedFolderIds.size === 1) {
-                                                const folderId = Array.from(selectedFolderIds)[0]
-                                                setShareModal({ isOpen: true, assetId: folderId, type: 'folder' })
-                                            } else if (selectedAssetIds.size === 1) {
-                                                const assetId = Array.from(selectedAssetIds)[0]
-                                                setShareModal({ isOpen: true, assetId: assetId, type: 'asset' })
-                                            } else if (selectedFolderIds.size === 0 && selectedAssetIds.size === 0) {
-                                                // Share Root Folder
-                                                setShareModal({ isOpen: true, assetId: brandId, type: 'root' })
-                                            }
-                                        }}
+                                    <button
+                                        onClick={handleOpenShare}
+                                        className="text-[#666] hover:text-white transition-colors p-1"
+                                        title="Compartilhar"
                                     >
                                         <Share className="w-[18px] h-[18px]" />
                                     </button>
@@ -1743,11 +1764,25 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
                                                 </div>
 
                                                 <div className="flex gap-3 text-[13px] mt-3">
-                                                    <button className="flex-1 bg-[#15161A] text-[#9CA3AF] hover:text-white hover:bg-[#1a1b1f] py-2.5 px-4 rounded-full flex items-center justify-center gap-2 transition-colors border border-transparent hover:border-[#333]">
+                                                    <button
+                                                        onClick={() => {
+                                                            const fId = folderToManageAccess.id
+                                                            setFolderToManageAccess(null)
+                                                            setShareModal({ isOpen: true, assetId: fId, type: 'folder' })
+                                                        }}
+                                                        className="flex-1 bg-[#15161A] text-[#9CA3AF] hover:text-white hover:bg-[#1a1b1f] py-2.5 px-4 rounded-full flex items-center justify-center gap-2 transition-colors border border-transparent hover:border-[#333]"
+                                                    >
                                                         <ExternalLink className="w-4 h-4" />
                                                         <span>Share externally</span>
                                                     </button>
-                                                    <button className="flex-1 bg-[#15161A] text-[#9CA3AF] hover:text-white hover:bg-[#1a1b1f] py-2.5 px-4 rounded-full flex items-center justify-center gap-2 transition-colors border border-transparent hover:border-[#333]">
+                                                    <button
+                                                        onClick={() => {
+                                                            const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://brivio.app'
+                                                            navigator.clipboard.writeText(`${baseUrl}/share/${folderToManageAccess.id}`)
+                                                            toast.success("Link copiado para a área de transferência")
+                                                        }}
+                                                        className="flex-1 bg-[#15161A] text-[#9CA3AF] hover:text-white hover:bg-[#1a1b1f] py-2.5 px-4 rounded-full flex items-center justify-center gap-2 transition-colors border border-transparent hover:border-[#333]"
+                                                    >
                                                         <Link className="w-4 h-4" />
                                                         <span>Copy internal link</span>
                                                     </button>
@@ -2023,7 +2058,8 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
                                             <h4 className="text-[#666] text-[13px] font-bold mb-3">Quick actions</h4>
                                             <button
                                                 onClick={() => {
-                                                    navigator.clipboard.writeText(`https://brivio.app/asset/${shareModal.assetId}`)
+                                                    const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://brivio.app'
+                                                    navigator.clipboard.writeText(`${baseUrl}/share/${shareModal.assetId}`)
                                                     toast.success("Internal link copied")
                                                 }}
                                                 className="flex items-center gap-2 px-4 py-2 bg-[#111] border border-[#333] rounded-full text-[13px] text-[#ccc] hover:text-white transition-colors hover:border-[#555]"

@@ -20,7 +20,8 @@ import {
     ArrowUpDown, // For Snippet (as per image)
     ListChecks,
     SeparatorVertical,
-    List
+    List,
+    SlidersHorizontal
 } from "lucide-react"
 
 interface AddSectionDialogProps {
@@ -48,7 +49,8 @@ const BLOCK_ITEMS = [
     { label: 'Snippet', icon: ArrowUpDown, type: 'code' },
     { label: 'Fazer e Não fazer', icon: ListChecks, type: 'list', variant: 'do-dont' },
     { label: 'Separador Vertical', icon: SeparatorVertical, type: 'separator', variant: 'vertical' },
-    { label: 'Lista de texto', icon: List, type: 'list' }
+    { label: 'Lista de texto', icon: List, type: 'list' },
+    { label: 'Story Slider', icon: SlidersHorizontal, type: 'story' }
 ]
 
 export function AddSectionDialog({ isOpen, onOpenChange, onSelectBlock }: AddSectionDialogProps) {

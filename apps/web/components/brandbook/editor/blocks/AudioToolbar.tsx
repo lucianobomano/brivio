@@ -1,5 +1,5 @@
-import React from "react"
-import { Paperclip, Link, MousePointerClick, Settings, Trash, Zap, RotateCcw, Copy } from "lucide-react"
+import React, { useState } from "react"
+import { Paperclip, Link, MousePointerClick, Settings, Trash, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface AudioToolbarProps {
@@ -25,9 +25,18 @@ export const AudioToolbar = ({
     onAnimate,
     className
 }: AudioToolbarProps) => {
+    const [isCopied, setIsCopied] = useState(false)
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        onCopy?.()
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
+
     return (
         <div className={cn(
-            "flex items-center bg-[#15161B] rounded-[4px] px-3 h-[40px] gap-3 shadow-lg border border-[#333]",
+            "flex items-center bg-[#15161B] rounded-[4px] px-3 h-[40px] gap-3 shadow-lg border border-[#333] whitespace-nowrap w-max min-w-max shrink-0 select-none",
             className
         )}>
             {/* Change Label */}
@@ -55,8 +64,15 @@ export const AudioToolbar = ({
                 <button onClick={(e) => { e.stopPropagation(); onDuplicate?.() }} className="p-1.5 text-[#97A1B3] hover:text-blue-400 transition-colors rounded-sm hover:bg-white/10" title="Duplicate">
                     <RotateCcw className="w-4 h-4" />
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); onCopy?.() }} className="p-1.5 text-[#97A1B3] hover:text-blue-400 transition-colors rounded-sm hover:bg-white/10" title="Copy">
-                    <Copy className="w-4 h-4" />
+                <button
+                    onClick={handleCopy}
+                    className={cn(
+                        "p-1.5 transition-colors rounded-sm",
+                        isCopied ? "text-green-400 bg-green-500/10" : "text-[#97A1B3] hover:text-blue-400 hover:bg-white/10"
+                    )}
+                    title={isCopied ? "Bloco copiado!" : "Copiar bloco"}
+                >
+                    {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
                 <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="p-1.5 text-[#97A1B3] hover:text-[#FF0054] transition-colors rounded-sm hover:bg-white/10" title="Delete">
                     <Trash className="w-4 h-4" />

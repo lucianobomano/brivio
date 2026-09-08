@@ -6,6 +6,7 @@ import {
     Scissors,
     LayoutGrid,
     Copy,
+    Check,
     Trash2,
     Lock,
     Unlock,
@@ -98,6 +99,7 @@ export function SectionSettingsPanel({
     moduleId
 }: SectionSettingsPanelProps) {
     const [selectedTab, setSelectedTab] = useState<'image' | 'color' | 'gradient'>(settings?.backgroundType || 'color')
+    const [isSectionCopied, setIsSectionCopied] = useState(false)
 
     // Initialize state from props or defaults
     const [selectedCol, setSelectedCol] = useState(settings?.columns || 1)
@@ -1408,7 +1410,17 @@ export function SectionSettingsPanel({
                 <div className="w-[1px] h-[20px] bg-[#333]" />
                 <button onClick={onSaveAsComponent} className="text-[#97A1B3] hover:text-white" title="Salvar como Componente"><LayoutGrid className="w-5 h-5" /></button>
                 <div className="w-[1px] h-[20px] bg-[#333]" />
-                <button onClick={onCopy} className="text-[#97A1B3] hover:text-white" title="Copiar Seção"><Copy className="w-5 h-5" /></button>
+                <button
+                    onClick={() => {
+                        onCopy()
+                        setIsSectionCopied(true)
+                        setTimeout(() => setIsSectionCopied(false), 2000)
+                    }}
+                    className={cn("transition-colors", isSectionCopied ? "text-green-400" : "text-[#97A1B3] hover:text-white")}
+                    title={isSectionCopied ? "Seção copiada!" : "Copiar Seção"}
+                >
+                    {isSectionCopied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
+                </button>
                 <div className="w-[1px] h-[20px] bg-[#333]" />
                 <button onClick={onDuplicate} className="text-[#97A1B3] hover:text-white" title="Duplicar Seção"><RotateCcw className="w-5 h-5" /></button>
                 <div className="w-[1px] h-[20px] bg-[#333]" />

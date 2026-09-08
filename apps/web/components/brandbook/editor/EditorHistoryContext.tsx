@@ -236,7 +236,8 @@ export function EditorHistoryProvider({
             'spacer': 'Espaçador',
             'color': 'Cor',
             'embed': 'Embed',
-            'audio': 'Áudio'
+            'audio': 'Áudio',
+            'story': 'Story Slider'
         }
 
         const typeName = blockTypeNames[blockType] || 'Bloco'

@@ -1,7 +1,7 @@
 import React from "react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Lock, Unlock } from "lucide-react"
+import { Lock, Unlock, RotateCcw, Copy, CopyPlus, Trash2, Check } from "lucide-react"
 import { Label } from "@/components/ui/label"
 
 interface ColumnSettingsPanelProps {
@@ -56,6 +56,11 @@ interface ColumnSettingsPanelProps {
     onFullHeightChange?: (val: boolean) => void
 
     onReset: () => void
+    onCopyColumn?: () => void
+    onDuplicateColumn?: () => void
+    isLocked?: boolean
+    onToggleLock?: () => void
+    onDeleteColumn?: () => void
 }
 
 export function ColumnSettingsPanel({
@@ -95,11 +100,17 @@ export function ColumnSettingsPanel({
     onFullWidthChange,
     isFullHeight = false,
     onFullHeightChange,
-    onReset
+    onReset,
+    onCopyColumn,
+    onDuplicateColumn,
+    isLocked = false,
+    onToggleLock,
+    onDeleteColumn
 }: ColumnSettingsPanelProps) {
     const [dragOffset, setDragOffset] = React.useState({ x: 0, y: 0 })
     const [isDragging, setIsDragging] = React.useState(false)
     const [dragStart, setDragStart] = React.useState({ x: 0, y: 0 })
+    const [isColumnCopied, setIsColumnCopied] = React.useState(false)
 
     React.useEffect(() => {
         const handleMouseMove = (e: MouseEvent) => {
@@ -139,6 +150,29 @@ export function ColumnSettingsPanel({
             setDragOffset({ x: 0, y: 0 })
         }
     }, [isOpen])
+
+    const [gapInput, setGapInput] = React.useState<string>(() => String(blockGap ?? 16))
+
+    React.useEffect(() => {
+        setGapInput(String(blockGap ?? 16))
+    }, [blockGap])
+
+    const handleGapChange = (val: string) => {
+        setGapInput(val)
+        if (val !== '' && val !== '-') {
+            const num = parseInt(val, 10)
+            if (!isNaN(num)) {
+                onBlockGapChange?.(num)
+            }
+        }
+    }
+
+    const handleGapBlur = () => {
+        const num = parseInt(gapInput, 10)
+        const finalVal = isNaN(num) ? 0 : num
+        setGapInput(String(finalVal))
+        onBlockGapChange?.(finalVal)
+    }
 
     const handlePaddingLockChange = () => {
         onPaddingChange?.({ ...padding, isLocked: !padding.isLocked })
@@ -290,20 +324,29 @@ export function ColumnSettingsPanel({
                             <span className="font-light text-gray-400">Espaçamento</span>
                             <div className="flex items-center gap-1">
                                 <input
-                                    type="number"
-                                    min={0}
-                                    value={blockGap}
-                                    onChange={(e) => onBlockGapChange?.(parseInt(e.target.value) || 0)}
-                                    className="bg-[#1A1A20] text-right text-white/70 outline-none w-[40px] px-1 py-0.5 rounded border border-[#333] text-xs"
+                                    type="text"
+                                    value={gapInput}
+                                    onChange={(e) => handleGapChange(e.target.value)}
+                                    onBlur={handleGapBlur}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                            handleGapBlur()
+                                            e.currentTarget.blur()
+                                        }
+                                    }}
+                                    className="bg-[#1A1A20] text-right text-white/70 outline-none w-[52px] px-1.5 py-0.5 rounded border border-[#333] focus:border-[#FF0054] text-xs transition-colors"
                                 />
                                 <span className="text-gray-500 text-xs">px</span>
                             </div>
                         </div>
                         <div className="flex gap-1">
-                            {[0, 8, 16, 24, 32].map((gap) => (
+                            {[-16, 0, 8, 16, 24, 32].map((gap) => (
                                 <button
                                     key={gap}
-                                    onClick={() => onBlockGapChange?.(gap)}
+                                    onClick={() => {
+                                        setGapInput(String(gap))
+                                        onBlockGapChange?.(gap)
+                                    }}
                                     className={cn(
                                         "flex-1 h-[28px] flex items-center justify-center rounded transition-colors text-xs",
                                         blockGap === gap
@@ -580,15 +623,102 @@ export function ColumnSettingsPanel({
                         </div>
                     </div>
 
-                    {/* Reset Button */}
-                    <div className="p-4 mt-2 flex justify-center">
-                        <button
-                            onClick={onReset}
-                            className="text-xs text-red-500 hover:text-red-400 font-medium transition-colors uppercase tracking-wider"
-                        >
-                            Reset to default
-                        </button>
-                    </div>
+                </div>
+
+                {/* Footer Action Container: Reset, Copy Column, Duplicate Column, Lock Column, Delete Column */}
+                <div className="border-t border-[#2A2B35] bg-[#121317] p-2 flex items-center justify-between gap-1 shrink-0">
+                    {/* 1. Resetar */}
+                    <button
+                        type="button"
+                        onClick={onReset}
+                        className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-md text-[#97A1B3] hover:text-white hover:bg-white/5 transition-all group"
+                        title="Resetar coluna"
+                    >
+                        <RotateCcw className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-medium leading-none tracking-tight">Resetar</span>
+                    </button>
+
+                    <div className="w-[1px] h-6 bg-[#2A2B35]" />
+
+                    {/* 2. Copiar coluna */}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onCopyColumn?.()
+                            setIsColumnCopied(true)
+                            setTimeout(() => setIsColumnCopied(false), 2000)
+                        }}
+                        className={cn(
+                            "flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-md transition-all group",
+                            isColumnCopied ? "text-green-400 bg-green-500/10" : "text-[#97A1B3] hover:text-white hover:bg-white/5"
+                        )}
+                        title={isColumnCopied ? "Coluna copiada!" : "Copiar coluna"}
+                    >
+                        {isColumnCopied ? (
+                            <Check className="w-4 h-4 mb-1 text-green-400" />
+                        ) : (
+                            <Copy className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+                        )}
+                        <span className="text-[10px] font-medium leading-none tracking-tight">Copiar</span>
+                    </button>
+
+                    <div className="w-[1px] h-6 bg-[#2A2B35]" />
+
+                    {/* 3. Duplicar coluna */}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onDuplicateColumn?.()
+                        }}
+                        className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-md text-[#97A1B3] hover:text-white hover:bg-white/5 transition-all group"
+                        title="Duplicar coluna"
+                    >
+                        <CopyPlus className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-medium leading-none tracking-tight">Duplicar</span>
+                    </button>
+
+                    <div className="w-[1px] h-6 bg-[#2A2B35]" />
+
+                    {/* 4. Bloquear coluna */}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onToggleLock?.()
+                        }}
+                        className={cn(
+                            "flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-md transition-all group",
+                            isLocked ? "text-[#FF0054] bg-[#FF0054]/10" : "text-[#97A1B3] hover:text-white hover:bg-white/5"
+                        )}
+                        title={isLocked ? "Desbloquear coluna" : "Bloquear coluna"}
+                    >
+                        {isLocked ? (
+                            <Lock className="w-4 h-4 mb-1 text-[#FF0054]" />
+                        ) : (
+                            <Unlock className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+                        )}
+                        <span className="text-[10px] font-medium leading-none tracking-tight">
+                            {isLocked ? "Bloqueada" : "Bloquear"}
+                        </span>
+                    </button>
+
+                    <div className="w-[1px] h-6 bg-[#2A2B35]" />
+
+                    {/* 5. Apagar */}
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onDeleteColumn?.()
+                        }}
+                        className="flex-1 flex flex-col items-center justify-center py-2 px-1 rounded-md text-[#97A1B3] hover:text-[#FF0054] hover:bg-red-500/10 transition-all group"
+                        title="Apagar coluna"
+                    >
+                        <Trash2 className="w-4 h-4 mb-1 group-hover:scale-110 transition-transform" />
+                        <span className="text-[10px] font-medium leading-none tracking-tight">Apagar</span>
+                    </button>
                 </div>
             </PopoverContent>
         </Popover >

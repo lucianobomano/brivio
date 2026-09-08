@@ -19,9 +19,10 @@ interface BlockProps {
     onDuplicate?: (id: string) => void
     onCopy?: (id: string) => void
     onAnimate?: () => void
+    align?: 'left' | 'center' | 'right'
 }
 
-export const ButtonBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate }: BlockProps) => {
+export const ButtonBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align }: BlockProps) => {
     const [isHovered, setIsHovered] = useState(false)
 
     // Merge styles logic
@@ -42,9 +43,15 @@ export const ButtonBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlock
 
     const isSelected = activeBlockId === block.id
 
+    const effectiveJustify = block.content.style?.textAlign
+        ? (block.content.style.textAlign === 'center' ? 'center' : block.content.style.textAlign === 'right' ? 'flex-end' : 'flex-start')
+        : (align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start')
+
+    const hasCustomBottomMargin = baseStyle.margin?.bottom !== undefined && baseStyle.margin?.bottom !== ''
+
     return (
-        <div className="mb-4 w-full flex"
-            style={{ justifyContent: block.content.style?.textAlign || 'flex-start' }}
+        <div className={cn(!hasCustomBottomMargin && "mb-4", "w-full flex")}
+            style={{ justifyContent: effectiveJustify }}
             onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}
         >
             <div className="relative group/button-wrapper">

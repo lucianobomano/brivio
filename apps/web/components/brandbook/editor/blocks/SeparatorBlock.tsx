@@ -3,6 +3,7 @@ import { Block } from "../types"
 import { cn } from "@/lib/utils"
 import { Trash2, Settings, X, Zap } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import { MarginSettingsControl } from "./MarginSettingsControl"
 
 interface SeparatorBlockProps {
     block: Block
@@ -11,9 +12,10 @@ interface SeparatorBlockProps {
     onSelect?: (id: string | null) => void
     onDelete?: (id: string) => void
     onAnimate?: () => void
+    align?: 'left' | 'center' | 'right'
 }
 
-export const SeparatorBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onAnimate }: SeparatorBlockProps) => {
+export const SeparatorBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onAnimate, align }: SeparatorBlockProps) => {
     const [showSettings, setShowSettings] = useState(false)
     const style = block.content?.style || {}
 
@@ -70,7 +72,10 @@ export const SeparatorBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete
 
     return (
         <div
-            className="group/separator relative w-full py-0 flex items-center justify-center"
+            className="group/separator relative w-full py-0 flex items-center"
+            style={{
+                justifyContent: align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start'
+            }}
             onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}
         >
             {/* Hit area expansion: allows hovering even if the line is 1px thick */}
@@ -190,6 +195,12 @@ export const SeparatorBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete
                                 </div>
                             </div>
                         </div>
+
+                        {/* Margins */}
+                        <MarginSettingsControl
+                            margin={style.margin}
+                            onChange={(m) => handleUpdate({ margin: m })}
+                        />
                     </div>
                 </div>
             )}

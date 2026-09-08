@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/server"
 import { mapPageToCategory } from "@/lib/brandbook-utils"
+import { BUILTIN_BRANDBOOK_TEMPLATES } from "@/lib/brandbook-templates"
 
 function slugify(text: string) {
     return text
@@ -171,16 +172,26 @@ export async function createBrand(formData: FormData) {
             let modulesAdded = false;
 
             if (templateId) {
-                // Option A: Use Template
+                // Option A: Use Template (Built-in or Database)
                 console.log("[createBrand Action] Using template ID:", templateId);
-                const { data: template } = await adminSupabase
-                    .from('brandbook_templates')
-                    .select('modules_json')
-                    .eq('id', templateId)
-                    .single()
+                let templateModules: any[] | null = null
 
-                if (template && Array.isArray(template.modules_json)) {
-                    const modulesData = template.modules_json.map((mod: any, index: number) => ({
+                const builtin = BUILTIN_BRANDBOOK_TEMPLATES.find(t => t.id === templateId)
+                if (builtin) {
+                    templateModules = builtin.modules_json
+                } else {
+                    const { data: template } = await adminSupabase
+                        .from('brandbook_templates')
+                        .select('modules_json')
+                        .eq('id', templateId)
+                        .single()
+                    if (template && Array.isArray(template.modules_json)) {
+                        templateModules = template.modules_json
+                    }
+                }
+
+                if (templateModules && Array.isArray(templateModules)) {
+                    const modulesData = templateModules.map((mod: any, index: number) => ({
                         brandbook_id: brandbook.id,
                         title: mod.title,
                         type: mod.type,

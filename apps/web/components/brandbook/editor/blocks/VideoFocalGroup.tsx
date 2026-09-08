@@ -1,5 +1,5 @@
-import React from "react"
-import { Paperclip, Link, MousePointer2, Settings, Trash2, Zap, RotateCcw, Copy } from "lucide-react"
+import React, { useState } from "react"
+import { Paperclip, Link, MousePointer2, Settings, Trash2, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface VideoFocalGroupProps {
@@ -27,6 +27,15 @@ export function VideoFocalGroup({
     onAnimate,
     className
 }: VideoFocalGroupProps) {
+    const [isCopied, setIsCopied] = useState(false)
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        onCopy?.()
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
+
     return (
         <div className={cn("flex flex-col items-center", className)}>
             {/* Toolbar Container */}
@@ -102,11 +111,14 @@ export function VideoFocalGroup({
 
                     {/* Copy */}
                     <button
-                        onClick={onCopy}
-                        className="p-2 text-[#A1A1AA] hover:text-blue-400 hover:bg-[#27272A] rounded-[4px] transition-all"
-                        title="Copy"
+                        onClick={handleCopy}
+                        className={cn(
+                            "p-2 rounded-[4px] transition-all",
+                            isCopied ? "text-green-400 bg-green-500/10" : "text-[#A1A1AA] hover:text-blue-400 hover:bg-[#27272A]"
+                        )}
+                        title={isCopied ? "Bloco copiado!" : "Copiar bloco"}
                     >
-                        <Copy className="w-4 h-4" />
+                        {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     </button>
 
                     {/* Delete */}

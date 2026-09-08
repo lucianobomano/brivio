@@ -77,6 +77,6 @@ export const config = {
          * - api/upload (upload endpoint handles auth internally)
          * - static file extensions
          */
-        '/((?!_next/static|_next/image|favicon.ico|login|register|$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico|login|register|share|$|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }

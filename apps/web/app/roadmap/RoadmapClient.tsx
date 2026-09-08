@@ -216,6 +216,8 @@ export function RoadmapClient({
     const [editingStage, setEditingStage] = React.useState<RoadmapStage | null>(null)
     const [newStageName, setNewStageName] = React.useState("")
     const [newStageColor, setNewStageColor] = React.useState("#ff0054")
+    const [newStageStartDate, setNewStageStartDate] = React.useState("")
+    const [newStageDueDate, setNewStageDueDate] = React.useState("")
     const [viewMode, setViewMode] = React.useState<'vertical' | 'horizontal'>('vertical')
     const [layoutStyle, setLayoutStyle] = React.useState<RoadmapLayoutStyle>('numbered')
     const [bgStyle, setBgStyle] = React.useState<string>('default')
@@ -224,22 +226,50 @@ export function RoadmapClient({
     const [isTaskModalOpen, setIsTaskModalOpen] = React.useState(false)
     const [taskStageId, setTaskStageId] = React.useState<string | null>(null)
 
-    // Sync layout and bg with localStorage
-    React.useEffect(() => {
-        if (typeof window !== 'undefined' && selectedProjectId) {
-            const savedLayout = localStorage.getItem(`brivio_roadmap_layout_${selectedProjectId}`)
-            if (savedLayout) setLayoutStyle(savedLayout as any)
-            const savedBg = localStorage.getItem(`brivio_roadmap_bg_${selectedProjectId}`)
-            if (savedBg) setBgStyle(savedBg)
+    const formatDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        try {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('pt-BR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch {
+            return '';
         }
-    }, [selectedProjectId])
+    };
 
     React.useEffect(() => {
-        if (typeof window !== 'undefined' && selectedProjectId) {
-            localStorage.setItem(`brivio_roadmap_layout_${selectedProjectId}`, layoutStyle)
-            localStorage.setItem(`brivio_roadmap_bg_${selectedProjectId}`, bgStyle)
+        if (editingStage) {
+            setNewStageName(editingStage.name)
+            setNewStageColor(editingStage.color)
+            setNewStageStartDate(editingStage.start_date ? new Date(editingStage.start_date).toISOString().split('T')[0] : "")
+            setNewStageDueDate(editingStage.due_date ? new Date(editingStage.due_date).toISOString().split('T')[0] : "")
+        } else {
+            setNewStageName("")
+            setNewStageColor("#ff0054")
+            setNewStageStartDate("")
+            setNewStageDueDate("")
         }
-    }, [layoutStyle, bgStyle, selectedProjectId])
+    }, [editingStage])
+
+    // Sync layout and bg with localStorage
+    React.useEffect(() => {
+        if (typeof window !== 'undefined' && localSelectedProjectId) {
+            const savedLayout = localStorage.getItem(`brivio_roadmap_layout_${localSelectedProjectId}`)
+            if (savedLayout) setLayoutStyle(savedLayout as any)
+            const savedBg = localStorage.getItem(`brivio_roadmap_bg_${localSelectedProjectId}`)
+            if (savedBg) setBgStyle(savedBg)
+        }
+    }, [localSelectedProjectId])
+
+    React.useEffect(() => {
+        if (typeof window !== 'undefined' && localSelectedProjectId) {
+            localStorage.setItem(`brivio_roadmap_layout_${localSelectedProjectId}`, layoutStyle)
+            localStorage.setItem(`brivio_roadmap_bg_${localSelectedProjectId}`, bgStyle)
+        }
+    }, [layoutStyle, bgStyle, localSelectedProjectId])
 
     // Custom cursor and auto-scroll state for numbered circles
     const scrollContainerRef = React.useRef<HTMLDivElement>(null)
@@ -318,20 +348,38 @@ export function RoadmapClient({
     }
 
     const handleSaveStage = async () => {
-        if (!selectedProject?.workspace_id || !newStageName.trim()) return
+        if (!currentSelectedProject?.workspace_id || !newStageName.trim()) return
 
         setIsLoading(true)
         try {
             if (editingStage) {
-                const result = await updateRoadmapStage(editingStage.id, newStageName, newStageColor)
+                const result = await updateRoadmapStage(
+                    editingStage.id,
+                    newStageName,
+                    newStageColor,
+                    newStageStartDate ? new Date(newStageStartDate).toISOString() : null,
+                    newStageDueDate ? new Date(newStageDueDate).toISOString() : null
+                )
                 if (result.success) {
                     toast.success("Fase atualizada!")
-                    setRoadmap(prev => prev.map(s => s.id === editingStage.id ? { ...s, name: newStageName, color: newStageColor } : s))
+                    setRoadmap(prev => prev.map(s => s.id === editingStage.id ? {
+                        ...s,
+                        name: newStageName,
+                        color: newStageColor,
+                        start_date: newStageStartDate ? new Date(newStageStartDate).toISOString() : null,
+                        due_date: newStageDueDate ? new Date(newStageDueDate).toISOString() : null
+                    } : s))
                 } else {
                     toast.error("Erro ao atualizar fase")
                 }
             } else {
-                const result = await createRoadmapStage(selectedProject.workspace_id, newStageName, newStageColor)
+                const result = await createRoadmapStage(
+                    currentSelectedProject.workspace_id,
+                    newStageName,
+                    newStageColor,
+                    newStageStartDate ? new Date(newStageStartDate).toISOString() : null,
+                    newStageDueDate ? new Date(newStageDueDate).toISOString() : null
+                )
                 if (result.success) {
                     toast.success("Fase criada com sucesso!")
                     window.location.reload()
@@ -346,6 +394,8 @@ export function RoadmapClient({
             setIsStageModalOpen(false)
             setEditingStage(null)
             setNewStageName("")
+            setNewStageStartDate("")
+            setNewStageDueDate("")
         }
     }
 
@@ -369,11 +419,11 @@ export function RoadmapClient({
     }
 
     const handleCompleteStage = async (stageId: string) => {
-        if (!selectedProjectId) return
+        if (!localSelectedProjectId) return
 
         setIsLoading(true)
         try {
-            const result = await completeStageTasks(selectedProjectId, stageId)
+            const result = await completeStageTasks(localSelectedProjectId, stageId)
             if (result.success) {
                 toast.success("Fase concluída com sucesso!")
                 window.location.reload()
@@ -388,10 +438,10 @@ export function RoadmapClient({
     }
 
     const handleToggleTask = async (taskId: string, stageId: string) => {
-        if (!selectedProjectId) return
+        if (!localSelectedProjectId) return
 
         try {
-            const result = await toggleRoadmapTask(taskId, selectedProjectId)
+            const result = await toggleRoadmapTask(taskId, localSelectedProjectId)
             if (result.success) {
                 // Update local state
                 setRoadmap(prev => prev.map(stage => {
@@ -408,7 +458,7 @@ export function RoadmapClient({
 
                 // Check for stage progression
                 if (result.completed) {
-                    const advanceResult = await advanceProjectStage(selectedProjectId)
+                    const advanceResult = await advanceProjectStage(localSelectedProjectId)
                     if (advanceResult.success) {
                         toast.success(`Parabéns! Projecto avançou para: ${advanceResult.nextStageName}`, {
                             icon: "🚀"
@@ -423,11 +473,11 @@ export function RoadmapClient({
     }
 
     const handleAddTask = async (stageId: string) => {
-        if (!selectedProjectId || !newTaskTitle.trim()) return
+        if (!localSelectedProjectId || !newTaskTitle.trim()) return
 
         setIsLoading(true)
         try {
-            const result = await createRoadmapTask(selectedProjectId, stageId, newTaskTitle)
+            const result = await createRoadmapTask(localSelectedProjectId, stageId, newTaskTitle)
             if (result.success && result.task) {
                 toast.success("Tarefa adicionada!")
                 setRoadmap(prev => prev.map(stage => {
@@ -456,10 +506,10 @@ export function RoadmapClient({
     }
 
     const handleDeleteTask = async (taskId: string, stageId: string) => {
-        if (!selectedProjectId || !confirm("Eliminar esta tarefa?")) return
+        if (!localSelectedProjectId || !confirm("Eliminar esta tarefa?")) return
 
         try {
-            const result = await deleteRoadmapTask(taskId, selectedProjectId)
+            const result = await deleteRoadmapTask(taskId, localSelectedProjectId)
             if (result.success) {
                 toast.success("Tarefa eliminada")
                 setRoadmap(prev => prev.map(stage => {
@@ -478,11 +528,11 @@ export function RoadmapClient({
     }
 
     const handleEditTask = async () => {
-        if (!selectedProjectId || !editingTask || !newTaskTitle.trim()) return
+        if (!localSelectedProjectId || !editingTask || !newTaskTitle.trim()) return
 
         setIsLoading(true)
         try {
-            const result = await updateRoadmapTask(editingTask.id, newTaskTitle, selectedProjectId)
+            const result = await updateRoadmapTask(editingTask.id, newTaskTitle, localSelectedProjectId)
             if (result.success) {
                 toast.success("Tarefa atualizada")
                 setRoadmap(prev => prev.map(stage => {
@@ -531,11 +581,11 @@ export function RoadmapClient({
     }
 
     const handleApplyTemplate = async (templateId: string) => {
-        if (!selectedProject?.workspace_id) return
+        if (!currentSelectedProject?.workspace_id) return
 
         setIsLoading(true)
         try {
-            const result = await applyRoadmapTemplate(selectedProject.workspace_id, templateId)
+            const result = await applyRoadmapTemplate(currentSelectedProject.workspace_id, templateId)
             if (result.success) {
                 toast.success("Template aplicado com sucesso!")
                 setIsTemplateModalOpen(false)
@@ -632,7 +682,7 @@ export function RoadmapClient({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                    {selectedProject && (
+                    {currentSelectedProject && (
                         <>
                             <div className="relative group">
                                 <Button
@@ -728,22 +778,24 @@ export function RoadmapClient({
                             <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
                         </div>
                     </div>
-                    <div className="relative group">
-                        <Button
-                            variant="outline"
-                            asChild
-                            size="icon"
-                            className="w-11 h-11 bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2"
-                        >
-                            <Link href={`/share/${selectedProjectId}/roadmap?layout=${layoutStyle}&bg=${encodeURIComponent(bgStyle)}`} target="_blank">
-                                <ExternalLink className="w-5 h-5 text-text-primary" />
-                            </Link>
-                        </Button>
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
-                            Visualizar
-                            <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                    {localSelectedProjectId && (
+                        <div className="relative group">
+                            <Button
+                                variant="outline"
+                                asChild
+                                size="icon"
+                                className="w-11 h-11 bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2"
+                            >
+                                <Link href={`/share/${localSelectedProjectId}/roadmap?layout=${layoutStyle}&bg=${encodeURIComponent(bgStyle)}`} target="_blank">
+                                    <ExternalLink className="w-5 h-5 text-text-primary" />
+                                </Link>
+                            </Button>
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
+                                Visualizar
+                                <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
+                            </div>
                         </div>
-                    </div>
+                    )}
                 </div>
             </div>
 
@@ -886,9 +938,16 @@ export function RoadmapClient({
                                         <div className="h-1.5 bg-bg-3 rounded-full overflow-hidden">
                                             <div className="h-full bg-accent-indigo transition-all duration-500" style={{ width: `${stage.progress}%` }} />
                                         </div>
-                                        <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mt-2">
-                                            {stage.progress}% • {stage.tasks.filter(t => t.completed).length}/{stage.tasks.length} tarefas
-                                        </p>
+                                        <div className="flex flex-col gap-1 mt-2">
+                                            <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest">
+                                                {stage.progress}% • {stage.tasks.filter(t => t.completed).length}/{stage.tasks.length} tarefas
+                                            </p>
+                                            {(stage.start_date || stage.due_date) && (
+                                                <p className="text-[10px] font-semibold text-accent-indigo flex items-center gap-1">
+                                                    📅 {stage.start_date ? formatDate(stage.start_date) : '...'} - {stage.due_date ? formatDate(stage.due_date) : '...'}
+                                                </p>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="bg-bg-2/50 border border-t-0 border-bg-3 rounded-b-2xl p-3 min-h-[200px] max-h-[400px] overflow-y-auto space-y-2">
                                         {stage.tasks.length > 0 ? stage.tasks.map(task => (
@@ -1555,6 +1614,28 @@ export function RoadmapClient({
                                     />
                                 </div>
                             </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="start_date">Data de Início</Label>
+                                    <Input
+                                        id="start_date"
+                                        type="date"
+                                        value={newStageStartDate}
+                                        onChange={(e) => setNewStageStartDate(e.target.value)}
+                                        className="bg-bg-2 border-bg-3 rounded-[5px] text-white"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="due_date">Data de Entrega (Due Date)</Label>
+                                    <Input
+                                        id="due_date"
+                                        type="date"
+                                        value={newStageDueDate}
+                                        onChange={(e) => setNewStageDueDate(e.target.value)}
+                                        className="bg-bg-2 border-bg-3 rounded-[5px] text-white"
+                                    />
+                                </div>
+                            </div>
                         </div>
                         <DialogFooter className="mt-6">
                             <Button
@@ -1867,9 +1948,9 @@ export function RoadmapClient({
             </Dialog>
 
             {/* Notas do Projeto */}
-            {selectedProjectId && (
+            {localSelectedProjectId && (
                 <ProjectNotesPanel
-                    projectId={selectedProjectId}
+                    projectId={localSelectedProjectId}
                     initialNotes={initialNotes}
                     isClientView={false}
                     isOpen={isNotesOpen}
@@ -1958,13 +2039,21 @@ function SortableStageItem({
                                     Fase {idx + 1}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-4 text-sm text-text-tertiary">
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-text-tertiary">
                                 <div className="flex items-center gap-1.5">
                                     <Clock className="w-3.5 h-3.5" />
                                     <span>{stage.tasks.length} Tarefas</span>
                                 </div>
                                 <div className="h-1 w-1 rounded-full bg-bg-3" />
                                 <span>{stage.progress}% Concluído</span>
+                                {(stage.start_date || stage.due_date) && (
+                                    <>
+                                        <div className="h-1 w-1 rounded-full bg-bg-3" />
+                                        <span className="flex items-center gap-1 text-[12px] font-semibold text-accent-indigo">
+                                            📅 {stage.start_date ? new Date(stage.start_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '...'} - {stage.due_date ? new Date(stage.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '...'}
+                                        </span>
+                                    </>
+                                )}
                             </div>
                         </div>
                     </div>

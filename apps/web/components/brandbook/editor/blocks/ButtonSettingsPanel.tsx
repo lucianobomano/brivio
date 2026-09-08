@@ -1,10 +1,11 @@
 "use client"
 
 import React, { useState } from "react"
-import { Download, X, Trash2, AlignLeft, AlignCenter, AlignRight, Zap, RotateCcw, Copy } from "lucide-react"
+import { Download, X, Trash2, AlignLeft, AlignCenter, AlignRight, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { MarginSettingsControl } from "./MarginSettingsControl"
 
 interface ButtonSettingsPanelProps {
     settings: any // block.content.settings or merged style
@@ -17,6 +18,15 @@ interface ButtonSettingsPanelProps {
 }
 
 export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onDuplicate, onCopy, onAnimate }: ButtonSettingsPanelProps) {
+    const [isCopied, setIsCopied] = useState(false)
+
+    const handleCopy = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        onCopy?.()
+        setIsCopied(true)
+        setTimeout(() => setIsCopied(false), 2000)
+    }
+
     // Helper to update style directly
     const updateStyle = (key: string, value: any) => {
         onUpdate({
@@ -312,6 +322,14 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
 
                 <div className="h-[1px] bg-[#222] w-full" />
 
+                {/* Margins */}
+                <MarginSettingsControl
+                    margin={settings.style?.margin}
+                    onChange={(m) => updateStyle('margin', m)}
+                />
+
+                <div className="h-[1px] bg-[#222] w-full" />
+
                 {/* Animate */}
                 <button
                     onClick={(e) => { e.stopPropagation(); onAnimate?.() }}
@@ -332,11 +350,14 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
 
                 {/* Copy */}
                 <button
-                    onClick={(e) => { e.stopPropagation(); onCopy?.() }}
-                    className="flex items-center justify-between w-full text-gray-400 hover:text-blue-400 transition-colors"
+                    onClick={handleCopy}
+                    className={cn(
+                        "flex items-center justify-between w-full transition-colors",
+                        isCopied ? "text-green-400" : "text-gray-400 hover:text-blue-400"
+                    )}
                 >
-                    <span>Copy button</span>
-                    <Copy className="w-4 h-4" />
+                    <span>{isCopied ? "Botão copiado!" : "Copiar botão"}</span>
+                    {isCopied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
                 </button>
 
                 {/* Delete */}

@@ -28,7 +28,29 @@ export type BlockType =
     | 'separator'
     | 'interactive'
     | 'file'
+    | 'story'
 
 export interface EditorContent {
     blocks: Block[]
 }
+
+export type ClipboardItemType = 'section' | 'column' | 'block'
+
+export interface BrivioClipboardItem {
+    itemType: ClipboardItemType
+    data: any
+    label?: string
+}
+
+export type LinkType = 'url' | 'internal' | 'section'
+
+export interface BlockLink {
+    type: LinkType
+    url?: string
+    target?: '_blank' | '_self'
+    moduleId?: string
+    moduleTitle?: string
+    sectionId?: string
+    sectionTitle?: string
+}
+

@@ -23,6 +23,7 @@ import { LeftSidebar } from "./editor/LeftSidebar"
 import { getEffectiveCategory } from "@/lib/brandbook-utils"
 import { MainCanvasWithHistory } from "./editor/MainCanvas"
 import { DeleteConfirmationModal } from "./editor/DeleteConfirmationModal"
+import { BrandbookFooter } from "./editor/BrandbookFooter"
 
 const AssetLibrary = dynamic(() => import("./editor/AssetLibrary").then(m => m.AssetLibrary), { ssr: false })
 const ComponentsLibrary = dynamic(() => import("./editor/ComponentsLibrary").then(m => m.ComponentsLibrary), { ssr: false })
@@ -64,6 +65,7 @@ interface BrandbookEditorProps {
     brandLogoUrl?: string | null
     isReadOnly?: boolean
     userData?: UserData | null
+    isSuperAdmin?: boolean
 }
 
 export default function BrandbookEditor({
@@ -73,7 +75,8 @@ export default function BrandbookEditor({
     brandName = '',
     brandLogoUrl = null,
     isReadOnly = false,
-    userData = null
+    userData = null,
+    isSuperAdmin = false
 }: BrandbookEditorProps) {
     const router = useRouter()
 
@@ -346,8 +349,54 @@ export default function BrandbookEditor({
         return block?.content?.animation || null
     }, [activeBlockId, activeModule])
 
+    const activeSections = useMemo(() => {
+        if (!activeModule?.content_json) return []
+        const editorContent = activeModule.content_json as unknown as EditorContent
+        const rawBlocks = editorContent.blocks || []
+        return rawBlocks.map((block, idx) => {
+            let label = ""
+            if (block.content?.settings?.title) {
+                label = block.content.settings.title
+            } else if (block.type === 'heading' || block.type === 'headline') {
+                label = block.content?.text || ""
+            } else if (block.type === 'layout' && block.content?.columns) {
+                for (const col of block.content.columns) {
+                    const hBlock = (col.blocks || []).find((b: any) =>
+                        b.type === 'heading' || b.type === 'headline' || (b.type === 'text' && ['h1', 'h2', 'h3'].includes(b.variant))
+                    )
+                    if (hBlock?.content?.text) {
+                        label = hBlock.content.text
+                        break
+                    }
+                }
+            }
+            if (!label && block.content?.text) {
+                label = block.content.text
+            }
+            if (!label) {
+                label = `Seção ${idx + 1}`
+            } else if (label.length > 35) {
+                label = label.substring(0, 35) + '...'
+            }
+            return {
+                id: block.id,
+                title: `Seção ${idx + 1}: ${label}`
+            }
+        })
+    }, [activeModule])
+
+    const availableModules = useMemo(() => {
+        return items.map(m => ({ id: m.id, title: m.title || 'Sem título' }))
+    }, [items])
+
     return (
-        <BrandDesignProvider brandId={brandId}>
+        <BrandDesignProvider
+            brandId={brandId}
+            modules={availableModules}
+            selectedModuleId={selectedModuleId}
+            onSelectModule={setSelectedModuleId}
+            sections={activeSections}
+        >
             <DndContext
                 sensors={sensors}
                 collisionDetection={rectIntersection}
@@ -628,6 +677,17 @@ export default function BrandbookEditor({
                             isReadOnly={isPreviewMode}
                             onAnimate={() => setIsAnimationPanelOpen(true)}
                             responsiveDevice={responsiveDevice}
+                            footer={
+                                <BrandbookFooter
+                                    brandId={brandId}
+                                    brandName={brandName}
+                                    modules={items}
+                                    selectedModuleId={selectedModuleId}
+                                    onSelectModule={setSelectedModuleId}
+                                    isReadOnly={isPreviewMode}
+                                    responsiveDevice={responsiveDevice}
+                                />
+                            }
                         />
 
                         <DeleteConfirmationModal
@@ -637,11 +697,6 @@ export default function BrandbookEditor({
                             title="Eliminar página"
                             message="Esta ação é irreversível. Todos os brandbooks, assets e projetos associados a esta marca serão eliminados permanentemente."
                         />
-
-                        {/* Footer - Pinned to bottom of content column */}
-                        <div className="h-8 bg-black flex items-center justify-center text-[10px] text-text-tertiary border-t border-bg-3 select-none z-10 shrink-0">
-                            Powered by Brivio coverage and Bhoo Agency
-                        </div>
 
                         <DragOverlay>
                             {activeDragId ? (
@@ -680,6 +735,7 @@ export default function BrandbookEditor({
                     modules={items}
                     brandId={brandId}
                     brandName={brandName}
+                    isSuperAdmin={isSuperAdmin}
                 />
 
                 <AnimationPanel

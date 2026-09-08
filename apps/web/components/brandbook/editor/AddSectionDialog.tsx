@@ -26,7 +26,8 @@ import {
     SeparatorVertical,
     Images,
     GalleryHorizontal,
-    PanelLeft
+    PanelLeft,
+    SlidersHorizontal
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -62,7 +63,8 @@ const BLOCK_OPTIONS: Record<string, { id: string, label: string, icon: any, type
         { id: 'button', label: 'Button', icon: MousePointerClick, type: 'interactive', variant: 'button' },
         { id: 'color', label: 'Color', icon: Palette, type: 'palette' },
         { id: 'image-text', label: 'Image-Text', icon: PanelLeft, type: 'composite', variant: 'image-text' },
-        { id: 'list-text', label: 'Lista de texto', icon: List, type: 'list' }
+        { id: 'list-text', label: 'Lista de texto', icon: List, type: 'list' },
+        { id: 'story', label: 'Story Slider', icon: SlidersHorizontal, type: 'story' }
     ],
     image: [
         { id: 'image', label: 'Image', icon: ImageIcon, type: 'image' },

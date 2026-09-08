@@ -278,6 +278,9 @@ model BrandSettings {
   // Font Styles (JSON object)
   font_styles          Json?    @default("{}")
   
+  // Footer Settings (JSON object)
+  footer_settings      Json?    @default("{}")
+  
   created_at           DateTime? @default(now()) @db.Timestamptz(6)
   updated_at           DateTime? @default(now()) @db.Timestamptz(6)
   

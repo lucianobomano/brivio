@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { MarginSettingsControl, BlockMargin } from "./MarginSettingsControl"
 // Note: Intentionally avoiding shadcn Switch to match exact custom requirements
 
 interface VideoSettings {
@@ -15,6 +16,7 @@ interface VideoSettings {
     borderWidth?: number
     borderColor?: string
     radius?: number
+    margin?: BlockMargin
 }
 
 interface VideoSettingsPanelProps {
@@ -328,6 +330,12 @@ export function VideoSettingsPanel({
                         placeholder="00"
                     />
                 </div>
+
+                {/* Margins */}
+                <MarginSettingsControl
+                    margin={settings.margin}
+                    onChange={(m) => update({ margin: m })}
+                />
             </div>
         </div>
     )

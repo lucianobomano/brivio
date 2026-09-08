@@ -13,7 +13,10 @@ import {
     ChevronDown,
     ArrowRight,
     Palette,
-    Sparkles
+    Sparkles,
+    Clock,
+    Video,
+    MapPin
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -33,6 +36,7 @@ interface ClientRoadmapViewProps {
     initialLayout: LayoutStyle
     initialBg?: string
     initialNotes?: any[]
+    initialMeetings?: any[]
 }
 
 type LayoutStyle = 'default' | 'numbered' | 'minimal' | 'cards' | 'timeline' | JourneyLayoutStyle
@@ -53,6 +57,51 @@ const LAYOUT_OPTIONS: { id: LayoutStyle; name: string; icon: string; description
     { id: 'stair-path', name: 'Escadaria', icon: '🪜', description: 'Evolução por níveis' },
 ]
 
+const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '';
+    try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    } catch (e) {
+        return '';
+    }
+}
+
+const getRelativeTimelineString = (stage: any, projectStartDateStr: string | null | undefined, projectCreatedAtStr?: string | null | undefined) => {
+    if (!stage.start_date || !stage.due_date) return null;
+    
+    const stageStart = new Date(stage.start_date);
+    const stageDue = new Date(stage.due_date);
+    
+    // Stage duration
+    const diffTime = Math.abs(stageDue.getTime() - stageStart.getTime());
+    const durationDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const durationStr = durationDays === 1 ? '1 dia' : `${durationDays} dias`;
+
+    const baseStartStr = projectStartDateStr || projectCreatedAtStr;
+    if (!baseStartStr) {
+        return `Duração: ${durationStr}`;
+    }
+
+    const projStart = new Date(baseStartStr);
+    
+    // Set hours to 0 to compare exact calendar dates
+    const stageStartZero = new Date(stageStart);
+    stageStartZero.setHours(0,0,0,0);
+    const stageDueZero = new Date(stageDue);
+    stageDueZero.setHours(0,0,0,0);
+    const projStartZero = new Date(projStart);
+    projStartZero.setHours(0,0,0,0);
+
+    const startOffset = Math.round((stageStartZero.getTime() - projStartZero.getTime()) / (1000 * 60 * 60 * 24));
+    const dueOffset = Math.round((stageDueZero.getTime() - projStartZero.getTime()) / (1000 * 60 * 60 * 24));
+
+    const startDayNum = startOffset >= 0 ? `Dia ${startOffset + 1}` : `Dia ${startOffset}`;
+    const dueDayNum = dueOffset >= 0 ? `Dia ${dueOffset + 1}` : `Dia ${dueOffset}`;
+
+    return `${startDayNum} ao ${dueDayNum} (Duração: ${durationStr})`;
+}
+
 export function ClientRoadmapView({
     project,
     roadmap,
@@ -60,13 +109,15 @@ export function ClientRoadmapView({
     currentPhaseName,
     initialLayout,
     initialBg = 'default',
-    initialNotes = []
+    initialNotes = [],
+    initialMeetings = []
 }: ClientRoadmapViewProps) {
     const brand = project.brands
     const [layoutStyle, setLayoutStyle] = React.useState<LayoutStyle>(initialLayout)
     const [bgStyle] = React.useState<string>(initialBg)
     const [expandedStage, setExpandedStage] = React.useState<string | null>(null)
     const [isNotesOpen, setIsNotesOpen] = React.useState(false)
+    const [meetings] = React.useState<any[]>(initialMeetings || [])
 
     // Custom cursor and auto-scroll state for numbered circles
     const scrollContainerRef = React.useRef<HTMLDivElement>(null)
@@ -247,6 +298,74 @@ export function ClientRoadmapView({
                     )}
                 </motion.div>
 
+                {/* Meetings Widget */}
+                {meetings.length > 0 && (
+                    <div className="max-w-[1100px] mx-auto mb-16">
+                        <h2 className="text-[20px] font-bold text-[#1D1D1F] mb-6 flex items-center gap-2">
+                            <span className="text-accent-indigo">📅</span> Reuniões Agendadas
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {meetings.map((meeting) => (
+                                <div key={meeting.id} className="bg-white rounded-3xl border border-[#E5E5EA]/50 p-6 shadow-md hover:shadow-lg transition-all flex flex-col justify-between">
+                                    <div>
+                                        <div className="flex items-start justify-between mb-3">
+                                            <span className={cn(
+                                                "text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full",
+                                                meeting.status === 'completed' 
+                                                    ? 'bg-accent-mint/10 text-accent-mint' 
+                                                    : 'bg-accent-indigo/10 text-accent-indigo'
+                                            )}>
+                                                {meeting.status === 'completed' ? '✓ Realizada' : 'Agendada'}
+                                            </span>
+                                            {meeting.stage_id && (
+                                                <span className="text-[11px] font-medium text-[#86868B]">
+                                                    Fase: {roadmap.find(s => s.id === meeting.stage_id)?.name || 'N/A'}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <h3 className="text-[16px] font-bold text-[#1D1D1F] mb-2">{meeting.title}</h3>
+                                        {meeting.description && (
+                                            <p className="text-[13px] text-[#86868B] mb-4 line-clamp-2">{meeting.description}</p>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="mt-4 pt-4 border-t border-[#F2F2F7] space-y-2">
+                                        <div className="flex items-center gap-2 text-[12px] text-[#1D1D1F]">
+                                            <Clock className="w-4 h-4 text-[#86868B]" />
+                                            <span className="font-semibold">
+                                                {new Date(meeting.meeting_date).toLocaleString('pt-PT', { 
+                                                    weekday: 'long', 
+                                                    day: '2-digit', 
+                                                    month: '2-digit', 
+                                                    hour: '2-digit', 
+                                                    minute: '2-digit' 
+                                                })}
+                                            </span>
+                                        </div>
+                                        {meeting.location && (
+                                            <div className="flex items-center gap-2 text-[12px] text-[#86868B]">
+                                                {meeting.location.includes('http') ? (
+                                                    <>
+                                                        <Video className="w-4 h-4 text-accent-indigo" />
+                                                        <a href={meeting.location} target="_blank" rel="noopener noreferrer" className="text-accent-indigo hover:underline font-medium truncate">
+                                                            Entrar na Reunião
+                                                        </a>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <MapPin className="w-4 h-4 text-[#86868B]" />
+                                                        <span className="truncate">{meeting.location}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Empty State */}
                 {roadmap.length === 0 && (
                     <motion.div
@@ -278,6 +397,7 @@ export function ClientRoadmapView({
                                 const isCurrent = stage.id === currentPhaseId;
                                 const isFuture = stage.progress === 0;
                                 const isExpanded = expandedStage === stage.id;
+                                const stageMeetings = meetings.filter((m: any) => m.stage_id === stage.id);
 
                                 return (
                                     <motion.div
@@ -312,12 +432,29 @@ export function ClientRoadmapView({
                                                 <div className="flex items-center justify-between mb-4">
                                                     <div className="flex items-center gap-4">
                                                         <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stage.color }} />
-                                                        <h3 className={cn(
-                                                            "text-[18px] font-bold tracking-tight",
-                                                            isCompleted ? "text-[#1D1D1F]" : isCurrent ? "text-accent-indigo" : "text-[#86868B]"
-                                                        )}>{stage.name}</h3>
+                                                        <div className="flex flex-col">
+                                                            <h3 className={cn(
+                                                                "text-[18px] font-bold tracking-tight",
+                                                                isCompleted ? "text-[#1D1D1F]" : isCurrent ? "text-accent-indigo" : "text-[#86868B]"
+                                                            )}>{stage.name}</h3>
+                                                            {(stage.start_date || stage.due_date) && (
+                                                                <span className="text-[11px] text-[#86868B] font-medium mt-0.5">
+                                                                    {stage.start_date ? formatDate(stage.start_date) : '...'} - {stage.due_date ? formatDate(stage.due_date) : '...'}
+                                                                </span>
+                                                            )}
+                                                            {getRelativeTimelineString(stage, project.start_date, project.created_at) && (
+                                                                <span className="text-[10px] text-accent-indigo font-bold mt-1 bg-accent-indigo/5 px-2 py-0.5 rounded-md w-fit">
+                                                                    {getRelativeTimelineString(stage, project.start_date, project.created_at)}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         {isCurrent && <span className="px-3 py-1 bg-accent-indigo text-white text-[9px] font-black uppercase tracking-widest rounded-full">Em Foco</span>}
                                                         {isCompleted && <span className="px-3 py-1 bg-accent-mint/20 text-accent-mint text-[9px] font-black uppercase tracking-widest rounded-full">Concluído</span>}
+                                                        {stageMeetings.length > 0 && (
+                                                            <span className="px-3 py-1 bg-accent-indigo/10 text-accent-indigo text-[9px] font-bold uppercase tracking-wider rounded-full flex items-center gap-1">
+                                                                📅 {stageMeetings.length} Reunião(ões)
+                                                            </span>
+                                                        )}
                                                     </div>
                                                     <div className="flex items-center gap-4">
                                                         <span className="text-[24px] font-black text-accent-indigo">{stage.progress}%</span>
@@ -513,6 +650,17 @@ export function ClientRoadmapView({
                                                             {stage.name}
                                                         </h3>
 
+                                                        {(stage.start_date || stage.due_date) && (
+                                                            <span className="text-[11px] text-[#86868B] font-medium mt-1">
+                                                                {stage.start_date ? formatDate(stage.start_date) : '...'} - {stage.due_date ? formatDate(stage.due_date) : '...'}
+                                                            </span>
+                                                        )}
+                                                        {getRelativeTimelineString(stage, project.start_date, project.created_at) && (
+                                                            <span className="text-[10px] text-accent-indigo font-bold mt-1 bg-accent-indigo/5 px-2 py-0.5 rounded-md">
+                                                                {getRelativeTimelineString(stage, project.start_date, project.created_at)}
+                                                            </span>
+                                                        )}
+
                                                         {/* Stats */}
                                                         <div className="mt-2 flex items-center gap-3 text-[13px] text-[#86868B]">
                                                             <span>{stage.tasks.length} tarefas</span>
@@ -541,9 +689,21 @@ export function ClientRoadmapView({
                                                     />
 
                                                     <div className="p-4 border-b border-[#F2F2F7] flex items-center justify-between">
-                                                        <div className="flex items-center gap-2">
-                                                            <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stage.color }} />
-                                                            <span className="font-bold text-[14px] text-[#1D1D1F]">{stage.name}</span>
+                                                        <div className="flex flex-col gap-0.5">
+                                                            <div className="flex items-center gap-2">
+                                                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: stage.color }} />
+                                                                <span className="font-bold text-[14px] text-[#1D1D1F]">{stage.name}</span>
+                                                            </div>
+                                                            {(stage.start_date || stage.due_date) && (
+                                                                <span className="text-[10px] text-[#86868B] font-medium ml-5">
+                                                                    {stage.start_date ? formatDate(stage.start_date) : '...'} - {stage.due_date ? formatDate(stage.due_date) : '...'}
+                                                                </span>
+                                                            )}
+                                                            {getRelativeTimelineString(stage, project.start_date, project.created_at) && (
+                                                                <span className="text-[9px] text-accent-indigo font-bold ml-5 mt-1 bg-accent-indigo/5 px-1.5 py-0.5 rounded w-fit">
+                                                                    {getRelativeTimelineString(stage, project.start_date, project.created_at)}
+                                                                </span>
+                                                            )}
                                                         </div>
                                                         <span className="text-[12px] text-[#86868B]">{stage.tasks.filter((t: any) => t.completed).length}/{stage.tasks.length}</span>
                                                     </div>
@@ -601,7 +761,19 @@ export function ClientRoadmapView({
                                                 {idx + 1}
                                             </div>
                                             <div className="flex-1">
-                                                <h3 className="text-[18px] font-bold text-[#1D1D1F] mb-2">{stage.name}</h3>
+                                                <div className="flex items-center gap-3 mb-2">
+                                                    <h3 className="text-[18px] font-bold text-[#1D1D1F]">{stage.name}</h3>
+                                                    {(stage.start_date || stage.due_date) && (
+                                                        <span className="text-[11px] text-[#86868B] font-medium bg-[#F2F2F7] px-2.5 py-0.5 rounded-full">
+                                                            {stage.start_date ? formatDate(stage.start_date) : '...'} - {stage.due_date ? formatDate(stage.due_date) : '...'}
+                                                        </span>
+                                                    )}
+                                                    {getRelativeTimelineString(stage, project.start_date, project.created_at) && (
+                                                        <span className="text-[10px] text-accent-indigo font-bold bg-accent-indigo/10 px-2.5 py-0.5 rounded-full">
+                                                            {getRelativeTimelineString(stage, project.start_date, project.created_at)}
+                                                        </span>
+                                                    )}
+                                                </div>
                                                 <div className="h-2 bg-[#F2F2F7] rounded-full overflow-hidden">
                                                     <motion.div initial={{ width: 0 }} animate={{ width: `${stage.progress}%` }} transition={{ duration: 1, delay: idx * 0.2 }} className="h-full bg-accent-indigo" />
                                                 </div>
@@ -663,7 +835,19 @@ export function ClientRoadmapView({
                                                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold" style={{ backgroundColor: stage.color }}>
                                                         {idx + 1}
                                                     </div>
-                                                    <h3 className="text-[16px] font-bold text-[#1D1D1F]">{stage.name}</h3>
+                                                    <div>
+                                                        <h3 className="text-[16px] font-bold text-[#1D1D1F]">{stage.name}</h3>
+                                                        {(stage.start_date || stage.due_date) && (
+                                                            <p className="text-[10px] text-[#86868B] font-medium mt-0.5">
+                                                                {stage.start_date ? formatDate(stage.start_date) : '...'} - {stage.due_date ? formatDate(stage.due_date) : '...'}
+                                                            </p>
+                                                        )}
+                                                        {getRelativeTimelineString(stage, project.start_date, project.created_at) && (
+                                                            <p className="text-[9px] text-accent-indigo font-bold mt-1 bg-accent-indigo/5 px-1.5 py-0.5 rounded w-fit">
+                                                                {getRelativeTimelineString(stage, project.start_date, project.created_at)}
+                                                            </p>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 {isCompleted && <CheckCircle2 className="w-6 h-6 text-accent-indigo" />}
                                             </div>
@@ -735,8 +919,18 @@ export function ClientRoadmapView({
                                                 >
                                                     <span className="text-3xl font-black">{idx + 1}</span>
                                                 </button>
-                                                <div className="mt-4 text-center max-w-[120px]">
+                                                <div className="mt-4 text-center max-w-[150px]">
                                                     <h4 className="text-[13px] font-bold text-[#1D1D1F]">{stage.name}</h4>
+                                                    {(stage.start_date || stage.due_date) && (
+                                                        <p className="text-[10px] text-[#86868B] font-medium mt-0.5">
+                                                            {stage.start_date ? formatDate(stage.start_date) : '...'} - {stage.due_date ? formatDate(stage.due_date) : '...'}
+                                                        </p>
+                                                    )}
+                                                    {getRelativeTimelineString(stage, project.start_date, project.created_at) && (
+                                                        <p className="text-[9px] text-accent-indigo font-bold mt-1 bg-accent-indigo/5 px-1.5 py-0.5 rounded mx-auto w-fit">
+                                                            {getRelativeTimelineString(stage, project.start_date, project.created_at)}
+                                                        </p>
+                                                    )}
                                                     <p className="text-[11px] text-[#86868B] mt-1">{stage.progress}%</p>
                                                 </div>
 

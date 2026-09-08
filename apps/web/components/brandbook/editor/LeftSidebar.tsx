@@ -15,10 +15,12 @@ import {
     Eye,
     EyeOff,
     Trash,
+    Trash2,
     Monitor,
     ChevronLeft,
     ChevronRight
 } from "lucide-react"
+import { toast } from "sonner"
 import { CATEGORIES, getEffectiveCategory } from "@/lib/brandbook-utils"
 import { cn } from "@/lib/utils"
 import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
@@ -315,8 +317,38 @@ export function LeftSidebar({
     const [openCategories, setOpenCategories] = useState<string[]>(['others'])
     const [isAddPagesModalOpen, setIsAddPagesModalOpen] = useState(false)
     const [filterCategory, setFilterCategory] = useState<string | null>(null)
+    const [deletedSubCategories, setDeletedSubCategories] = useState<string[]>([])
     const { getStyleById, settings } = useBrandDesign()
     const menuStyle = getStyleById('menu')
+
+    // Load deleted subcategories from localStorage
+    React.useEffect(() => {
+        if (typeof window !== 'undefined' && brandbookId) {
+            try {
+                const saved = localStorage.getItem(`brandbook_${brandbookId}_deleted_subcategories`)
+                if (saved) {
+                    setDeletedSubCategories(JSON.parse(saved))
+                }
+            } catch (e) {
+                console.error("Failed to load deleted subcategories", e)
+            }
+        }
+    }, [brandbookId])
+
+    const handleDeleteSubCategory = (subCatId: string, subCatLabel: string) => {
+        if (typeof window !== 'undefined' && !window.confirm(`Tem certeza que deseja excluir o subseparador "${subCatLabel}"? As páginas existentes serão preservadas em "Outras páginas".`)) {
+            return
+        }
+
+        setDeletedSubCategories(prev => {
+            const next = Array.from(new Set([...prev, subCatId]))
+            if (typeof window !== 'undefined' && brandbookId) {
+                localStorage.setItem(`brandbook_${brandbookId}_deleted_subcategories`, JSON.stringify(next))
+            }
+            return next
+        })
+        toast.success(`Subseparador "${subCatLabel}" excluído`)
+    }
 
     const sidebarTextStyle = menuStyle ? {
         fontFamily: menuStyle.font,
@@ -332,12 +364,15 @@ export function LeftSidebar({
     const modulesByCategory = React.useMemo(() => {
         const grouped: Record<string, any[]> = {}
         modules.forEach(m => {
-            const cat = getEffectiveCategory(m)
+            let cat = getEffectiveCategory(m)
+            if (deletedSubCategories.includes(cat)) {
+                cat = 'others'
+            }
             if (!grouped[cat]) grouped[cat] = []
             grouped[cat].push(m)
         })
         return grouped
-    }, [modules])
+    }, [modules, deletedSubCategories])
 
     const isCategoryHidden = (catId: string) => {
         const targetModules: any[] = []
@@ -346,7 +381,9 @@ export function LeftSidebar({
             const cat = CATEGORIES.find(c => c.id === id)
             if (cat?.subCategories) {
                 cat.subCategories.forEach(sub => {
-                    if (modulesByCategory[sub.id]) targetModules.push(...modulesByCategory[sub.id])
+                    if (!deletedSubCategories.includes(sub.id) && modulesByCategory[sub.id]) {
+                        targetModules.push(...modulesByCategory[sub.id])
+                    }
                 })
             }
         }
@@ -361,7 +398,9 @@ export function LeftSidebar({
             const cat = CATEGORIES.find(c => c.id === id)
             if (cat?.subCategories) {
                 cat.subCategories.forEach(sub => {
-                    if (modulesByCategory[sub.id]) targetModules.push(...modulesByCategory[sub.id])
+                    if (!deletedSubCategories.includes(sub.id) && modulesByCategory[sub.id]) {
+                        targetModules.push(...modulesByCategory[sub.id])
+                    }
                 })
             }
         }
@@ -384,7 +423,7 @@ export function LeftSidebar({
         }
     }
 
-    const renderCategoryHeader = (catId: string, label: string) => {
+    const renderCategoryHeader = (catId: string, label: string, isSubCategory = false) => {
         const isHidden = isCategoryHidden(catId)
 
         return (
@@ -477,6 +516,19 @@ export function LeftSidebar({
                                 >
                                     Adicionar página personalizada
                                 </DropdownMenuItem>
+
+                                {isSubCategory && (
+                                    <DropdownMenuItem
+                                        className="text-red-400 hover:bg-red-500/20 hover:text-red-300 px-3 py-1.5 text-xs rounded-sm cursor-pointer flex items-center gap-2"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleDeleteSubCategory(catId, label)
+                                        }}
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Excluir subseparador
+                                    </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
@@ -591,9 +643,11 @@ export function LeftSidebar({
                                     const hasDirectPages = (modulesByCategory[category.id]?.length || 0) > 0
 
                                     // Check if category or any of its subcategories has pages
-                                    const hasSubPages = category.subCategories?.some(sub => (modulesByCategory[sub.id]?.length || 0) > 0)
+                                    const hasSubPages = category.subCategories?.some(sub => !deletedSubCategories.includes(sub.id) && (modulesByCategory[sub.id]?.length || 0) > 0)
 
                                     if (!hasDirectPages && !hasSubPages && !isParentWithSubcats) return null
+
+                                    const visibleSubCategories = category.subCategories?.filter(s => !deletedSubCategories.includes(s.id)) || []
 
                                     return (
                                         <AccordionItem key={category.id} value={category.id} className="border-none">
@@ -608,16 +662,16 @@ export function LeftSidebar({
                                                 {renderPagesList(category.id)}
 
                                                 {/* Sub-categories */}
-                                                {category.subCategories && (
-                                                    <Accordion type="multiple" defaultValue={category.subCategories.map(s => s.id)} className="mt-1">
-                                                        {category.subCategories.map(subCategory => {
+                                                {visibleSubCategories.length > 0 && (
+                                                    <Accordion type="multiple" defaultValue={visibleSubCategories.map(s => s.id)} className="mt-1">
+                                                        {visibleSubCategories.map(subCategory => {
                                                             return (
                                                                 <AccordionItem key={subCategory.id} value={subCategory.id} className="border-none ml-2">
                                                                     <AccordionTrigger
                                                                         style={{ color: sidebarTextStyle.color }}
                                                                         className="group px-2 py-1 text-[11px] font-semibold hover:no-underline rounded-sm transition-colors opacity-90 hover:opacity-100 [&>svg]:hidden"
                                                                     >
-                                                                        {renderCategoryHeader(subCategory.id, subCategory.label)}
+                                                                        {renderCategoryHeader(subCategory.id, subCategory.label, true)}
                                                                     </AccordionTrigger>
                                                                     <AccordionContent className="pt-0 pb-1">
                                                                         {renderPagesList(subCategory.id)}

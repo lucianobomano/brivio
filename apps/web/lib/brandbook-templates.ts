@@ -1317,3 +1317,139 @@ export const HISTORY_TEMPLATE = {
     }
   ]
 }
+
+export interface BuiltinTemplateModule {
+  title: string
+  type: string
+  category: string
+  content_json: any
+}
+
+export interface BuiltinBrandbookTemplate {
+  id: string
+  name: string
+  description: string
+  category: 'all' | 'minimalist' | 'tech' | 'luxury' | 'agency' | 'corporate'
+  categoryLabel: string
+  tags: string[]
+  accentColor: string
+  gradient: string
+  thumbnail_url?: string
+  is_public: boolean
+  modules_json: BuiltinTemplateModule[]
+}
+
+export const BUILTIN_BRANDBOOK_TEMPLATES: BuiltinBrandbookTemplate[] = [
+  {
+    id: "tpl_editorial_minimalist",
+    name: "Editorial & Minimalista",
+    description: "Linhas limpas, tipografia sofisticada e espaço generoso. Ideal para marcas modernas, estúdios de design, arquitetura e consultorias independentes.",
+    category: "minimalist",
+    categoryLabel: "Editorial & Minimal",
+    tags: ["Minimalista", "Editorial", "Tipografia", "Design"],
+    accentColor: "#FF0054",
+    gradient: "linear-gradient(135deg, #18181B 0%, #27272A 50%, #09090B 100%)",
+    is_public: true,
+    modules_json: [
+      { title: "Visão geral", type: "mission", category: "overview", content_json: GUIDE_INTRO_TEMPLATE },
+      { title: "DNA da marca", type: "archetype", category: "overview", content_json: DNA_TEMPLATE },
+      { title: "História & Manifesto", type: "history", category: "overview", content_json: HISTORY_TEMPLATE },
+      { title: "Logótipo & Área de Proteção", type: "logo", category: "visual_identity", content_json: {} },
+      { title: "Cores & Paleta Essencial", type: "palette", category: "visual_identity", content_json: {} },
+      { title: "Tipografia & Escala Editorial", type: "typography", category: "visual_identity", content_json: {} },
+      { title: "Grid & Layouts Minimalistas", type: "grid", category: "visual_identity", content_json: {} }
+    ]
+  },
+  {
+    id: "tpl_tech_saas",
+    name: "Tech & SaaS Platform",
+    description: "Desenvolvido para produtos digitais, startups de tecnologia e plataformas SaaS com suporte a tokens de design e tom de voz moderno.",
+    category: "tech",
+    categoryLabel: "Tech & SaaS",
+    tags: ["Tecnologia", "SaaS", "Digital First", "Design System"],
+    accentColor: "#06D6A0",
+    gradient: "linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #064e3b 100%)",
+    is_public: true,
+    modules_json: [
+      { title: "Visão do Produto", type: "mission", category: "overview", content_json: GUIDE_INTRO_TEMPLATE },
+      { title: "Personalidade & Tom de Voz", type: "voice_tone", category: "verbal_identity", content_json: {} },
+      { title: "Arquitetura do Logótipo", type: "logo", category: "visual_identity", content_json: {} },
+      { title: "Paleta de Cores do Sistema", type: "palette", category: "visual_identity", content_json: {} },
+      { title: "Tipografia Digital & UI", type: "typography", category: "visual_identity", content_json: {} },
+      { title: "Grid, Layout & Espaçamento", type: "grid", category: "visual_identity", content_json: {} },
+      { title: "Iconografia & Componentes", type: "illustration", category: "visual_identity", content_json: {} },
+      { title: "Motion & Interações", type: "motion", category: "visual_identity", content_json: {} }
+    ]
+  },
+  {
+    id: "tpl_luxury_lifestyle",
+    name: "Luxo & Lifestyle",
+    description: "Elegância refinada com foco em narrativa poética, paletas nobres e experiência sensorial para marcas de moda, joalharia e alta hospitalidade.",
+    category: "luxury",
+    categoryLabel: "Luxo & Lifestyle",
+    tags: ["Luxo", "Sensorial", "Fotografia", "Sofisticado"],
+    accentColor: "#88007F",
+    gradient: "linear-gradient(135deg, #1c1917 0%, #292524 40%, #4a044e 100%)",
+    is_public: true,
+    modules_json: [
+      { title: "O Manifesto da Marca", type: "mission", category: "overview", content_json: GUIDE_INTRO_TEMPLATE },
+      { title: "História & Herança", type: "history", category: "overview", content_json: HISTORY_TEMPLATE },
+      { title: "DNA & Valores Nobres", type: "archetype", category: "overview", content_json: DNA_TEMPLATE },
+      { title: "Símbolo & Marca Registada", type: "logo", category: "visual_identity", content_json: {} },
+      { title: "Cores & Harmonias Cromáticas", type: "palette", category: "visual_identity", content_json: {} },
+      { title: "Tipografia Clássica Serifada", type: "typography", category: "visual_identity", content_json: {} },
+      { title: "Direção Fotográfica & Atmosfera", type: "photography", category: "visual_identity", content_json: {} },
+      { title: "Identidade Tátil & Embalagens", type: "custom", category: "sensory_identity", content_json: {} }
+    ]
+  },
+  {
+    id: "tpl_creative_agency",
+    name: "Creative Studio & Agency",
+    description: "Vibrante, impactante e expressivo. Criado para estúdios criativos, produtoras de multimédia e marcas ousadas que desafiam o convencional.",
+    category: "agency",
+    categoryLabel: "Agência & Criativo",
+    tags: ["Criativo", "Vibrante", "Experimental", "Multimédia"],
+    accentColor: "#FF0054",
+    gradient: "linear-gradient(135deg, #FF0054 0%, #88007F 50%, #311C99 100%)",
+    is_public: true,
+    modules_json: [
+      { title: "Visão Criativa Disruptiva", type: "mission", category: "overview", content_json: GUIDE_INTRO_TEMPLATE },
+      { title: "Personalidade Radical", type: "custom", category: "verbal_identity", content_json: {} },
+      { title: "Tom de Voz & Atitude", type: "voice_tone", category: "verbal_identity", content_json: {} },
+      { title: "Logótipo Dinâmico & Variações", type: "logo", category: "visual_identity", content_json: {} },
+      { title: "Cores de Alto Impacto", type: "palette", category: "visual_identity", content_json: {} },
+      { title: "Tipografia Experimental", type: "typography", category: "visual_identity", content_json: {} },
+      { title: "Motion Design & Transições", type: "motion", category: "visual_identity", content_json: {} },
+      { title: "Aplicações Digitais & Merch", type: "custom", category: "visual_guide", content_json: {} }
+    ]
+  },
+  {
+    id: "tpl_corporate_enterprise",
+    name: "Corporate & Enterprise",
+    description: "Manual abrangente com diretrizes rigorosas para grandes organizações, marcas institucionais e franquias empresariais.",
+    category: "corporate",
+    categoryLabel: "Corporativo",
+    tags: ["Corporativo", "Governança", "Institucional", "Manual"],
+    accentColor: "#311C99",
+    gradient: "linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #0369a1 100%)",
+    is_public: true,
+    modules_json: [
+      { title: "Visão Geral & Governança", type: "mission", category: "overview", content_json: GUIDE_INTRO_TEMPLATE },
+      { title: "Missão, Visão e Valores", type: "archetype", category: "overview", content_json: DNA_TEMPLATE },
+      { title: "História da Instituição", type: "history", category: "overview", content_json: HISTORY_TEMPLATE },
+      { title: "Uso do Logótipo & Restrições", type: "logo", category: "visual_identity", content_json: {} },
+      { title: "Paleta Primária & Secundária", type: "palette", category: "visual_identity", content_json: {} },
+      { title: "Tipografia Institucional", type: "typography", category: "visual_identity", content_json: {} },
+      { title: "Grelhas, Margens & Papelaria", type: "grid", category: "visual_identity", content_json: {} },
+      { title: "Comunicação Interna & Externa", type: "custom", category: "verbal_identity", content_json: {} }
+    ]
+  }
+]
+
+export function getBuiltinTemplates(category?: string): BuiltinBrandbookTemplate[] {
+  if (!category || category === 'all') {
+    return BUILTIN_BRANDBOOK_TEMPLATES
+  }
+  return BUILTIN_BRANDBOOK_TEMPLATES.filter(t => t.category === category)
+}
+

@@ -8,12 +8,14 @@ import {
     Moon,
     Home,
     Settings,
+    BookOpen,
 } from 'lucide-react';
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useTheme } from "next-themes"
 import { usePathname, useRouter } from "next/navigation"
 import { CreateBrandModal } from "@/components/brands/CreateBrandModal"
+import { CreateBrandbookFromTemplateModal } from "@/components/brandbook/CreateBrandbookFromTemplateModal"
 import { createClient } from "@/lib/supabase/client"
 import {
     DropdownMenu,
@@ -45,6 +47,7 @@ export function StandupHeader() {
     const [user, setUser] = useState<AppUser | null>(null)
     const [isPopoverOpen, setIsPopoverOpen] = useState(false)
     const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+    const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false)
     const [mounted, setMounted] = useState(false)
 
 
@@ -184,13 +187,25 @@ export function StandupHeader() {
                                             </span>
                                         </button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[220px] bg-bg-1 border-bg-3 p-2 rounded-2xl shadow-2xl z-[100]">
+                                    <DropdownMenuContent align="end" className="w-[240px] bg-bg-1 border-bg-3 p-2 rounded-2xl shadow-2xl z-[100]">
                                         <DropdownMenuLabel className="text-[10px] font-black text-text-tertiary uppercase tracking-widest px-3 py-2">Quick Actions</DropdownMenuLabel>
+                                        <DropdownMenuItem
+                                            onClick={() => setIsTemplateModalOpen(true)}
+                                            className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#FF0054]/10 cursor-pointer group/item transition-colors"
+                                        >
+                                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#FF0054] to-[#88007F] flex items-center justify-center text-white shadow-sm shrink-0">
+                                                <BookOpen className="w-4 h-4" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-bold text-text-primary group-hover/item:text-[#FF0054] transition-colors">Novo Brand Book</span>
+                                                <span className="text-[10px] text-text-tertiary">A partir de um template</span>
+                                            </div>
+                                        </DropdownMenuItem>
                                         <DropdownMenuItem
                                             onClick={() => toast.info("Go to Projects Dashboard to create new projects")}
                                             className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent-indigo/5 cursor-pointer group/item"
                                         >
-                                            <div className="w-8 h-8 rounded-lg bg-accent-indigo/10 flex items-center justify-center text-accent-indigo group-hover/item:bg-accent-indigo group-hover/item:text-white transition-colors">
+                                            <div className="w-8 h-8 rounded-lg bg-accent-indigo/10 flex items-center justify-center text-accent-indigo group-hover/item:bg-accent-indigo group-hover/item:text-white transition-colors shrink-0">
                                                 <LayoutGrid className="w-4 h-4" />
                                             </div>
                                             <div className="flex flex-col">
@@ -293,6 +308,11 @@ export function StandupHeader() {
                     onClose={() => setIsSettingsOpen(false)}
                 />
             </WorkspaceProvider>
+
+            <CreateBrandbookFromTemplateModal
+                open={isTemplateModalOpen}
+                onOpenChange={setIsTemplateModalOpen}
+            />
         </>
     )
 }
