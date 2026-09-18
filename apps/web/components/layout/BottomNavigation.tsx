@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import {
-    Home as HomeIcon,
     FolderKanban,
     CheckSquare,
     MapPin,
@@ -21,7 +20,6 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useSpaNavigation } from "@/components/providers/SpaNavigationProvider"
 
 const MENU_ITEMS = [
-    { label: "Grupo", icon: HomeIcon, href: "/dashboard" },
     { label: "Projectos", icon: FolderKanban, href: "/projects?view=padrao" },
     { label: "Tarefas", icon: CheckSquare, href: "/tasks" },
     { label: "Roadmap", icon: MapPin, href: "/roadmap" },
@@ -64,12 +62,43 @@ export function BottomNavigation() {
                 {/* Glossy overlay effect */}
                 <div className="absolute inset-0 rounded-full bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
 
-                {/* Logo Circle */}
-                <div className="w-[60px] h-[60px] rounded-full bg-[#232323] flex items-center justify-center shrink-0 shadow-lg shadow-black/20 relative z-10">
-                    <div className="w-[46px] h-[46px] rounded-full bg-gradient-to-tr from-[#FF0054] via-[#88007F] via-[#06D6A0] to-[#311C99] p-[6px]">
-                        <div className="w-full h-full rounded-full bg-[#232323]" />
+                {/* Logo Circle - Redireciona para o Dashboard */}
+                <Link
+                    href="/dashboard"
+                    onClick={(e) => {
+                        e.preventDefault()
+                        window.location.href = "/dashboard"
+                    }}
+                    onMouseEnter={() => setHoveredLabel("Dashboard")}
+                    onMouseLeave={() => setHoveredLabel(null)}
+                    className="relative flex items-center justify-center z-10 w-[60px] h-[60px] cursor-pointer group"
+                    title="Dashboard"
+                >
+                    <div className="w-[60px] h-[60px] rounded-full bg-[#232323] flex items-center justify-center shrink-0 shadow-lg shadow-black/20 relative z-10 group-hover:scale-105 active:scale-95 transition-transform duration-200">
+                        <div className="w-[46px] h-[46px] rounded-full bg-gradient-to-tr from-[#FF0054] via-[#88007F] via-[#06D6A0] to-[#311C99] p-[6px]">
+                            <div className="w-full h-full rounded-full bg-[#232323] group-hover:bg-[#2e2e33] transition-colors" />
+                        </div>
                     </div>
-                </div>
+
+                    {/* Tooltip Balloon */}
+                    <AnimatePresence>
+                        {hoveredLabel === "Dashboard" && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 8, x: "-50%", scale: 0.95 }}
+                                animate={{ opacity: 1, y: 0, x: "-50%", scale: 1 }}
+                                exit={{ opacity: 0, y: 8, x: "-50%", scale: 0.95 }}
+                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                className="absolute bottom-[76px] left-1/2 z-50 pointer-events-none"
+                            >
+                                <div className="relative bg-[#16171C] text-white text-[13px] font-medium py-1.5 px-3.5 rounded-xl border border-white/10 shadow-[0_8px_30px_rgba(0,0,0,0.5)] whitespace-nowrap">
+                                    Dashboard
+                                    {/* Pin pointing down */}
+                                    <div className="absolute bottom-[-5px] left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 bg-[#16171C] border-r border-b border-white/10" />
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </Link>
 
                 {MENU_ITEMS.map((item) => {
                     const itemPath = item.href.split("?")[0]
@@ -77,8 +106,6 @@ export function BottomNavigation() {
                     let isActive = false
                     if (item.label === "Projectos") {
                         isActive = activeView === "projects"
-                    } else if (item.label === "Grupo") {
-                        isActive = activeView === "dashboard"
                     } else if (item.label === "Tarefas") {
                         isActive = activeView === "tasks"
                     } else if (item.label === "Roadmap") {

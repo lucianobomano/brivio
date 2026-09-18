@@ -29,14 +29,33 @@ export default async function ProjectsPage(props: {
         targetWorkspaceId = members?.[0]?.workspace_id
     }
 
+    if (!targetWorkspaceId) {
+        const { data: ownedWs } = await supabase
+            .from('workspaces')
+            .select('id')
+            .eq('created_by', user.id)
+            .limit(1)
+            .single()
+        targetWorkspaceId = ownedWs?.id
+    }
+
     let initialStages = []
+    let initialWorkspace = null
     if (targetWorkspaceId) {
-        const { data: stages } = await supabase
-            .from('project_stages')
-            .select('*')
-            .eq('workspace_id', targetWorkspaceId)
-            .order('position', { ascending: true })
+        const [{ data: stages }, { data: ws }] = await Promise.all([
+            supabase
+                .from('project_stages')
+                .select('*')
+                .eq('workspace_id', targetWorkspaceId)
+                .order('position', { ascending: true }),
+            supabase
+                .from('workspaces')
+                .select('*')
+                .eq('id', targetWorkspaceId)
+                .single()
+        ])
         initialStages = stages || []
+        initialWorkspace = ws
     }
 
     const userData = {
@@ -73,11 +92,12 @@ export default async function ProjectsPage(props: {
     }
 
     return (
-        <AuthLayoutInner user={userData} showSidebar={false} workspaceId={targetWorkspaceId}>
+        <AuthLayoutInner user={userData} showSidebar={false} workspaceId={targetWorkspaceId} initialWorkspace={initialWorkspace}>
             <ProjectsClient
                 initialProjects={projects}
                 initialStages={initialStages}
                 workspaceId={targetWorkspaceId}
+                initialWorkspace={initialWorkspace}
                 user={appUser}
             />
         </AuthLayoutInner>

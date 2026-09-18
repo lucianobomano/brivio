@@ -4,6 +4,7 @@ import { X } from "lucide-react"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { InlineColorPicker } from "@/components/ui/inline-color-picker"
 
 interface ColorSettingsPanelProps {
     color: { id: string, name: string, value: string, settings?: any } | null
@@ -101,25 +102,14 @@ export function ColorSettingsPanel({ color, settings, onUpdateBlock, onUpdateCol
 
             <div className="p-4 space-y-6 text-[#888] max-h-[600px] overflow-y-auto custom-scrollbar">
 
-                {/* Main Color Picker (Simulation) */}
+                {/* Main Color Picker */}
                 <div className="space-y-3">
-                    {/* Big Area */}
-                    <div className="w-full h-[120px] rounded-lg relative overflow-hidden group">
-                        <div
-                            className="absolute inset-0 z-0 bg-gradient-to-b from-transparent to-black"
-                            style={{ backgroundColor: color.value }}
-                        />
-                        <input
-                            type="color"
-                            value={color.value}
-                            onChange={(e) => onUpdateColor(color.id, { value: e.target.value })}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                        />
-                    </div>
-                    {/* Hue Slider (Fake/Native driven) */}
-                    <div className="w-full h-3 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500 relative">
-                        <div className="w-3 h-3 bg-white rounded-full absolute top-0 left-0 shadow-sm border border-black/10 transform translate-x-[0px]" /> {/* Static visual */}
-                    </div>
+                    <InlineColorPicker
+                        color={color.value}
+                        onChange={(newHex) => onUpdateColor(color.id, { value: newHex })}
+                        height={120}
+                        showHueSlider={true}
+                    />
 
                     {/* Hex Input */}
                     <div className="bg-[#1A1A1A] rounded border border-[#333] p-2 flex items-center justify-center">

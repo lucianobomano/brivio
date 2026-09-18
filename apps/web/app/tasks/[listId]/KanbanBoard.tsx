@@ -21,7 +21,11 @@ import {
     Search,
     Settings,
     Grid,
+    Sun,
+    Moon,
 } from "lucide-react"
+import { useTheme } from "next-themes"
+import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { TaskList, Task, TaskStatus, updateTaskPosition } from "@/app/actions/tasks"
@@ -55,8 +59,14 @@ const dropAnimation: DropAnimation = {
 
 export default function KanbanBoard({ list, initialTasks }: KanbanBoardProps) {
     const router = useRouter()
+    const { theme, setTheme, resolvedTheme } = useTheme()
+    const [mounted, setMounted] = useState(false)
     const [tasks, setTasks] = useState<Task[]>(initialTasks)
     const [activeTask, setActiveTask] = useState<Task | null>(null)
+
+    useEffect(() => {
+        setMounted(true)
+    }, [])
 
     useEffect(() => {
         setTasks(initialTasks)
@@ -248,13 +258,13 @@ export default function KanbanBoard({ list, initialTasks }: KanbanBoardProps) {
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div className="bg-[#0a0a0c] text-white min-h-screen font-sans flex flex-col">
+            <div className="bg-bg-0 text-text-primary min-h-screen font-sans flex flex-col">
                 {/* Header */}
-                <header className="h-14 flex items-center justify-between px-6 bg-[#0a0a0c] sticky top-0 z-10">
+                <header className="h-14 flex items-center justify-between px-6 bg-bg-0/90 backdrop-blur-md border-b border-zinc-200/80 dark:border-white/[0.05] sticky top-0 z-10">
                     {/* Left side */}
                     <div className="flex items-center space-x-4">
                         <Link href="/tasks">
-                            <Button variant="ghost" size="sm" className="text-gray-400 hover:text-white hover:bg-[#1a1a1e] h-8 px-2">
+                            <Button variant="ghost" size="sm" className="text-zinc-600 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-[#1a1a1e] h-8 px-2">
                                 <ChevronLeft className="w-4 h-4 mr-1" />
                                 Voltar
                             </Button>
@@ -270,31 +280,59 @@ export default function KanbanBoard({ list, initialTasks }: KanbanBoardProps) {
                             >
                                 {list.title.charAt(0).toUpperCase()}
                             </div>
-                            <span className="text-white font-medium">{list.title}</span>
+                            <span className="text-zinc-900 dark:text-white font-medium">{list.title}</span>
                         </div>
                     </div>
 
                     {/* Right side */}
                     <div className="flex items-center space-x-3">
+                        {/* Theme Switch Capsule */}
+                        <div
+                            className="flex items-center transition-colors bg-zinc-200/90 dark:bg-[#2E313C] rounded-full p-[3px] h-8 w-[64px]"
+                        >
+                            <button
+                                onClick={() => setTheme("light")}
+                                className={cn(
+                                    "flex items-center justify-center transition-all h-[26px] w-[26px] rounded-full",
+                                    mounted && (theme === "light" || resolvedTheme === "light") ? "bg-white shadow-xs" : "hover:opacity-75"
+                                )}
+                                title="Modo Claro"
+                                aria-label="Ativar Modo Claro"
+                            >
+                                <Sun className={cn("w-3.5 h-3.5 transition-colors", mounted && (theme === "light" || resolvedTheme === "light") ? "text-[#ff0054]" : "text-zinc-500 dark:text-gray-400")} />
+                            </button>
+                            <button
+                                onClick={() => setTheme("dark")}
+                                className={cn(
+                                    "flex items-center justify-center transition-all h-[26px] w-[26px] rounded-full",
+                                    mounted && (theme === "dark" || resolvedTheme === "dark") ? "bg-[#15161B] shadow-xs" : "hover:opacity-75"
+                                )}
+                                title="Modo Escuro"
+                                aria-label="Ativar Modo Escuro"
+                            >
+                                <Moon className={cn("w-3.5 h-3.5 transition-colors", mounted && (theme === "dark" || resolvedTheme === "dark") ? "text-[#ff0054]" : "text-zinc-500 dark:text-gray-400")} />
+                            </button>
+                        </div>
+
                         {/* Report button with gradient border */}
                         <div className="p-[1px] rounded-full bg-gradient-to-r from-cyan-400 via-purple-500 to-pink-500">
                             <Button
                                 variant="ghost"
-                                className="h-8 bg-[#0a0a0c] text-white hover:bg-[#1a1a1e] rounded-full px-4 text-sm font-medium"
+                                className="h-8 bg-white dark:bg-[#0a0a0c] text-zinc-900 dark:text-white hover:bg-zinc-100 dark:hover:bg-[#1a1a1e] rounded-full px-4 text-sm font-medium"
                             >
                                 Report
                             </Button>
                         </div>
-                        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-[#1a1a1e] h-8 w-8">
+                        <Button variant="ghost" size="icon" className="text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-[#1a1a1e] h-8 w-8">
                             <Search className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-[#1a1a1e] h-8 w-8">
+                        <Button variant="ghost" size="icon" className="text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-[#1a1a1e] h-8 w-8">
                             <Settings className="w-4 h-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="text-gray-400 hover:text-white hover:bg-[#1a1a1e] h-8 w-8">
+                        <Button variant="ghost" size="icon" className="text-zinc-500 dark:text-gray-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-[#1a1a1e] h-8 w-8">
                             <Grid className="w-4 h-4" />
                         </Button>
-                        <Avatar className="w-7 h-7 border border-[#2a2a2e]">
+                        <Avatar className="w-7 h-7 border border-zinc-200 dark:border-[#2a2a2e]">
                             <AvatarImage src="https://github.com/shadcn.png" />
                             <AvatarFallback>CN</AvatarFallback>
                         </Avatar>

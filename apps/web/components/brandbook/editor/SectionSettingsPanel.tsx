@@ -57,6 +57,7 @@ export interface SectionSettings {
     backgroundGradient?: SectionGradient
     gridOption?: number
     isGridUnlocked?: boolean
+    isFreeFlow?: boolean
     distribution?: string
     rowPadding?: string
     columnWidths?: number[]
@@ -120,6 +121,7 @@ export function SectionSettingsPanel({
     const [selectedRatio, setSelectedRatio] = useState(settings?.aspectRatio || '')
     const [gridOption, setGridOption] = useState(settings?.gridOption || 0)
     const [isGridUnlocked, setIsGridUnlocked] = useState(settings?.isGridUnlocked || false)
+    const [isFreeFlow, setIsFreeFlow] = useState(settings?.isFreeFlow || false)
     const [distribution, setDistribution] = useState(settings?.distribution || 'between-full')
     const [rowPadding, setRowPadding] = useState(settings?.rowPadding || 'S')
     const [isZoomImage, setIsZoomImage] = useState(settings?.isZoomImage || false)
@@ -222,6 +224,7 @@ export function SectionSettingsPanel({
             aspectRatio: selectedRatio,
             gridOption: gridOption,
             isGridUnlocked: isGridUnlocked,
+            isFreeFlow: isFreeFlow,
             distribution: distribution,
             rowPadding: rowPadding,
             isZoomImage: isZoomImage,
@@ -246,7 +249,6 @@ export function SectionSettingsPanel({
 
     const handleColChange = (col: number) => {
         setSelectedCol(col)
-        setSelectedCol(col)
         // Reset columns widths and options when column count changes
         emitUpdate({ columns: col, columnWidths: undefined, gridOption: 0 })
     }
@@ -263,7 +265,7 @@ export function SectionSettingsPanel({
 
     const handleGridOptionChange = (opt: number) => {
         setGridOption(opt)
-        // Reset custom widths when a standard preset is chosen and Lock grid
+        // Reset custom widths when a standard preset is chosen and Lock grid resizing
         setIsGridUnlocked(false)
         emitUpdate({ gridOption: opt, columnWidths: undefined, isGridUnlocked: false })
     }
@@ -277,6 +279,11 @@ export function SectionSettingsPanel({
         } else {
             emitUpdate({ isGridUnlocked: unlocked })
         }
+    }
+
+    const handleFreeFlowChange = (freeFlow: boolean) => {
+        setIsFreeFlow(freeFlow)
+        emitUpdate({ isFreeFlow: freeFlow })
     }
 
     const handleDistributionChange = (dist: string) => {
@@ -1023,77 +1030,102 @@ export function SectionSettingsPanel({
                     </div>
                 </div>
 
-                {/* 6. Grid */}
-                {/* 6. Grid */}
-                {selectedCol !== 1 && (
-                    <div>
-                        <Label className="text-[#97A1B3]">Grid</Label>
+                {/* 6. Grid, Redimensionamento & Movimento livre */}
+                <div className="flex flex-col gap-3">
+                    {selectedCol !== 1 && (
+                        <div>
+                            <Label className="text-[#97A1B3]">Grid</Label>
 
-                        {/* Visual Selectors for 2 and 3 Cols */}
-                        {selectedCol === 2 && (
-                            <div className="flex gap-[6px] w-full mb-3">
-                                {/* 50/50 */}
-                                <button onClick={() => handleGridOptionChange(0)} className={cn("flex-1 h-[35px] border rounded-[2px] flex", gridOption === 0 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
-                                    <div className="w-1/2 h-full border-r border-inherit opacity-50" />
-                                    <div className="w-1/2 h-full" />
-                                </button>
-                                {/* 30/70 - Right gets bg-[#27282D] */}
-                                <button onClick={() => handleGridOptionChange(1)} className={cn("flex-1 h-[35px] border rounded-[2px] flex", gridOption === 1 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
-                                    <div className="w-[30%] h-full border-r border-inherit opacity-50" />
-                                    <div className="w-[70%] h-full bg-[#27282D]" />
-                                </button>
-                                {/* 70/30 - Left gets bg-[#27282D] */}
-                                <button onClick={() => handleGridOptionChange(2)} className={cn("flex-1 h-[35px] border rounded-[2px] flex", gridOption === 2 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
-                                    <div className="w-[70%] h-full border-r border-inherit opacity-50 bg-[#27282D]" />
-                                    <div className="w-[30%] h-full" />
-                                </button>
-                            </div>
-                        )}
+                            {/* Visual Selectors for 2 and 3 Cols */}
+                            {selectedCol === 2 && (
+                                <div className="flex gap-[6px] w-full mb-3">
+                                    {/* 50/50 */}
+                                    <button onClick={() => handleGridOptionChange(0)} className={cn("flex-1 h-[35px] border rounded-[2px] flex cursor-pointer", gridOption === 0 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
+                                        <div className="w-1/2 h-full border-r border-inherit opacity-50" />
+                                        <div className="w-1/2 h-full" />
+                                    </button>
+                                    {/* 30/70 - Right gets bg-[#27282D] */}
+                                    <button onClick={() => handleGridOptionChange(1)} className={cn("flex-1 h-[35px] border rounded-[2px] flex cursor-pointer", gridOption === 1 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
+                                        <div className="w-[30%] h-full border-r border-inherit opacity-50" />
+                                        <div className="w-[70%] h-full bg-[#27282D]" />
+                                    </button>
+                                    {/* 70/30 - Left gets bg-[#27282D] */}
+                                    <button onClick={() => handleGridOptionChange(2)} className={cn("flex-1 h-[35px] border rounded-[2px] flex cursor-pointer", gridOption === 2 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
+                                        <div className="w-[70%] h-full border-r border-inherit opacity-50 bg-[#27282D]" />
+                                        <div className="w-[30%] h-full" />
+                                    </button>
+                                </div>
+                            )}
 
-                        {selectedCol === 3 && (
-                            <div className="flex gap-[6px] w-full mb-3">
-                                {/* Equal */}
-                                <button onClick={() => handleGridOptionChange(0)} className={cn("flex-1 h-[35px] border rounded-[2px] flex", gridOption === 0 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
-                                    <div className="flex-1 h-full border-r border-inherit opacity-50" />
-                                    <div className="flex-1 h-full border-r border-inherit opacity-50" />
-                                    <div className="flex-1 h-full" />
-                                </button>
-                                {/* Left Heavy 50/25/25 */}
-                                <button onClick={() => handleGridOptionChange(1)} className={cn("flex-1 h-[35px] border rounded-[2px] flex", gridOption === 1 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
-                                    <div className="w-1/2 h-full border-r border-inherit bg-[#27282D]" />
-                                    <div className="w-1/4 h-full border-r border-inherit opacity-50" />
-                                    <div className="w-1/4 h-full" />
-                                </button>
-                                {/* Center Heavy 25/50/25 */}
-                                <button onClick={() => handleGridOptionChange(2)} className={cn("flex-1 h-[35px] border rounded-[2px] flex", gridOption === 2 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
-                                    <div className="w-1/4 h-full border-r border-inherit opacity-50" />
-                                    <div className="w-1/2 h-full border-r border-inherit bg-[#27282D]" />
-                                    <div className="w-1/4 h-full" />
-                                </button>
-                                {/* Right Heavy 25/25/50 */}
-                                <button onClick={() => handleGridOptionChange(3)} className={cn("flex-1 h-[35px] border rounded-[2px] flex", gridOption === 3 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
-                                    <div className="w-1/4 h-full border-r border-inherit opacity-50" />
-                                    <div className="w-1/4 h-full border-r border-inherit opacity-50" />
-                                    <div className="w-1/2 h-full bg-[#27282D]" />
-                                </button>
-                            </div>
-                        )}
+                            {selectedCol === 3 && (
+                                <div className="flex gap-[6px] w-full mb-3">
+                                    {/* Equal */}
+                                    <button onClick={() => handleGridOptionChange(0)} className={cn("flex-1 h-[35px] border rounded-[2px] flex cursor-pointer", gridOption === 0 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
+                                        <div className="flex-1 h-full border-r border-inherit opacity-50" />
+                                        <div className="flex-1 h-full border-r border-inherit opacity-50" />
+                                        <div className="flex-1 h-full" />
+                                    </button>
+                                    {/* Left Heavy 50/25/25 */}
+                                    <button onClick={() => handleGridOptionChange(1)} className={cn("flex-1 h-[35px] border rounded-[2px] flex cursor-pointer", gridOption === 1 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
+                                        <div className="w-1/2 h-full border-r border-inherit bg-[#27282D]" />
+                                        <div className="w-1/4 h-full border-r border-inherit opacity-50" />
+                                        <div className="w-1/4 h-full" />
+                                    </button>
+                                    {/* Center Heavy 25/50/25 */}
+                                    <button onClick={() => handleGridOptionChange(2)} className={cn("flex-1 h-[35px] border rounded-[2px] flex cursor-pointer", gridOption === 2 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
+                                        <div className="w-1/4 h-full border-r border-inherit opacity-50" />
+                                        <div className="w-1/2 h-full border-r border-inherit bg-[#27282D]" />
+                                        <div className="w-1/4 h-full" />
+                                    </button>
+                                    {/* Right Heavy 25/25/50 */}
+                                    <button onClick={() => handleGridOptionChange(3)} className={cn("flex-1 h-[35px] border rounded-[2px] flex cursor-pointer", gridOption === 3 ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]")}>
+                                        <div className="w-1/4 h-full border-r border-inherit opacity-50" />
+                                        <div className="w-1/4 h-full border-r border-inherit opacity-50" />
+                                        <div className="w-1/2 h-full bg-[#27282D]" />
+                                    </button>
+                                </div>
+                            )}
 
-                        {/* Unlock Free-flow Toggle (For 2, 3, 4 cols) */}
-                        <div className="flex items-center justify-between">
-                            <Label className="mb-0 text-[#97A1B3]">Unlock free-flow grid</Label>
-                            <div
-                                onClick={() => handleGridUnlockChange(!isGridUnlocked)}
-                                className="w-[36px] h-[20px] bg-[#3F3F46] rounded-[999px] relative cursor-pointer"
-                            >
-                                <div className={cn(
-                                    "w-[16px] h-[16px] bg-white rounded-full absolute top-[2px] shadow-sm transition-all",
-                                    isGridUnlocked ? "right-[2px]" : "left-[2px]"
-                                )} />
+                            {/* Redimensionar largura das colunas Toggle */}
+                            <div className="flex items-center justify-between py-1">
+                                <Label className="mb-0 text-[#97A1B3]">Redimensionar colunas</Label>
+                                <button
+                                    type="button"
+                                    onClick={() => handleGridUnlockChange(!isGridUnlocked)}
+                                    className={cn(
+                                        "w-[44px] h-[24px] rounded-full relative transition-colors duration-200 cursor-pointer",
+                                        isGridUnlocked ? "bg-[#FF0054]" : "bg-[#2A2B35]"
+                                    )}
+                                    title="Habilita os controles para redimensionar a largura das colunas"
+                                >
+                                    <div className={cn(
+                                        "w-[20px] h-[20px] rounded-full bg-white absolute top-[2px] transition-transform duration-200 shadow-md",
+                                        isGridUnlocked ? "translate-x-[22px]" : "translate-x-[2px]"
+                                    )} />
+                                </button>
                             </div>
                         </div>
+                    )}
+
+                    {/* Movimento livre Toggle */}
+                    <div className={cn("flex items-center justify-between py-1", selectedCol !== 1 && "border-t border-[#333]/30 pt-2")}>
+                        <Label className="mb-0 text-[#97A1B3]">Movimento livre</Label>
+                        <button
+                            type="button"
+                            onClick={() => handleFreeFlowChange(!isFreeFlow)}
+                            className={cn(
+                                "w-[44px] h-[24px] rounded-full relative transition-colors duration-200 cursor-pointer",
+                                isFreeFlow ? "bg-[#FF0054]" : "bg-[#2A2B35]"
+                            )}
+                            title="Habilita o movimento livre das colunas dentro da seção"
+                        >
+                            <div className={cn(
+                                "w-[20px] h-[20px] rounded-full bg-white absolute top-[2px] transition-transform duration-200 shadow-md",
+                                isFreeFlow ? "translate-x-[22px]" : "translate-x-[2px]"
+                            )} />
+                        </button>
                     </div>
-                )}
+                </div>
 
                 {/* 7. Distribuição */}
                 <div>

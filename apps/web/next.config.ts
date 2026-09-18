@@ -1,5 +1,5 @@
 import { withVisualEdit as withBefreeVisualEdit } from 'befree-visual-edit/next';
-
+import path from "path";
 import type { NextConfig } from "next";
 
 const securityHeaders = [
@@ -71,7 +71,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  turbopack: {},
+  outputFileTracingRoot: path.join(__dirname),
+  turbopack: {
+    root: path.join(__dirname),
+  },
 };
 
 export default withBefreeVisualEdit(nextConfig);

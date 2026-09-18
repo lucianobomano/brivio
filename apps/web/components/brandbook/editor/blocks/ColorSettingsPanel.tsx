@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect } from "react"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 import { cn } from "@/lib/utils"
 import { PaletteSettings } from "./PaletteSettingsPanel"
+import { InlineColorPicker } from "@/components/ui/inline-color-picker"
 
 interface ColorSettings {
     showPantone?: boolean
@@ -118,55 +119,42 @@ export function ColorSettingsPanel({ color, settings, onUpdateBlock, onUpdateCol
 
             <div className="p-4 space-y-6 text-[#888] max-h-[600px] overflow-y-auto custom-scrollbar">
 
-                {/* Main Color Picker (Simulation) */}
-                <div className="space-y-3">
-                    {/* Big Area */}
-                    <div className="w-full h-[120px] rounded-lg relative overflow-hidden group">
-                        <div
-                            className="absolute inset-0 z-0 bg-gradient-to-b from-transparent to-black"
-                            style={{ backgroundColor: color.value }}
-                        />
+                {/* Main Color Picker */}
+                <InlineColorPicker
+                    color={color.value}
+                    onChange={(newHex) => onUpdateColor(color.id, { value: newHex })}
+                    height={120}
+                    showHueSlider={true}
+                />
+
+                {/* Hex & Name Input */}
+                <div className="space-y-2">
+                    <div className="bg-[#1A1A1A] rounded border border-[#333] p-2 flex items-center group/name">
+                        <span className="text-[10px] uppercase font-bold text-[#444] mr-2 shrink-0">Name</span>
                         <input
-                            type="color"
-                            value={color.value}
-                            onChange={(e) => onUpdateColor(color.id, { value: e.target.value })}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                            type="text"
+                            value={color.name}
+                            onChange={(e) => onUpdateColor(color.id, { name: e.target.value })}
+                            className="bg-transparent border-none text-white text-sm w-full outline-none focus:text-[#FF0054] transition-colors"
+                            placeholder="Color name"
                         />
                     </div>
-                    {/* Hue Slider (Fake/Native driven) */}
-                    <div className="w-full h-3 rounded-full bg-gradient-to-r from-red-500 via-green-500 to-blue-500 relative">
-                        <div className="w-3 h-3 bg-white rounded-full absolute top-0 left-0 shadow-sm border border-black/10 transform translate-x-[0px]" /> {/* Static visual */}
-                    </div>
 
-                    {/* Hex & Name Input */}
-                    <div className="space-y-2">
-                        <div className="bg-[#1A1A1A] rounded border border-[#333] p-2 flex items-center group/name">
-                            <span className="text-[10px] uppercase font-bold text-[#444] mr-2 shrink-0">Name</span>
-                            <input
-                                type="text"
-                                value={color.name}
-                                onChange={(e) => onUpdateColor(color.id, { name: e.target.value })}
-                                className="bg-transparent border-none text-white text-sm w-full outline-none focus:text-[#FF0054] transition-colors"
-                                placeholder="Color name"
-                            />
-                        </div>
-
-                        <div className="bg-[#1A1A1A] rounded border border-[#333] p-2 flex items-center group/hex">
-                            <span className="text-[10px] uppercase font-bold text-[#444] mr-2 shrink-0">Hex</span>
-                            <input
-                                type="text"
-                                value={color.value.toUpperCase()}
-                                onChange={(e) => {
-                                    let val = e.target.value;
-                                    if (val && !val.startsWith('#')) val = '#' + val;
-                                    // Simple validation: only hex chars and #
-                                    if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
-                                        onUpdateColor(color.id, { value: val });
-                                    }
-                                }}
-                                className="bg-transparent border-none text-white font-mono text-center w-full outline-none focus:text-[#FF0054] transition-colors"
-                            />
-                        </div>
+                    <div className="bg-[#1A1A1A] rounded border border-[#333] p-2 flex items-center group/hex">
+                        <span className="text-[10px] uppercase font-bold text-[#444] mr-2 shrink-0">Hex</span>
+                        <input
+                            type="text"
+                            value={color.value.toUpperCase()}
+                            onChange={(e) => {
+                                let val = e.target.value;
+                                if (val && !val.startsWith('#')) val = '#' + val;
+                                // Simple validation: only hex chars and #
+                                if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                                    onUpdateColor(color.id, { value: val });
+                                }
+                            }}
+                            className="bg-transparent border-none text-white font-mono text-center w-full outline-none focus:text-[#FF0054] transition-colors"
+                        />
                     </div>
                 </div>
 

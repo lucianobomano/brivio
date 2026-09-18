@@ -507,11 +507,17 @@ export function MainCanvas({
             return list.map(b => {
                 if (b.id === blockId) {
                     // If content has position, lift it to the block level
-                    const { position, ...restContent } = content as { position?: { x: number; y: number } }
+                    if (content && typeof content === 'object' && 'position' in content) {
+                        const { position, ...restContent } = content as { position?: { x: number; y: number } }
+                        return {
+                            ...b,
+                            content: Object.keys(restContent).length > 0 ? (typeof b.content === 'object' ? { ...b.content, ...restContent } : restContent) : b.content,
+                            position: position !== undefined ? position : b.position
+                        }
+                    }
                     return {
                         ...b,
-                        content: restContent as Block['content'],
-                        position: position || b.position
+                        content: content as Block['content']
                     }
                 }
                 if (b.type === 'layout' && b.content?.columns) {

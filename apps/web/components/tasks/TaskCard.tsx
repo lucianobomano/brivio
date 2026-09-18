@@ -63,7 +63,7 @@ function formatTimeInput(minutes: number): string {
     return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`
 }
 
-const HoverIconBtn = ({ icon: Icon, text, color = "bg-[#363636]", borderColor, onClick }: { icon: React.ElementType, text: string, color?: string, borderColor?: string, onClick?: () => void }) => (
+const HoverIconBtn = ({ icon: Icon, text, color = "bg-zinc-100 dark:bg-[#363636]", borderColor, onClick }: { icon: React.ElementType, text: string, color?: string, borderColor?: string, onClick?: () => void }) => (
     <div
         className={cn(
             "group/icon flex items-center h-8 rounded-full transition-all duration-300 overflow-hidden cursor-pointer px-2 py-0.5",
@@ -73,8 +73,8 @@ const HoverIconBtn = ({ icon: Icon, text, color = "bg-[#363636]", borderColor, o
         style={borderColor ? { borderColor } : {}}
         onClick={onClick}
     >
-        <Icon className="w-4 h-4 text-gray-400 group-hover/icon:text-white shrink-0" />
-        <span className="text-xs text-white font-medium opacity-0 group-hover/icon:opacity-100 whitespace-nowrap duration-300 delay-75">
+        <Icon className="w-4 h-4 text-zinc-600 dark:text-gray-400 group-hover/icon:text-zinc-900 dark:group-hover/icon:text-white shrink-0" />
+        <span className="text-xs text-zinc-900 dark:text-white font-medium opacity-0 group-hover/icon:opacity-100 whitespace-nowrap duration-300 delay-75">
             {text}
         </span>
     </div>
@@ -270,11 +270,11 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
             {...attributes}
             {...listeners}
             className={cn(
-                "rounded-lg border bg-[#1a1a1e] cursor-pointer relative",
+                "rounded-xl border bg-white dark:bg-[#1A1A22] cursor-pointer relative shadow-xs hover:shadow-md dark:shadow-none",
                 "transition-all duration-300 ease-in-out",
                 (showSubtasks || isHovered || task.subtasks.length > 0) ? "h-auto" : (isFocusMode && isFirst ? "h-[72px]" : (isFocusMode ? "h-[54px]" : "h-[85px]")),
-                task.completed ? "border-green-500/30 opacity-60" : "border-[#2a2a2e]",
-                (isHovered || isOverlay) && !task.completed && !isFirst && "border-[#3a3a3e]",
+                task.completed ? "border-emerald-500/30 dark:border-green-500/30 opacity-60" : "border-zinc-200/80 dark:border-[#2A2A35]",
+                (isHovered || isOverlay) && !task.completed && !isFirst && "border-zinc-300 dark:border-[#3E3E4D]",
                 isOverlay && "shadow-xl border-[#dd005a]/50 scale-105"
             )}
             onMouseEnter={() => setIsHovered(true)}
@@ -294,24 +294,24 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                     onClick={() => setIsPaused(!isPaused)}
                                 />
                                 <HoverIconBtn icon={SkipForward} text="Skip" />
-                                <div className="group/icon flex items-center h-8 rounded-full transition-all duration-300 overflow-hidden cursor-pointer px-2 py-0.5 border border-green-500 hover:px-3 gap-0 hover:gap-2 w-8 hover:w-auto">
-                                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                                    <span className="text-xs text-green-500 font-medium opacity-0 group-hover/icon:opacity-100 whitespace-nowrap">Done</span>
+                                <div className="group/icon flex items-center h-8 rounded-full transition-all duration-300 overflow-hidden cursor-pointer px-2 py-0.5 border border-emerald-500 hover:px-3 gap-0 hover:gap-2 w-8 hover:w-auto">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                                    <span className="text-xs text-emerald-600 dark:text-emerald-400 font-medium opacity-0 group-hover/icon:opacity-100 whitespace-nowrap">Done</span>
                                 </div>
                             </div>
                         ) : (
                             <div className="flex items-center justify-between w-full">
-                                <span className="text-[16px] font-semibold text-white truncate">{task.title}</span>
+                                <span className="text-[16px] font-semibold text-zinc-900 dark:text-white truncate">{task.title}</span>
                                 {isPaused ? (
                                     <div className="flex flex-col items-end gap-1">
-                                        <span className="text-[20px] font-mono font-bold text-yellow-500">PAUSED</span>
+                                        <span className="text-[20px] font-mono font-bold text-amber-500">PAUSED</span>
                                         <div className="flex items-center space-x-2 text-[12px]">
-                                            <span className="text-gray-500">{formatTime(task.estimated_time)}</span>
-                                            <span className="text-gray-500">{formatTime(task.elapsed_time || 0)}</span>
+                                            <span className="text-zinc-500 dark:text-gray-500">{formatTime(task.estimated_time)}</span>
+                                            <span className="text-zinc-500 dark:text-gray-500">{formatTime(task.elapsed_time || 0)}</span>
                                         </div>
                                     </div>
                                 ) : (
-                                    <span className="text-[20px] font-mono font-medium text-white">{formatTimer(timeLeft)}</span>
+                                    <span className="text-[20px] font-mono font-medium text-zinc-900 dark:text-white">{formatTimer(timeLeft)}</span>
                                 )}
                             </div>
                         )}
@@ -322,14 +322,14 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                             <div className="flex items-center space-x-2 flex-1 min-w-0">
                                 {!isFocusMode && (
                                     <div className="flex items-center space-x-1" onPointerDown={handleNoDrag}>
-                                        <span className="text-xs text-gray-500 w-4">{index}</span>
+                                        <span className="text-xs text-zinc-400 dark:text-gray-500 w-4 font-mono">{index}</span>
                                         {isHovered && !task.completed && (
                                             <motion.button
                                                 initial={{ opacity: 0, x: -10 }}
                                                 animate={{ opacity: 1, x: 0 }}
                                                 transition={{ duration: 0.2, ease: "easeOut" }}
                                                 onClick={handleToggleComplete}
-                                                className="text-gray-500 hover:text-white transition-colors"
+                                                className="text-zinc-400 hover:text-zinc-900 dark:text-gray-500 dark:hover:text-white transition-colors"
                                                 disabled={isLoading}
                                             >
                                                 <Square className="w-4 h-4" />
@@ -338,7 +338,7 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                         {task.completed && (
                                             <button
                                                 onClick={handleToggleComplete}
-                                                className="text-green-500 hover:text-green-400 transition-colors"
+                                                className="text-emerald-500 hover:text-emerald-600 dark:text-green-500 dark:hover:text-green-400 transition-colors"
                                                 disabled={isLoading}
                                             >
                                                 <CheckSquare className="w-4 h-4" />
@@ -350,7 +350,7 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                 {isFocusMode && (
                                     <div className="flex items-center space-x-2">
                                         {isHovered ? (
-                                            <button onClick={handleToggleComplete} className="text-gray-500 hover:text-white" onPointerDown={handleNoDrag}>
+                                            <button onClick={handleToggleComplete} className="text-zinc-400 hover:text-zinc-900 dark:text-gray-500 dark:hover:text-white" onPointerDown={handleNoDrag}>
                                                 <Square className="w-4 h-4" />
                                             </button>
                                         ) : null}
@@ -359,7 +359,7 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
 
                                 <span className={cn(
                                     "font-medium truncate",
-                                    task.completed ? "text-gray-500 line-through" : "text-white",
+                                    task.completed ? "text-zinc-400 dark:text-gray-500 line-through" : "text-zinc-900 dark:text-white",
                                     isFocusMode ? "text-[14px]" : "text-sm",
                                 )}>
                                     {task.title}
@@ -370,11 +370,11 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                 isHovered ? (
                                     <div className="flex items-center space-x-2 animate-in fade-in zoom-in duration-200">
                                         <div className="flex items-center space-x-2" onPointerDown={handleNoDrag}>
-                                            <span className="text-xs text-gray-500 font-mono">{formatTime(task.estimated_time)}</span>
+                                            <span className="text-xs text-zinc-500 dark:text-gray-500 font-mono">{formatTime(task.estimated_time)}</span>
                                         </div>
 
                                         <div
-                                            className="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold shrink-0"
+                                            className="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold shrink-0 shadow-xs"
                                             style={list.color.includes('gradient') ? { background: list.color } : { backgroundColor: list.color }}
                                         >
                                             {list.title.charAt(0).toUpperCase()}
@@ -382,7 +382,7 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                     </div>
                                 ) : (
                                     <div
-                                        className="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold shrink-0 opacity-80"
+                                        className="w-5 h-5 rounded flex items-center justify-center text-white text-[9px] font-bold shrink-0 opacity-80 shadow-xs"
                                         style={list.color.includes('gradient') ? { background: list.color } : { backgroundColor: list.color }}
                                     >
                                         {list.title.charAt(0).toUpperCase()}
@@ -400,20 +400,20 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                         >
                                             <button
                                                 onClick={() => setShowSubtasks(!showSubtasks)}
-                                                className="p-1 text-gray-500 hover:text-white transition-colors"
+                                                className="p-1 text-zinc-400 hover:text-zinc-800 dark:text-gray-500 dark:hover:text-white transition-colors"
                                                 title="Show subtasks"
                                             >
                                                 <List className="w-4 h-4" />
                                             </button>
                                             <button
-                                                className="p-1 text-gray-500 hover:text-white transition-colors"
+                                                className="p-1 text-zinc-400 hover:text-zinc-800 dark:text-gray-500 dark:hover:text-white transition-colors"
                                                 title="Show notes"
                                             >
                                                 <StickyNote className="w-4 h-4" />
                                             </button>
                                             <button
                                                 onClick={() => handleMoveTask('left')}
-                                                className="p-1 text-gray-500 hover:text-white transition-colors"
+                                                className="p-1 text-zinc-400 hover:text-zinc-800 dark:text-gray-500 dark:hover:text-white transition-colors"
                                                 title="Move to previous board"
                                                 disabled={isLoading}
                                             >
@@ -421,7 +421,7 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                             </button>
                                             <button
                                                 onClick={() => handleMoveTask('right')}
-                                                className="p-1 text-gray-500 hover:text-white transition-colors"
+                                                className="p-1 text-zinc-400 hover:text-zinc-800 dark:text-gray-500 dark:hover:text-white transition-colors"
                                                 title="Move to next board"
                                                 disabled={isLoading}
                                             >
@@ -430,26 +430,26 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                             <div className="relative" ref={dropdownRef}>
                                                 <button
                                                     onClick={() => setShowDropdown(!showDropdown)}
-                                                    className="p-1 text-gray-500 hover:text-white transition-colors"
+                                                    className="p-1 text-zinc-400 hover:text-zinc-800 dark:text-gray-500 dark:hover:text-white transition-colors"
                                                     title="More options"
                                                 >
                                                     <MoreVertical className="w-4 h-4" />
                                                 </button>
 
                                                 {showDropdown && (
-                                                    <div className="absolute right-0 top-full mt-1 w-[135px] bg-[#171717] rounded-lg shadow-xl z-50 p-2">
-                                                        <button className="w-full text-left px-2 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-[#2a2a2e] rounded transition-colors">
+                                                    <div className="absolute right-0 top-full mt-1 w-[135px] bg-white dark:bg-[#1A1A22] border border-zinc-200 dark:border-[#2A2A35] rounded-lg shadow-xl z-50 p-1.5">
+                                                        <button className="w-full text-left px-2 py-1.5 text-sm text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-[#2a2a2e] rounded transition-colors">
                                                             Schedule
                                                         </button>
-                                                        <button className="w-full text-left px-2 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-[#2a2a2e] rounded transition-colors">
+                                                        <button className="w-full text-left px-2 py-1.5 text-sm text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-[#2a2a2e] rounded transition-colors">
                                                             Change list
                                                         </button>
-                                                        <button className="w-full text-left px-2 py-1.5 text-sm text-gray-300 hover:text-white hover:bg-[#2a2a2e] rounded transition-colors">
+                                                        <button className="w-full text-left px-2 py-1.5 text-sm text-zinc-700 hover:text-zinc-900 hover:bg-zinc-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-[#2a2a2e] rounded transition-colors">
                                                             Duplicate
                                                         </button>
                                                         <button
                                                             onClick={handleDelete}
-                                                            className="w-full text-left px-2 py-1.5 text-sm text-red-500 hover:bg-[#2a2a2e] rounded transition-colors"
+                                                            className="w-full text-left px-2 py-1.5 text-sm text-red-600 hover:bg-red-50 dark:text-red-500 dark:hover:bg-[#2a2a2e] rounded transition-colors"
                                                         >
                                                             Delete
                                                         </button>
@@ -459,7 +459,7 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                         </motion.div>
                                     ) : (
                                         <div
-                                            className="w-6 h-6 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                                            className="w-6 h-6 rounded flex items-center justify-center text-white text-[10px] font-bold shrink-0 shadow-xs"
                                             style={list.color.includes('gradient')
                                                 ? { background: list.color }
                                                 : { backgroundColor: list.color }
@@ -482,14 +482,14 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                             onChange={(e) => setEstValue(e.target.value)}
                                             onBlur={handleEstBlur}
                                             onKeyDown={(e) => handleKeyDown(e, 'est')}
-                                            className="w-14 h-5 p-0 text-[12px] text-center bg-transparent border-none focus:ring-0"
+                                            className="w-14 h-5 p-0 text-[12px] text-center bg-transparent border-none text-zinc-900 dark:text-white focus:ring-0 font-mono"
                                             autoFocus
                                         />
                                     </div>
                                 ) : (
                                     <button
                                         onClick={() => { setEditingEst(true); setEstValue(formatTimeInput(task.estimated_time)); }}
-                                        className="text-[12px] text-gray-500 hover:text-white transition-colors"
+                                        className="text-[12px] text-zinc-500 hover:text-zinc-900 dark:text-gray-500 dark:hover:text-white transition-colors font-mono"
                                     >
                                         {task.estimated_time > 0 ? formatTime(task.estimated_time) : "+ EST"}
                                     </button>
@@ -503,14 +503,14 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                             onChange={(e) => setElapsedValue(e.target.value)}
                                             onBlur={handleElapsedBlur}
                                             onKeyDown={(e) => handleKeyDown(e, 'elapsed')}
-                                            className="w-14 h-5 p-0 text-[12px] text-center bg-transparent border-none focus:ring-0"
+                                            className="w-14 h-5 p-0 text-[12px] text-center bg-transparent border-none text-zinc-900 dark:text-white focus:ring-0 font-mono"
                                             autoFocus
                                         />
                                     </div>
                                 ) : (
                                     <button
                                         onClick={() => { setEditingElapsed(true); setElapsedValue(formatTimeInput(task.elapsed_time || 0)); }}
-                                        className="text-[12px] text-gray-500 hover:text-white transition-colors"
+                                        className="text-[12px] text-zinc-500 hover:text-zinc-900 dark:text-gray-500 dark:hover:text-white transition-colors font-mono"
                                     >
                                         {formatTime(task.elapsed_time || 0)}
                                     </button>
@@ -520,7 +520,7 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
 
                         {isFocusMode && task.subtasks.length > 0 && (
                             <div className="w-full">
-                                <div className="h-[1px] bg-[#515151] w-full mb-2"></div>
+                                <div className="h-[1px] bg-zinc-200 dark:bg-[#2A2A35] w-full mb-2"></div>
                                 <div
                                     className="flex items-center justify-between cursor-pointer group/sub"
                                     onClick={() => setShowSubtasks(!showSubtasks)}
@@ -529,15 +529,15 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                                     <div className="flex items-center space-x-2">
                                         <div className="relative w-3 h-3">
                                             <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                                                <path className="text-gray-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
+                                                <path className="text-zinc-300 dark:text-gray-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
                                                 <path className="text-purple-500" strokeDasharray={`${(completedSubtasks / subtasks.length) * 100}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4" />
                                             </svg>
                                         </div>
-                                        <span className="text-[11px] text-gray-500 group-hover/sub:text-white transition-colors">
+                                        <span className="text-[11px] text-zinc-500 group-hover/sub:text-zinc-900 dark:text-gray-400 dark:group-hover/sub:text-white transition-colors">
                                             {completedSubtasks}/{subtasks.length} Subtasks
                                         </span>
                                     </div>
-                                    <ChevronDown className={cn("w-3 h-3 text-gray-500 transition-transform", showSubtasks && "rotate-180")} />
+                                    <ChevronDown className={cn("w-3 h-3 text-zinc-400 dark:text-gray-400 transition-transform", showSubtasks && "rotate-180")} />
                                 </div>
                             </div>
                         )}
@@ -554,20 +554,20 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                         onPointerDown={handleNoDrag}
                     >
                         <div className="flex items-center space-x-2">
-                            <Circle className="w-[12px] h-[12px] text-gray-500" />
-                            <span className="text-[12px] text-gray-500 group-hover/subtask-header:text-white transition-colors">
+                            <Circle className="w-[12px] h-[12px] text-zinc-400 dark:text-gray-400" />
+                            <span className="text-[12px] text-zinc-500 group-hover/subtask-header:text-zinc-900 dark:text-gray-400 dark:group-hover/subtask-header:text-white transition-colors">
                                 {completedSubtasks}/{subtasks.length} Subtasks
                             </span>
                             <button
                                 onClick={(e) => { e.stopPropagation(); setIsAddingSubtask(true); }}
-                                className="text-gray-500 hover:text-white transition-colors"
+                                className="text-zinc-400 hover:text-zinc-800 dark:text-gray-400 dark:hover:text-white transition-colors"
                             >
                                 <Plus className="w-[12px] h-[12px]" />
                             </button>
                         </div>
                         <ChevronDown
                             className={cn(
-                                "w-[12px] h-[12px] text-gray-500 group-hover/subtask-header:text-white transition-all",
+                                "w-[12px] h-[12px] text-zinc-400 group-hover/subtask-header:text-zinc-900 dark:text-gray-400 dark:group-hover/subtask-header:text-white transition-all",
                                 showSubtasks && "rotate-180"
                             )}
                         />
@@ -583,20 +583,20 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                         exit={{ height: 0, opacity: 0 }}
                         className="overflow-hidden"
                     >
-                        <div className="border-t border-[#2a2a2e] px-3 pb-3" onPointerDown={handleNoDrag}>
+                        <div className="border-t border-zinc-100 dark:border-[#2A2A35] px-3 pb-3" onPointerDown={handleNoDrag}>
                             <div className="space-y-[8px] mt-2">
                                 {subtasks.map((subtask) => (
                                     <div key={subtask.id} className="flex items-center space-x-2">
                                         <button onClick={() => handleToggleSubtask(subtask.id)}>
                                             {subtask.completed ? (
-                                                <CheckCircle2 className="w-[12px] h-[12px] text-green-500" />
+                                                <CheckCircle2 className="w-[12px] h-[12px] text-emerald-500" />
                                             ) : (
-                                                <Circle className="w-[12px] h-[12px] text-gray-500" />
+                                                <Circle className="w-[12px] h-[12px] text-zinc-400 dark:text-gray-400" />
                                             )}
                                         </button>
                                         <span className={cn(
                                             "text-[12px] transition-colors cursor-default",
-                                            subtask.completed ? "text-gray-500 line-through" : "text-[#636363] hover:text-white"
+                                            subtask.completed ? "text-zinc-400 dark:text-gray-500 line-through" : "text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white"
                                         )}>
                                             {subtask.title}
                                         </span>
@@ -605,18 +605,18 @@ export default function TaskCard({ task, index, list, listId, onUpdate, onOptimi
                             </div>
 
                             {isAddingSubtask && (
-                                <div className="mt-2.5 flex items-center bg-[#0a0a0c] border border-[#2a2a2e] rounded-md px-2 focus-within:border-gray-500 transition-colors">
+                                <div className="mt-2.5 flex items-center bg-zinc-50 dark:bg-[#12121A] border border-zinc-200 dark:border-[#2A2A35] rounded-md px-2 focus-within:border-zinc-400 dark:focus-within:border-zinc-500 transition-colors">
                                     <Input
                                         value={newSubtaskTitle}
                                         onChange={(e) => setNewSubtaskTitle(e.target.value)}
                                         placeholder="Enter subtask title*"
-                                        className="h-[34px] flex-1 bg-transparent border-none text-xs text-white p-0 placeholder:text-gray-500 focus-visible:ring-0 shadow-none focus-visible:ring-offset-0"
+                                        className="h-[34px] flex-1 bg-transparent border-none text-xs text-zinc-900 dark:text-white p-0 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus-visible:ring-0 shadow-none focus-visible:ring-offset-0"
                                         onKeyDown={(e) => e.key === 'Enter' && handleAddSubtask()}
                                         autoFocus
                                     />
                                     <button
                                         onClick={() => setIsAddingSubtask(false)}
-                                        className="text-gray-500 hover:text-white ml-2 transition-colors"
+                                        className="text-zinc-400 hover:text-zinc-800 dark:text-gray-400 dark:hover:text-white ml-2 transition-colors"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>

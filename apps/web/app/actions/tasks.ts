@@ -70,6 +70,177 @@ export async function createTaskList(data: {
     return { success: true, list }
 }
 
+export interface ProjectCardItem {
+    id: string
+    name: string
+    color: string
+    brand?: {
+        id: string
+        name: string
+        logo_url?: string | null
+    } | null
+    category?: string | null
+    tasks: Task[]
+    pendingCount: number
+    totalEstimatedMinutes: number
+    updated_at?: string
+    created_at?: string
+}
+
+const PROJECT_CARD_PALETTES = [
+    "linear-gradient(135deg, #0070F3 0%, #00DFD8 100%)",
+    "linear-gradient(135deg, #7928CA 0%, #FF0080 100%)",
+    "linear-gradient(135deg, #FF4D4D 0%, #F9CB28 100%)",
+    "linear-gradient(135deg, #0575E6 0%, #00F260 100%)",
+    "linear-gradient(135deg, #8A2387 0%, #E94057 50%, #F27121 100%)",
+    "linear-gradient(135deg, #654ea3 0%, #eaafc8 100%)",
+    "linear-gradient(135deg, #11998e 0%, #38ef7d 100%)",
+    "linear-gradient(135deg, #FC466B 0%, #3F5EFB 100%)",
+]
+
+function getDeterministicColor(str: string): string {
+    let hash = 0
+    for (let i = 0; i < str.length; i++) {
+        hash = str.charCodeAt(i) + ((hash << 5) - hash)
+    }
+    const index = Math.abs(hash) % PROJECT_CARD_PALETTES.length
+    return PROJECT_CARD_PALETTES[index]
+}
+
+export async function getUserProjectsWithTasks(userId: string): Promise<ProjectCardItem[]> {
+    const supabase = await createClient()
+
+    let workspaceIds: string[] = []
+    try {
+        const { data: members } = await supabase
+            .from('workspace_members')
+            .select('workspace_id')
+            .eq('user_id', userId)
+
+        if (members) {
+            workspaceIds = members.map(m => m.workspace_id)
+        }
+    } catch (e) {
+        console.error("Error fetching workspace members:", e)
+    }
+
+    let query = supabase
+        .from('projects')
+        .select(`
+            id,
+            name,
+            category,
+            workspace_id,
+            created_by,
+            created_at,
+            updated_at,
+            brand:brands(id, name, logo_url),
+            tasks(
+                id,
+                title,
+                status,
+                completed,
+                estimated_time,
+                elapsed_time,
+                position,
+                created_at
+            )
+        `)
+        .order('updated_at', { ascending: false })
+
+    if (workspaceIds.length > 0) {
+        query = query.or(`created_by.eq.${userId},workspace_id.in.(${workspaceIds.join(',')})`)
+    } else {
+        query = query.eq('created_by', userId)
+    }
+
+    const { data: projects, error } = await query
+
+    if (error) {
+        console.error("[getUserProjectsWithTasks] Error:", error.message)
+        return []
+    }
+
+    return (projects || []).map((p: any) => {
+        const color = getDeterministicColor(p.id || p.name)
+        const rawTasks = p.tasks || []
+
+        const tasks: Task[] = rawTasks.map((t: any) => {
+            let status: TaskStatus = "backlog"
+            if (t.status === "done" || t.completed) status = "done"
+            else if (t.status === "today") status = "today"
+            else if (t.status === "this_week" || t.status === "in_progress") status = "this_week"
+            else if (t.status === "backlog" || t.status === "todo") status = "backlog"
+
+            return {
+                id: t.id,
+                list_id: p.id,
+                title: t.title || "Untitled Task",
+                status,
+                estimated_time: t.estimated_time || 0,
+                elapsed_time: t.elapsed_time || 0,
+                completed: !!t.completed || status === "done",
+                subtasks: [],
+                position: t.position || 0,
+                created_at: t.created_at || new Date().toISOString(),
+                updated_at: t.updated_at || new Date().toISOString(),
+            }
+        }).sort((a: Task, b: Task) => (a.position || 0) - (b.position || 0))
+
+        const pendingTasks = tasks.filter(t => !t.completed)
+        const totalEstimatedMinutes = pendingTasks.reduce((acc, t) => acc + (t.estimated_time || 0), 0)
+
+        return {
+            id: p.id,
+            name: p.name,
+            color,
+            brand: p.brand,
+            category: p.category,
+            tasks,
+            pendingCount: pendingTasks.length,
+            totalEstimatedMinutes,
+            updated_at: p.updated_at,
+            created_at: p.created_at,
+        }
+    })
+}
+
+export async function createQuickProject(data: {
+    name: string
+    userId: string
+}) {
+    const supabase = await createClient()
+
+    const { data: members } = await supabase
+        .from('workspace_members')
+        .select('workspace_id')
+        .eq('user_id', data.userId)
+        .limit(1)
+
+    const workspaceId = members?.[0]?.workspace_id || null
+
+    const { data: project, error } = await supabase
+        .from('projects')
+        .insert({
+            name: data.name,
+            created_by: data.userId,
+            workspace_id: workspaceId,
+            status: 'planning',
+            type: 'project'
+        })
+        .select()
+        .single()
+
+    if (error) {
+        console.error("Error creating quick project:", error)
+        return { success: false, error: error.message }
+    }
+
+    revalidatePath('/tasks')
+    revalidatePath('/projects')
+    return { success: true, project }
+}
+
 export interface TaskListWithTasks extends TaskList {
     tasks: Task[]
 }
@@ -101,9 +272,6 @@ export async function getTaskLists(userId: string) {
         return []
     }
 
-    // Sort tasks by position or created_at if needed, though client can do it.
-    // Supabase returns tasks as an array on the list object.
-
     console.log("[getTaskLists] Found lists:", lists?.length || 0)
     return lists as TaskListWithTasks[]
 }
@@ -111,18 +279,46 @@ export async function getTaskLists(userId: string) {
 export async function getTaskList(listId: string) {
     const supabase = await createClient()
 
+    // 1. Try task_lists
     const { data: list, error } = await supabase
         .from('task_lists')
         .select('*')
         .eq('id', listId)
         .single()
 
-    if (error) {
-        console.error("Error fetching list:", error)
-        return null
+    if (list && !error) {
+        return list as TaskList
     }
 
-    return list as TaskList
+    // 2. Try projects
+    const { data: project, error: projError } = await supabase
+        .from('projects')
+        .select(`
+            id,
+            name,
+            created_by,
+            created_at,
+            updated_at,
+            brand:brands(id, name, logo_url)
+        `)
+        .eq('id', listId)
+        .single()
+
+    if (project && !projError) {
+        const color = getDeterministicColor(project.id || project.name)
+        return {
+            id: project.id,
+            title: project.name,
+            color,
+            icon_url: (project.brand as any)?.logo_url || null,
+            user_id: project.created_by,
+            created_at: project.created_at,
+            updated_at: project.updated_at,
+            archived: false,
+        } as TaskList
+    }
+
+    return null
 }
 
 export async function archiveTaskList(listId: string) {
@@ -160,23 +356,38 @@ export async function createTask(data: {
         return { success: false, error: "Not authenticated" }
     }
 
-    // Debug: Check list ownership
-    const { data: list, error: listError } = await supabase
+    // 1. Check if listId is a task_list
+    const { data: list } = await supabase
         .from('task_lists')
         .select('id, user_id')
         .eq('id', data.listId)
         .single()
 
-    console.log("[createTask] List check:", list, "Error:", listError)
+    const isTaskList = !!list
+    let isProject = false
 
-    if (!list) return { success: false, error: "List not found" }
-    if (list.user_id !== user.id) return { success: false, error: "List belongs to another user" }
+    if (!isTaskList) {
+        // 2. Check if listId is a project
+        const { data: project } = await supabase
+            .from('projects')
+            .select('id, created_by')
+            .eq('id', data.listId)
+            .single()
+
+        if (project) {
+            isProject = true
+        }
+    }
+
+    if (!isTaskList && !isProject) {
+        return { success: false, error: "List or Project not found" }
+    }
 
     // Calculate position: max position + 1000
     const { data: maxPosTask } = await supabase
         .from('tasks')
         .select('position')
-        .eq('list_id', data.listId)
+        .or(`list_id.eq.${data.listId},project_id.eq.${data.listId}`)
         .eq('status', data.status)
         .order('position', { ascending: false })
         .limit(1)
@@ -184,18 +395,26 @@ export async function createTask(data: {
 
     const newPosition = (maxPosTask?.position || 0) + 1000
 
+    const insertData: Record<string, unknown> = {
+        title: data.title,
+        status: data.status,
+        estimated_time: data.estimatedTime || 0,
+        elapsed_time: 0,
+        subtasks: [],
+        completed: data.status === "done",
+        position: newPosition,
+        created_by: user.id
+    }
+
+    if (isTaskList) {
+        insertData.list_id = data.listId
+    } else {
+        insertData.project_id = data.listId
+    }
+
     const { data: task, error } = await supabase
         .from('tasks')
-        .insert({
-            list_id: data.listId,
-            title: data.title,
-            status: data.status,
-            estimated_time: data.estimatedTime || 0,
-            elapsed_time: 0,
-            subtasks: [],
-            completed: false,
-            position: newPosition,
-        })
+        .insert(insertData)
         .select()
         .single()
 
@@ -205,6 +424,7 @@ export async function createTask(data: {
     }
 
     revalidatePath(`/tasks/${data.listId}`)
+    revalidatePath('/tasks')
     return { success: true, task }
 }
 
@@ -214,7 +434,7 @@ export async function getTasksByList(listId: string): Promise<Task[]> {
     const { data: tasks, error } = await supabase
         .from('tasks')
         .select('*')
-        .eq('list_id', listId)
+        .or(`list_id.eq.${listId},project_id.eq.${listId}`)
         .order('position', { ascending: true })
 
     if (error) {
@@ -223,12 +443,23 @@ export async function getTasksByList(listId: string): Promise<Task[]> {
     }
 
     // Map tasks to ensure all fields have default values
-    return (tasks || []).map(task => ({
-        ...task,
-        elapsed_time: task.elapsed_time ?? 0,
-        subtasks: task.subtasks ?? [],
-        position: task.position ?? 0,
-    })) as Task[]
+    return (tasks || []).map(task => {
+        let status: TaskStatus = "backlog"
+        if (task.status === "done" || task.completed) status = "done"
+        else if (task.status === "today") status = "today"
+        else if (task.status === "this_week" || task.status === "in_progress") status = "this_week"
+        else if (task.status === "backlog" || task.status === "todo") status = "backlog"
+
+        return {
+            ...task,
+            status,
+            list_id: task.list_id || task.project_id || listId,
+            elapsed_time: task.elapsed_time ?? 0,
+            subtasks: task.subtasks ?? [],
+            position: task.position ?? 0,
+            estimated_time: task.estimated_time ?? 0,
+        }
+    }) as Task[]
 }
 
 export async function updateTaskStatus(taskId: string, status: TaskStatus, listId: string) {
@@ -251,6 +482,7 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus, listI
     }
 
     revalidatePath(`/tasks/${listId}`)
+    revalidatePath('/tasks')
     return { success: true }
 }
 
@@ -280,6 +512,7 @@ export async function updateTaskPosition(
     }
 
     revalidatePath(`/tasks/${listId}`)
+    revalidatePath('/tasks')
     return { success: true }
 }
 
@@ -304,6 +537,7 @@ export async function updateTask(taskId: string, data: {
     }
 
     revalidatePath(`/tasks/${listId}`)
+    revalidatePath('/tasks')
     return { success: true }
 }
 
@@ -321,6 +555,7 @@ export async function deleteTask(taskId: string, listId: string) {
     }
 
     revalidatePath(`/tasks/${listId}`)
+    revalidatePath('/tasks')
     return { success: true }
 }
 
@@ -345,6 +580,7 @@ export async function updateTaskTime(taskId: string, field: 'estimated_time' | '
     }
 
     revalidatePath(`/tasks/${listId}`)
+    revalidatePath('/tasks')
     return { success: true }
 }
 
@@ -381,6 +617,7 @@ export async function toggleTaskComplete(taskId: string, listId: string) {
     }
 
     revalidatePath(`/tasks/${listId}`)
+    revalidatePath('/tasks')
     return { success: true, completed: newCompleted }
 }
 

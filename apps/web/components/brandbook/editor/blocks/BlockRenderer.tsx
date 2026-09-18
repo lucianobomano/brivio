@@ -292,7 +292,7 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                         {block.content.text || ""}
                     </div>
                 ) : (
-                    <div className="relative w-full">
+                    <div className={cn("relative w-full", block.content.style?.height && "h-full min-h-[inherit]")}>
                         <AutoResizeTextarea
                             value={block.content.text || ""}
                             readOnly={isReadOnly}
@@ -308,7 +308,8 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 "break-words max-w-full w-full min-h-0 bg-transparent border rounded-none shadow-none focus:ring-0 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 transition-colors",
                                 isHeading ? "placeholder:text-gray-400/50 leading-tight text-gray-900" : "text-gray-600 leading-relaxed",
                                 isToolbarVisible ? "border-[#FF0054]" : "border-transparent hover:border-[#FF0054] focus:border-[#FF0054]",
-                                block.content.style?.backgroundColor ? "p-4" : "p-0"
+                                block.content.style?.backgroundColor ? "p-4" : "p-0",
+                                block.content.style?.height && "h-full min-h-[inherit]"
                             )}
                             style={{
                                 fontFamily: globalStyle?.font,

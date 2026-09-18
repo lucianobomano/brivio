@@ -2,6 +2,7 @@ import React from "react"
 import { X, Check, ArrowUp, ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { InlineColorPicker } from "@/components/ui/inline-color-picker"
 
 interface TextSettingsPanelProps {
     isOpen: boolean
@@ -75,19 +76,15 @@ export function TextSettingsPanel({
 
                 <div className="px-4 flex flex-col gap-4">
                     {/* Color Picker Area */}
-                    {/* Represents the Saturation/Value area */}
-                    <div
-                        className="w-full h-[140px] rounded-sm relative cursor-crosshair border border-white/10"
-                        style={{ backgroundColor: color }}
-                    >
-                        {/* This would be the interactive area. For now just visual placeholder or native input trigger */}
-                        <input
-                            type="color"
-                            value={color}
-                            onChange={(e) => onColorChange(e.target.value)}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                    </div>
+                    <InlineColorPicker
+                        color={color}
+                        onChange={(newHex) => {
+                            onColorChange(newHex)
+                            setHexInput(newHex)
+                        }}
+                        height={130}
+                        showHueSlider={true}
+                    />
 
                     {/* Hex Input Row */}
                     <div className="flex gap-2 h-[40px]">

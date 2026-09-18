@@ -195,15 +195,16 @@ export default function BrandbookEditor({
         const item = items.find(m => m.id === moduleId)
         if (!item) return
 
-        const newCategory = getEffectiveCategory({ ...item, title: newTitle })
+        // Preserve existing effective category so renaming does not kick module into 'others'
+        const preservedCategory = item.category || getEffectiveCategory(item)
 
         setItems(prev => prev.map(m =>
             m.id === moduleId
-                ? { ...m, title: newTitle, category: newCategory }
+                ? { ...m, title: newTitle, category: preservedCategory }
                 : m
         ))
 
-        await updateModule(moduleId, { title: newTitle, category: newCategory }, brandId)
+        await updateModule(moduleId, { title: newTitle, category: preservedCategory }, brandId)
     }
 
     const handleDuplicateModule = async (moduleId: string) => {

@@ -13,42 +13,69 @@ interface ColumnSplitterProps {
 export const ColumnSplitter = ({ index, onResizeStart, onResize, onResizeEnd }: ColumnSplitterProps) => {
     const [isDragging, setIsDragging] = useState(false)
 
-    const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    const handlePointerDown = useCallback((e: React.PointerEvent) => {
         e.preventDefault()
         e.stopPropagation()
+
+        const handleElement = e.currentTarget as HTMLElement
+        try {
+            handleElement.setPointerCapture(e.pointerId)
+        } catch {}
+
         setIsDragging(true)
         onResizeStart(index)
 
         const startX = e.clientX
-
-        const handleMouseMove = (moveEvent: MouseEvent) => {
-            const deltaX = moveEvent.clientX - startX
-            // We pass the absolute delta, parent handles the rest? 
-            // Better to pass delta from start or delta from last frame? 
-            // usually delta from start is easier if parent tracks start widths.
-            // Let's pass simple delta for now, but commonly we need accumulated delta.
-            // Actually, for "drag to resize", we probably want the current delta since start.
-            onResize(index, moveEvent.clientX - startX)
-        }
-
-        const handleMouseUp = () => {
-            setIsDragging(false)
-            onResizeEnd()
-            document.removeEventListener('mousemove', handleMouseMove)
-            document.removeEventListener('mouseup', handleMouseUp)
-            document.body.style.cursor = 'unset'
-        }
-
-        document.addEventListener('mousemove', handleMouseMove)
-        document.addEventListener('mouseup', handleMouseUp)
+        const prevUserSelect = document.body.style.userSelect
+        const prevCursor = document.body.style.cursor
+        document.body.style.userSelect = 'none'
         document.body.style.cursor = 'col-resize'
+
+        let rafId: number | null = null
+        let latestDelta = 0
+
+        const handlePointerMove = (moveEvent: PointerEvent) => {
+            latestDelta = moveEvent.clientX - startX
+            if (rafId === null) {
+                rafId = requestAnimationFrame(() => {
+                    rafId = null
+                    onResize(index, latestDelta)
+                })
+            }
+        }
+
+        const handlePointerUp = (upEvent: PointerEvent) => {
+            try {
+                handleElement.releasePointerCapture(upEvent.pointerId)
+            } catch {}
+
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId)
+                rafId = null
+            }
+
+            setIsDragging(false)
+            onResize(index, latestDelta)
+            onResizeEnd()
+
+            document.body.style.userSelect = prevUserSelect
+            document.body.style.cursor = prevCursor
+
+            window.removeEventListener('pointermove', handlePointerMove)
+            window.removeEventListener('pointerup', handlePointerUp)
+            window.removeEventListener('pointercancel', handlePointerUp)
+        }
+
+        window.addEventListener('pointermove', handlePointerMove, { passive: true })
+        window.addEventListener('pointerup', handlePointerUp)
+        window.addEventListener('pointercancel', handlePointerUp)
     }, [index, onResize, onResizeEnd, onResizeStart])
 
     return (
         <div
             className="absolute top-0 bottom-0 w-[24px] -ml-[12px] z-30 flex items-center justify-center cursor-col-resize group select-none pointer-events-auto"
             style={{ left: 'calc(100% + 1rem)' }} // Centered in gap-8 (2rem)
-            onMouseDown={handleMouseDown}
+            onPointerDown={handlePointerDown}
         >
             {/* Dashed Line */}
             <div className={`h-full w-[1px] border-l border-dashed border-[#FF0054] transition-opacity ${isDragging ? 'opacity-100' : 'opacity-100 group-hover:opacity-100'}`} />

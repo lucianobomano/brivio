@@ -6,20 +6,12 @@ import {
     Clock,
     AlertCircle,
     FolderOpen,
-    LayoutGrid,
     Calendar,
-    MoreHorizontal,
-    MessageSquare,
-    Paperclip,
-    Link2,
-    File,
-    Plus,
 } from "lucide-react"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import { format } from "date-fns"
 import { pt } from "date-fns/locale"
-import { useCurrency } from "@/components/CurrencyUtils"
 
 import type { Project } from "./ProjectsClient"
 
@@ -28,62 +20,53 @@ interface ProjectDashboardViewProps {
     onViewChange?: (view: string) => void
 }
 
-
-
-// Mock data for Gantt projects
+// Mock data for Gantt projects fallback
 const MOCK_GANTT_PROJECTS = [
-    { id: "1", name: "Dashboard Design", task: "About 5 Hours", progress: 85, color: "#06D6A0", members: ["/avatar1.png", "/avatar2.png"] },
-    { id: "2", name: "Mobile App", task: "Final", progress: 60, color: "#FACC15", members: ["/avatar1.png"] },
-    { id: "3", name: "Landing Page", task: "Submit Wireframe", progress: 50, color: "#FF0054", members: ["/avatar1.png", "/avatar2.png", "/avatar3.png"] },
-    { id: "4", name: "Prototyping", task: "Admin panel", progress: 55, color: "#F97316", members: ["/avatar1.png"] },
-    { id: "5", name: "Meeting", task: "Project Discussion", progress: 90, color: "#FF0054", members: ["/avatar1.png", "/avatar2.png", "/avatar3.png"] },
+    { id: "1", name: "Dashboard Design", task: "About 5 Hours", progress: 85, color: "#06D6A0", members: [] },
+    { id: "2", name: "Mobile App", task: "Final", progress: 60, color: "#FACC15", members: [] },
+    { id: "3", name: "Landing Page", task: "Submit Wireframe", progress: 50, color: "#FF0054", members: [] },
+    { id: "4", name: "Prototyping", task: "Admin panel", progress: 55, color: "#F97316", members: [] },
+    { id: "5", name: "Meeting", task: "Project Discussion", progress: 90, color: "#FF0054", members: [] },
 ]
 
-// Mock daily focus
+// Mock daily focus fallback
 const MOCK_DAILY_FOCUS = [
-    { name: "Project Name", subtitle: "Nome do responsável" },
-    { name: "Project Name", subtitle: "Nome do responsável" },
-    { name: "Project Name", subtitle: "Nome do responsável" },
+    { name: "Revisão de Protótipo", subtitle: "Equipa de Design" },
+    { name: "Alinhamento Estratégico", subtitle: "Gestão de Projeto" },
+    { name: "Auditoria Visual Final", subtitle: "Direção de Arte" },
 ]
-
-
 
 export function ProjectDashboardView({ projects, onViewChange }: ProjectDashboardViewProps) {
-    const { formatPrice } = useCurrency()
     const [focusTime, setFocusTime] = React.useState({ minutes: 74, seconds: 0 })
     const [isTimerRunning, setIsTimerRunning] = React.useState(false)
     const [viewMode, setViewMode] = React.useState<"Daily" | "Weekly" | "Monthly" | "Yearly">("Daily")
 
-    // Realistic mapping for Gantt from projects prop
-    // We'll take top 5 projects with dates or just top 5
-    const ganttColors = ["#06D6A0", "#FF0054", "#FACC15", "#88007F", "#311C99"];
+    const ganttColors = ["#06D6A0", "#FF0054", "#FACC15", "#88007F", "#311C99"]
 
     const ganttProjects = projects
         .filter(p => p.start_date && p.due_date)
         .slice(0, 5)
         .map((p, idx) => {
-            // Calculate total and completed tasks from the tasks array
-            const projectTasks = p.tasks || [];
-            const totalTasks = projectTasks.length;
-            const completedTasks = projectTasks.filter(t => t.completed).length;
+            const projectTasks = p.tasks || []
+            const totalTasks = projectTasks.length
+            const completedTasks = projectTasks.filter(t => t.completed).length
 
-            // Calculate progress based on completed tasks if available
             const calculatedProgress = totalTasks > 0
                 ? Math.round((completedTasks / totalTasks) * 100)
-                : (p.progress || 0);
+                : (p.progress || 0)
 
             return {
                 id: p.id,
                 name: p.name,
                 task: p.category
-                    ? p.category.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+                    ? p.category.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ")
                     : (p.type ? p.type.charAt(0).toUpperCase() + p.type.slice(1) : "Active"),
                 progress: calculatedProgress,
                 color: ganttColors[idx % ganttColors.length],
                 members: [p.creator?.avatar_url].filter(Boolean) as string[],
                 startDate: new Date(p.start_date!),
                 endDate: new Date(p.due_date!)
-            };
+            }
         })
 
     // Daily Focus Logic
@@ -95,19 +78,19 @@ export function ProjectDashboardView({ projects, onViewChange }: ProjectDashboar
                     name: t.title,
                     subtitle: t.assignee?.name || p.creator?.name || "Responsável"
                 }))
-        );
-        return allPending.length > 0 ? allPending.slice(0, 3) : MOCK_DAILY_FOCUS;
-    }, [projects]);
+        )
+        return allPending.length > 0 ? allPending.slice(0, 3) : MOCK_DAILY_FOCUS
+    }, [projects])
 
-    // Weekly Capacity Logic (global task progress)
+    // Weekly Capacity Logic
     const weeklyCapacity = React.useMemo(() => {
-        const allTasks = projects.flatMap(p => p.tasks || []);
-        if (allTasks.length === 0) return 55;
-        const completed = allTasks.filter(t => t.completed).length;
-        return Math.round((completed / allTasks.length) * 100);
-    }, [projects]);
+        const allTasks = projects.flatMap(p => p.tasks || [])
+        if (allTasks.length === 0) return 55
+        const completed = allTasks.filter(t => t.completed).length
+        return Math.round((completed / allTasks.length) * 100)
+    }, [projects])
 
-    // Address focusTime logic
+    // Timer logic
     React.useEffect(() => {
         if (!isTimerRunning) return
         const timer = setInterval(() => {
@@ -126,55 +109,27 @@ export function ProjectDashboardView({ projects, onViewChange }: ProjectDashboar
         return () => clearInterval(timer)
     }, [isTimerRunning])
 
-    // Fallback if no projects have dates
+    // Effective Projects for Display
     const effectiveGanttProjects = React.useMemo(() => {
-        const sourceProjects = ganttProjects.length > 0 ? ganttProjects : MOCK_GANTT_PROJECTS.map(p => ({
-            ...p,
-            startDate: new Date(),
-            endDate: new Date(new Date().getTime() + 1000 * 60 * 60 * 24 * 7)
-        }))
-
-        // Calculate positioning relative to a 30-day window (for example)
-        const now = new Date()
-        const startOfWindow = new Date(now)
-        startOfWindow.setDate(startOfWindow.getDate() - 7) // Start 7 days ago
-        const endOfWindow = new Date(startOfWindow)
-        endOfWindow.setDate(endOfWindow.getDate() + 30) // 30 day window
-
-        const totalWidth = endOfWindow.getTime() - startOfWindow.getTime()
-
-        return sourceProjects.map(p => {
-            const pStart = p.startDate.getTime()
-            const pEnd = p.endDate.getTime()
-
-            // Calculate % offset from start of window
-            const leftOffset = Math.max(0, Math.min(100, ((pStart - startOfWindow.getTime()) / totalWidth) * 100))
-            const durationWidth = Math.max(10, Math.min(100 - leftOffset, ((pEnd - pStart) / totalWidth) * 100))
-
-            return {
-                ...p,
-                leftOffset,
-                durationWidth
-            }
-        })
+        return ganttProjects.length > 0 ? ganttProjects : MOCK_GANTT_PROJECTS
     }, [ganttProjects])
 
     // Dynamic Stats Calculations
     const stats = React.useMemo(() => {
         const completed = projects.filter(p =>
             ["completed", "done", "finished"].includes(p.status?.toLowerCase() || "") ||
-            p.status_label?.toLowerCase() === 'completed'
+            p.status_label?.toLowerCase() === "completed"
         ).length
 
         const incomplete = projects.filter(p =>
             !["completed", "done", "finished"].includes(p.status?.toLowerCase() || "") &&
-            p.status_label?.toLowerCase() !== 'completed'
+            p.status_label?.toLowerCase() !== "completed"
         ).length
 
         const overdue = projects.filter(p => {
             if (!p.due_date) return false
             const isCompleted = ["completed", "done", "finished"].includes(p.status?.toLowerCase() || "") ||
-                p.status_label?.toLowerCase() === 'completed'
+                p.status_label?.toLowerCase() === "completed"
             return !isCompleted && new Date(p.due_date) < new Date()
         }).length
 
@@ -186,253 +141,227 @@ export function ProjectDashboardView({ projects, onViewChange }: ProjectDashboar
         }
     }, [projects])
 
-    const currentDate = format(new Date(), "dd MMM. yyyy", { locale: pt })
+    const currentDate = format(new Date(), "dd 'de' MMMM 'de' yyyy", { locale: pt })
 
     return (
-        <div className="w-full min-h-screen bg-bg-0 font-inter">
-            {/* Dashboard Content */}
-            <div className="px-0">
-                {/* ===== FIRST ROW - 4 STATS CARDS ===== */}
-                <div className="grid grid-cols-4" style={{ gap: "20px", marginBottom: "30px" }}>
-                    {[
-                        { value: stats.completed, label: "Projectos Concluídos", icon: CheckCircle2, color: "#06D6A0" },
-                        { value: stats.incomplete, label: "Projectos Activos", icon: Clock, color: "#311C99" },
-                        { value: stats.overdue, label: "Projectos em Atraso", icon: AlertCircle, color: "#FF0054" },
-                        { value: stats.total, label: "Total de Projectos", icon: FolderOpen, color: "#FACC15" },
-                    ].map((stat, i) => (
-                        <div
-                            key={i}
-                            onClick={() => onViewChange?.("padrao")}
-                            className="flex items-center justify-between bg-bg-0 cursor-pointer group transition-all duration-300 hover:border-accent-indigo active:scale-[0.98]"
-                            style={{
-                                height: "180px",
-                                border: "1px solid #373737",
-                                borderRadius: "12px",
-                                padding: "24px",
-                            }}
-                        >
-                            <div className="flex flex-col">
-                                <span
-                                    className="font-black tracking-tighter transition-all duration-500 group-hover:translate-x-1"
-                                    style={{ fontSize: "64px", color: "#97A1B3", lineHeight: "1" }}
-                                >
-                                    {stat.value}
-                                </span>
-                                <span className="text-sm font-bold text-text-tertiary uppercase tracking-widest mt-4">
-                                    {stat.label}
-                                </span>
-                            </div>
-                            <div
-                                className="w-16 h-16 rounded-2xl flex items-center justify-center transition-all duration-500 group-hover:rotate-12 group-hover:scale-110"
-                                style={{ backgroundColor: `${stat.color}10` }}
-                            >
-                                <stat.icon style={{ width: "32px", height: "32px", color: stat.color }} />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-
-                {/* ===== SECOND SECTION - GANTT + SIDE CARDS ===== */}
-                <div className="flex" style={{ gap: "20px", marginBottom: "30px" }}>
-                    {/* Gantt Chart */}
+        <div className="w-full max-w-[1520px] mx-auto flex flex-col gap-6 pb-36 font-sans animate-in fade-in duration-500">
+            {/* ===== PRIMEIRA LINHA - CARDS DE MÉTRICAS UNIFICADOS ("GRUDADOS" - ESTILO IMAGEM 2) ===== */}
+            <div className="w-full bg-white dark:bg-[#0c0c0e] border border-zinc-200/80 dark:border-white/[0.08] rounded-2xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-zinc-200/80 dark:divide-white/[0.08] overflow-hidden shadow-sm dark:shadow-xl">
+                {[
+                    {
+                        value: stats.completed,
+                        label: "Projectos Concluídos",
+                        icon: CheckCircle2,
+                        badgeBg: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                    },
+                    {
+                        value: stats.incomplete,
+                        label: "Projectos Activos",
+                        icon: Clock,
+                        badgeBg: "bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20"
+                    },
+                    {
+                        value: stats.overdue,
+                        label: "Projectos em Atraso",
+                        icon: AlertCircle,
+                        badgeBg: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                    },
+                    {
+                        value: stats.total,
+                        label: "Total de Projectos",
+                        icon: FolderOpen,
+                        badgeBg: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                    },
+                ].map((stat, i) => (
                     <div
-                        className="bg-bg-0"
-                        style={{
-                            width: "1085px",
-                            height: "790px",
-                            border: "1px solid #373737",
-                            borderRadius: "8px",
-                            padding: "24px",
-                        }}
+                        key={i}
+                        onClick={() => onViewChange?.("padrao")}
+                        className="px-6 py-5 flex flex-col justify-between hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition-colors cursor-pointer group"
                     >
-                        {/* Gantt Header */}
-                        <div className="flex items-center justify-between mb-6">
-                            <div className="flex items-center gap-3">
-                                <Calendar className="w-5 h-5 text-[#97A1B3]" />
-                                <span className="text-[#97A1B3] text-lg font-medium">{currentDate}</span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                {["Daily", "Weekly", "Monthly", "Yearly"].map((period) => (
-                                    <button
-                                        key={period}
-                                        onClick={() => setViewMode(period as "Daily" | "Weekly" | "Monthly" | "Yearly")}
-                                        className={cn(
-                                            "text-sm font-medium transition-colors",
-                                            period === viewMode ? "text-[#97A1B3]" : "text-[#515151] hover:text-[#97A1B3]"
-                                        )}
-                                    >
-                                        {period}
-                                    </button>
-                                ))}
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs text-zinc-500 dark:text-zinc-400 font-normal">
+                                {stat.label}
+                            </span>
+                            <div className={cn("w-6 h-6 rounded-md border flex items-center justify-center transition-transform group-hover:scale-105", stat.badgeBg)}>
+                                <stat.icon className="w-3 h-3" />
                             </div>
                         </div>
+                        <div className="mt-3 flex items-baseline justify-between">
+                            <span className="text-2xl lg:text-3xl font-semibold text-zinc-900 dark:text-white tracking-tight">
+                                {stat.value}
+                            </span>
+                            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-medium">
+                                projectos
+                            </span>
+                        </div>
+                    </div>
+                ))}
+            </div>
 
-                        {/* Gantt Content Area (with Grid Lines) */}
-                        <div className="relative" style={{ marginTop: "140px" }}>
-                            {/* Vertical Grid Lines */}
-                            <div className="absolute inset-0 flex justify-between pointer-events-none" style={{ left: "160px" }}>
-                                {[...Array(6)].map((_, i) => (
-                                    <div
-                                        key={i}
-                                        className="h-[540px] w-px bg-[#373737]/50"
-                                        style={{ height: "calc(100% + 40px)" }}
-                                    />
-                                ))}
-                            </div>
+            {/* ===== SEGUNDA SEÇÃO - PROGRESSO DOS PROJETOS + SIDEBAR (TIMER & FOCO) ===== */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch">
+                {/* Coluna da Esquerda: Gráfico / Progresso dos Projetos (8 colunas) */}
+                <div className="xl:col-span-8 bg-white dark:bg-[#0c0c0e] border border-zinc-200/80 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm dark:shadow-2xl flex flex-col justify-between min-h-[794px]">
+                    {/* Cabeçalho do Card */}
+                    <div className="flex items-center justify-between pb-5 border-b border-zinc-200/80 dark:border-white/[0.06]">
+                        <div className="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                            <Calendar className="w-4 h-4 text-zinc-500 dark:text-zinc-400" />
+                            <span className="capitalize">{currentDate}</span>
+                        </div>
 
-                            {/* Gantt Rows */}
-                            <div className="flex flex-col relative z-10" style={{ gap: "60px" }}>
-                                {effectiveGanttProjects.map((project) => (
-                                    <div key={project.id} className="flex items-center">
-                                        {/* Project Name */}
-                                        <div style={{ width: "160px" }} className="shrink-0">
-                                            <span className="text-[#97A1B3] text-sm truncate pr-4 block">{project.name}</span>
-                                        </div>
-
-                                        {/* Project Bar Container (The Track) */}
-                                        <div
-                                            className="flex-1 relative h-[60px] bg-[#E8EBFF] dark:bg-[#2A2D3A] rounded-full overflow-hidden flex items-center shadow-inner"
-                                            style={{
-                                                width: `${project.durationWidth}%`,
-                                                marginLeft: `${project.leftOffset}%`,
-                                            }}
-                                        >
-                                            {/* Solid Progress Filling */}
-                                            <div
-                                                className="absolute top-0 left-0 h-full flex items-center transition-all duration-500 ease-out"
-                                                style={{
-                                                    width: `${project.progress}%`,
-                                                    backgroundColor: project.color,
-                                                    borderRadius: "100px",
-                                                    padding: "0 18px",
-                                                    zIndex: 1
-                                                }}
-                                            >
-                                                {/* Group containing avatars and task label */}
-                                                <div className="flex items-center gap-3 shrink-0">
-                                                    {/* Avatars Group */}
-                                                    <div className="flex -space-x-2 shrink-0">
-                                                        {project.members.length > 0 ? project.members.map((avatar, idx) => (
-                                                            <div
-                                                                key={idx}
-                                                                className="w-10 h-10 rounded-full bg-bg-2 border-2 border-white overflow-hidden shrink-0 shadow-sm"
-                                                            >
-                                                                <Image src={avatar} alt="" width={40} height={40} className="object-cover" />
-                                                            </div>
-                                                        )) : (
-                                                            <div className="w-10 h-10 rounded-full bg-bg-2 border-2 border-white flex items-center justify-center shadow-sm">
-                                                                <div className="w-full h-full bg-gradient-to-br from-purple-400 to-pink-400" />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    {/* Task Label */}
-                                                    <span className="text-[#97A1B3] text-base font-medium font-inter whitespace-nowrap">
-                                                        {project.task}
-                                                    </span>
-                                                </div>
-                                            </div>
-
-                                            {/* Percentage Pill (Always on the right of the track) */}
-                                            <div
-                                                className="absolute right-1 bg-white flex items-center justify-center shadow-sm"
-                                                style={{
-                                                    width: "83px",
-                                                    height: "52px",
-                                                    borderRadius: "100px",
-                                                    zIndex: 10
-                                                }}
-                                            >
-                                                <span className="text-black font-bold" style={{ fontSize: "20px" }}>{project.progress}%</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                        {/* Switcher de Escala */}
+                        <div className="bg-zinc-100 dark:bg-[#050507] border border-zinc-200/80 dark:border-white/[0.08] p-0.5 rounded-lg flex items-center gap-1">
+                            {(["Daily", "Weekly", "Monthly", "Yearly"] as const).map((period) => (
+                                <button
+                                    key={period}
+                                    onClick={() => setViewMode(period)}
+                                    className={cn(
+                                        "px-2.5 py-1 rounded-md text-xs font-medium transition-all",
+                                        period === viewMode
+                                            ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm"
+                                            : "text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-300"
+                                    )}
+                                >
+                                    {period === "Daily" ? "Diário" : period === "Weekly" ? "Semanal" : period === "Monthly" ? "Mensal" : "Anual"}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
-                    {/* Side Cards Column */}
-                    <div className="flex flex-col" style={{ gap: "20px" }}>
-                        {/* Focus Timer Card */}
-                        <div
-                            className="flex flex-col items-center justify-center"
-                            style={{
-                                width: "440px",
-                                height: "384px",
-                                backgroundColor: "#FF0054",
-                                borderRadius: "8px",
-                                padding: "24px",
-                            }}
-                        >
-                            <span className="text-white text-lg font-medium mb-4">focus timer</span>
-                            <span className="text-white font-bold" style={{ fontSize: "72px", lineHeight: "1" }}>
-                                {String(focusTime.minutes).padStart(2, "0")}:{String(focusTime.seconds).padStart(2, "0")}
-                            </span>
+                    {/* Lista de Projetos com Barras de Progresso Refinadas (Cápsulas Full Roundness com h-60px) */}
+                    <div className="flex flex-col gap-6 py-6 flex-1 justify-around relative">
+                        {/* Linhas Verticais de Referência (Discretas) */}
+                        <div className="absolute inset-y-0 left-40 right-16 flex justify-between pointer-events-none opacity-20">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="h-full w-px bg-zinc-300 dark:bg-white/[0.08]" />
+                            ))}
+                        </div>
+
+                        {effectiveGanttProjects.map((project) => (
+                            <div key={project.id} className="flex items-center gap-4 relative z-10">
+                                {/* Nome do Projeto */}
+                                <div className="w-36 shrink-0 truncate">
+                                    <span
+                                        onClick={() => onViewChange?.("padrao")}
+                                        className="text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-950 dark:hover:text-white transition-colors cursor-pointer truncate block"
+                                        title={project.name}
+                                    >
+                                        {project.name}
+                                    </span>
+                                </div>
+
+                                {/* Track de Progresso com Cápsula de Full Roundness com h-60px */}
+                                <div className="flex-1 h-[60px] bg-zinc-100/90 dark:bg-zinc-950/80 border border-zinc-200/80 dark:border-white/[0.06] rounded-full relative overflow-hidden flex items-center p-1">
+                                    <div
+                                        className="h-full rounded-full transition-all duration-500 ease-out flex items-center px-4 gap-3 relative overflow-hidden shadow-inner"
+                                        style={{
+                                            width: `${Math.max(20, project.progress)}%`,
+                                            backgroundColor: project.color ? `${project.color}25` : "rgba(100,100,100,0.1)",
+                                            border: `1px solid ${project.color ? `${project.color}50` : "rgba(100,100,100,0.2)"}`
+                                        }}
+                                    >
+                                        {/* Avatar / Inicial */}
+                                        <div className="w-8 h-8 rounded-full bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-white/20 flex items-center justify-center shrink-0 overflow-hidden text-xs font-bold text-zinc-800 dark:text-white shadow-sm">
+                                            {project.members && project.members.length > 0 && !project.members[0].startsWith("/avatar") ? (
+                                                <Image src={project.members[0]} alt="" width={32} height={32} className="object-cover" />
+                                            ) : (
+                                                project.name[0]?.toUpperCase() || "P"
+                                            )}
+                                        </div>
+                                        <span className="text-xs font-semibold text-zinc-800 dark:text-zinc-100 truncate whitespace-nowrap tracking-tight">
+                                            {project.task}
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Pílula de Percentagem */}
+                                <div className="w-14 shrink-0 flex justify-end">
+                                    <span className="px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200/80 dark:border-white/[0.08] text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                        {project.progress}%
+                                    </span>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Coluna da Direita: Temporizador de Foco + Foco Diário (4 colunas) */}
+                <div className="xl:col-span-4 flex flex-col gap-6">
+                    {/* Card 1: Temporizador de Foco (h-385px) */}
+                    <div className="h-[385px] bg-white dark:bg-[#0c0c0e] border border-zinc-200/80 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm dark:shadow-2xl flex flex-col items-center justify-center relative overflow-hidden text-center group shrink-0">
+                        {/* Glow Suave de Fundo */}
+                        <div className="absolute top-0 right-0 w-48 h-48 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                        <div className="flex items-center gap-2 text-xs font-medium text-zinc-500 dark:text-zinc-400 tracking-wider uppercase mb-3 relative z-10">
+                            <Clock className="w-4 h-4 text-rose-500" />
+                            <span>Temporizador de Foco</span>
+                        </div>
+
+                        <div className="text-6xl font-extralight tracking-tight text-zinc-900 dark:text-white font-mono my-4 relative z-10">
+                            {String(focusTime.minutes).padStart(2, "0")}:{String(focusTime.seconds).padStart(2, "0")}
+                        </div>
+
+                        <div className="flex flex-col items-center gap-3 mt-3 w-full max-w-[200px] relative z-10">
                             <button
                                 onClick={() => setIsTimerRunning(!isTimerRunning)}
-                                className="mt-6 bg-white text-[#FF0054] font-bold rounded-lg"
-                                style={{ width: "200px", height: "48px" }}
+                                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 font-semibold text-xs py-2.5 rounded-full transition-all shadow-md active:scale-95 flex items-center justify-center gap-1.5"
                             >
-                                {isTimerRunning ? "Pause" : "Start"}
+                                <span>{isTimerRunning ? "Pausar" : "Iniciar"}</span>
                             </button>
-                            <button className="mt-2 text-white font-medium hover:underline">
-                                Reset
+                            <button
+                                onClick={() => {
+                                    setIsTimerRunning(false)
+                                    setFocusTime({ minutes: 74, seconds: 0 })
+                                }}
+                                className="text-xs text-zinc-400 hover:text-zinc-700 dark:text-zinc-500 dark:hover:text-zinc-300 transition-colors py-1 font-medium"
+                            >
+                                Reiniciar
                             </button>
                         </div>
+                    </div>
 
-                        {/* Top Daily Focus Card */}
-                        <div
-                            className="flex flex-col"
-                            style={{
-                                width: "440px",
-                                height: "384px",
-                                border: "1px solid #373737",
-                                borderRadius: "8px",
-                                padding: "24px",
-                                gap: "37px"
-                            }}
-                        >
-                            <h3 style={{ fontSize: "32px", color: "#97A1B3" }}>Top Daily focus</h3>
+                    {/* Card 2: Foco Diário (h-385px) */}
+                    <div className="h-[385px] bg-white dark:bg-[#0c0c0e] border border-zinc-200/80 dark:border-white/[0.08] rounded-2xl p-6 shadow-sm dark:shadow-2xl flex flex-col justify-between shrink-0">
+                        <div className="flex items-center justify-between pb-3 border-b border-zinc-200/80 dark:border-white/[0.06]">
+                            <span className="text-xs font-medium text-zinc-800 dark:text-zinc-300 tracking-wide">
+                                Foco Diário
+                            </span>
+                            <span className="text-[11px] text-zinc-400 dark:text-zinc-500 font-normal">
+                                Prioridades
+                            </span>
+                        </div>
 
-                            <div className="flex flex-col gap-4">
-                                {dailyFocusTasks.map((item, idx) => (
-                                    <div key={idx} className="flex items-center gap-3">
-                                        <div className="w-3 h-3 rounded-full border-2 border-[#FF0054]" />
-                                        <div className="flex flex-col">
-                                            <span className="text-[#97A1B3] text-sm font-medium truncate max-w-[340px]">{item.name}</span>
-                                            <span className="text-[#97A1B3] text-xs">{item.subtitle}</span>
-                                        </div>
+                        <div className="flex flex-col gap-2.5 my-auto">
+                            {dailyFocusTasks.map((item, idx) => (
+                                <div key={idx} className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-zinc-50 dark:hover:bg-white/[0.02] transition-colors">
+                                    <div className="w-2 h-2 rounded-full bg-rose-500 mt-1 shrink-0 shadow-[0_0_8px_rgba(244,63,94,0.6)]" />
+                                    <div className="flex flex-col min-w-0">
+                                        <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                            {item.name}
+                                        </span>
+                                        <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                                            {item.subtitle}
+                                        </span>
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
+                        </div>
 
-                            {/* Progress Bar */}
-                            <div className="mt-auto">
-                                <div style={{ height: "1px", backgroundColor: "#373737", width: "100%", marginBottom: "16px" }} />
-                                <div className="flex justify-between text-xs text-[#97A1B3] mb-2">
-                                    <span>Capacidade Semanal</span>
-                                    <span>{weeklyCapacity}%</span>
-                                </div>
+                        {/* Capacidade Semanal */}
+                        <div className="pt-3 border-t border-zinc-200/80 dark:border-white/[0.04]">
+                            <div className="flex justify-between items-center text-xs text-zinc-500 dark:text-zinc-400 mb-2">
+                                <span>Capacidade Semanal</span>
+                                <span className="font-medium text-zinc-800 dark:text-zinc-200">{weeklyCapacity}%</span>
+                            </div>
+                            <div className="h-1.5 rounded-full overflow-hidden bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-white/[0.04]">
                                 <div
-                                    className="h-2 rounded-full overflow-hidden"
-                                    style={{ backgroundColor: "rgba(151, 161, 179, 0.25)" }}
-                                >
-                                    <div
-                                        className="h-full rounded-full transition-all duration-1000"
-                                        style={{
-                                            width: `${weeklyCapacity}%`,
-                                            background: "linear-gradient(90deg, #FF0054, #88007F, #06D6A0, #311C99)",
-                                        }}
-                                    />
-                                </div>
+                                    className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-rose-500 via-indigo-500 to-emerald-400"
+                                    style={{ width: `${weeklyCapacity}%` }}
+                                />
                             </div>
                         </div>
                     </div>
                 </div>
-
-
-
-
             </div>
         </div>
     )

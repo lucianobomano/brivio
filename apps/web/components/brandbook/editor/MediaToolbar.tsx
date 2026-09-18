@@ -39,10 +39,13 @@ export const MediaToolbar = ({
     }
 
     return (
-        <div className={cn(
-            "flex items-center bg-[#15161B] rounded-[4px] h-[36px] shadow-lg border border-[#333] relative whitespace-nowrap w-max min-w-max shrink-0 select-none",
-            className
-        )}>
+        <div
+            onClick={(e) => { e.stopPropagation(); onSelect?.() }}
+            className={cn(
+                "flex items-center bg-[#15161B] rounded-[4px] h-[36px] shadow-lg border border-[#333] relative whitespace-nowrap w-max min-w-max shrink-0 select-none",
+                className
+            )}
+        >
             {/* Pointer triangle/arrow at bottom center */}
             <div className="absolute -bottom-[6px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[#15161B]" />
             {/* Move Group */}

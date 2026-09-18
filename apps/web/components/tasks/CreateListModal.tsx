@@ -95,26 +95,26 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
             <DialogTrigger asChild>
                 {children}
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md bg-bg-1 border-bg-3 text-white p-8">
+            <DialogContent className="sm:max-w-md bg-white dark:bg-bg-1 border border-zinc-200 dark:border-bg-3 text-zinc-900 dark:text-white p-8 rounded-2xl shadow-2xl">
                 <DialogHeader className="text-center pb-2">
-                    <DialogTitle className="text-2xl font-bold text-center">Create a new list</DialogTitle>
+                    <DialogTitle className="text-2xl font-bold text-center text-zinc-900 dark:text-white">Create a new list</DialogTitle>
                 </DialogHeader>
 
                 {/* Icon Upload Area - Background changes with selected color */}
                 <div className="flex flex-col items-center my-6">
                     <div
-                        className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/30 flex items-center justify-center cursor-pointer hover:opacity-80 transition-all group"
+                        className="w-20 h-20 rounded-2xl border-2 border-dashed border-white/40 shadow-sm flex items-center justify-center cursor-pointer hover:opacity-80 transition-all group"
                         style={getIconBgStyle()}
                     >
                         <ImageIcon className="w-8 h-8 text-white drop-shadow-md group-hover:scale-110 transition-transform" />
                     </div>
-                    <p className="text-sm font-semibold text-white mt-3 uppercase tracking-wide">Upload an Icon</p>
-                    <p className="text-xs text-text-secondary">Optional (jpg, png, svg)</p>
+                    <p className="text-sm font-semibold text-zinc-900 dark:text-white mt-3 uppercase tracking-wide">Upload an Icon</p>
+                    <p className="text-xs text-zinc-500 dark:text-text-secondary">Optional (jpg, png, svg)</p>
                 </div>
 
                 {/* Color Picker */}
                 <div className="mb-6">
-                    <p className="text-sm text-text-secondary mb-3">Pick a list color</p>
+                    <p className="text-sm text-zinc-600 dark:text-text-secondary mb-3 font-medium">Pick a list color</p>
                     <div className="flex items-center gap-3 flex-wrap">
                         {colorOptions.map((color) => (
                             <button
@@ -123,7 +123,7 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
                                 className={cn(
                                     "w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center",
                                     !isCustomColorSelected && selectedColor === color.value
-                                        ? "ring-2 ring-white ring-offset-2 ring-offset-bg-1 scale-110"
+                                        ? "ring-2 ring-zinc-900 dark:ring-white ring-offset-2 ring-offset-white dark:ring-offset-bg-1 scale-110 shadow-xs"
                                         : "hover:scale-105"
                                 )}
                                 style={color.value.includes('gradient')
@@ -148,7 +148,7 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
                                         "w-8 h-8 rounded-full transition-all duration-200 flex items-center justify-center",
                                         "bg-[conic-gradient(red,yellow,lime,aqua,blue,magenta,red)]",
                                         isCustomColorSelected
-                                            ? "ring-2 ring-white ring-offset-2 ring-offset-bg-1 scale-110"
+                                            ? "ring-2 ring-zinc-900 dark:ring-white ring-offset-2 ring-offset-white dark:ring-offset-bg-1 scale-110 shadow-xs"
                                             : "hover:scale-105"
                                     )}
                                     title="Custom Color"
@@ -160,16 +160,16 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
                                     )}
                                 </button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-4 bg-bg-2 border-bg-3">
+                            <PopoverContent className="w-auto p-4 bg-white dark:bg-bg-2 border border-zinc-200 dark:border-bg-3 shadow-xl rounded-xl">
                                 <div className="space-y-3">
-                                    <p className="text-sm font-medium text-white">Choose a custom color</p>
+                                    <p className="text-sm font-medium text-zinc-900 dark:text-white">Choose a custom color</p>
                                     <div className="flex items-center gap-3">
                                         <input
                                             ref={colorInputRef}
                                             type="color"
                                             value={customColor}
                                             onChange={handleCustomColorChange}
-                                            className="w-12 h-12 rounded-lg cursor-pointer border-2 border-bg-3 bg-transparent"
+                                            className="w-12 h-12 rounded-lg cursor-pointer border-2 border-zinc-200 dark:border-bg-3 bg-transparent"
                                         />
                                         <div className="flex-1">
                                             <Input
@@ -179,12 +179,12 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
                                                     setIsCustomColorSelected(true)
                                                 }}
                                                 placeholder="#000000"
-                                                className="h-10 bg-bg-1 border-bg-3 text-white font-mono uppercase"
+                                                className="h-10 bg-zinc-50 dark:bg-bg-1 border border-zinc-200 dark:border-bg-3 text-zinc-900 dark:text-white font-mono uppercase"
                                             />
                                         </div>
                                     </div>
                                     <div
-                                        className="h-8 rounded-lg border border-bg-3"
+                                        className="h-8 rounded-lg border border-zinc-200 dark:border-bg-3"
                                         style={{ backgroundColor: customColor }}
                                     />
                                 </div>
@@ -198,7 +198,7 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Enter your list title"
-                    className="h-12 bg-bg-2 border-bg-3 text-white placeholder:text-text-secondary focus:ring-2 focus:ring-accent-indigo focus:border-transparent text-base"
+                    className="h-12 bg-zinc-50 dark:bg-bg-2 border border-zinc-200 dark:border-bg-3 text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-text-secondary focus:ring-2 focus:ring-accent-indigo focus:border-transparent text-base rounded-xl"
                     onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                 />
 
@@ -207,7 +207,7 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
                     <DialogClose asChild>
                         <Button
                             variant="outline"
-                            className="flex-1 h-12 border-bg-3 bg-transparent text-white hover:bg-bg-2 rounded-full font-semibold"
+                            className="flex-1 h-12 border border-zinc-200 dark:border-bg-3 bg-transparent text-zinc-700 dark:text-white hover:bg-zinc-100 dark:hover:bg-bg-2 rounded-full font-semibold transition-colors"
                             disabled={isLoading}
                         >
                             Cancel
@@ -216,7 +216,7 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
                     <Button
                         onClick={handleCreate}
                         disabled={!title.trim() || isLoading}
-                        className="flex-1 h-12 bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-500 hover:to-teal-500 text-black font-semibold rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 h-12 bg-gradient-to-r from-cyan-400 to-teal-400 hover:from-cyan-500 hover:to-teal-500 text-black font-semibold rounded-full disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
                     >
                         {isLoading ? (
                             <>

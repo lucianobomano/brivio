@@ -42,6 +42,30 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     const [isUploadOpen, setIsUploadOpen] = React.useState(false)
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
     const [isHovered, setIsHovered] = React.useState(false)
+    const hoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+
+    const handleMouseEnter = React.useCallback(() => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current)
+            hoverTimeoutRef.current = null
+        }
+        setIsHovered(true)
+    }, [])
+
+    const handleMouseLeave = React.useCallback(() => {
+        if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current)
+        }
+        hoverTimeoutRef.current = setTimeout(() => {
+            setIsHovered(false)
+        }, 300)
+    }, [])
+
+    React.useEffect(() => {
+        return () => {
+            if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+        }
+    }, [])
 
     // Audio specific state
     const [activeItemIndex, setActiveItemIndex] = React.useState<number | null>(null) // -1 for new, index for existing
@@ -684,16 +708,18 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
             <div
                 className={cn(
                     "relative group/media-filled transition-all",
-                    !isReadOnly && isActive && !style?.borderWidth && !(block.type === 'gallery' || block.type === 'carousel') && "ring-2 ring-pink-500 shadow-md",
+                    !isReadOnly && isActive && (
+                        (block.type === 'gallery' || block.type === 'carousel')
+                            ? "ring-2 ring-[#FF0054] ring-offset-2 rounded-lg"
+                            : (!style?.borderWidth && "ring-2 ring-pink-500 shadow-md")
+                    ),
                     isActive && "z-50"
                 )}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
+                onMouseEnter={handleMouseEnter}
+                onMouseLeave={handleMouseLeave}
                 onClick={(e) => {
                     e.stopPropagation();
-                    if (!activeGalleryIndex) {
-                        onSelect?.(block.id)
-                    }
+                    onSelect?.(block.id)
                 }}
                 style={{
                     display: 'flex',
@@ -718,6 +744,16 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                         if (rect) {
                             resizeStartSizeRef.current = { width: rect.width, height: rect.height }
                         }
+
+                        let latestWidth = resizeStartSizeRef.current.width
+                        let latestHeight = resizeStartSizeRef.current.height
+                        let rafId: number | null = null
+
+                        if (mediaContainerRef.current) {
+                            mediaContainerRef.current.style.transition = 'none'
+                        }
+                        const prevUserSelect = document.body.style.userSelect
+                        document.body.style.userSelect = 'none'
 
                         const handleMouseMove = (moveE: MouseEvent) => {
                             if (!mediaContainerRef.current) return
@@ -750,18 +786,38 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 newHeight = Math.max(50, resizeStartSizeRef.current.height - deltaY)
                             }
 
+                            latestWidth = Math.round(newWidth)
+                            latestHeight = Math.round(newHeight)
+
+                            if (rafId === null) {
+                                rafId = requestAnimationFrame(() => {
+                                    rafId = null
+                                    if (mediaContainerRef.current) {
+                                        mediaContainerRef.current.style.width = `${latestWidth}px`
+                                        mediaContainerRef.current.style.height = `${latestHeight}px`
+                                    }
+                                })
+                            }
+                        }
+
+                        const handleMouseUp = () => {
+                            if (rafId !== null) {
+                                cancelAnimationFrame(rafId)
+                                rafId = null
+                            }
+                            setIsResizing(false)
+                            document.body.style.userSelect = prevUserSelect
+                            if (mediaContainerRef.current) {
+                                mediaContainerRef.current.style.transition = ''
+                            }
                             onUpdate(block.id, {
                                 ...block.content,
                                 style: {
                                     ...style,
-                                    width: Math.round(newWidth),
-                                    height: Math.round(newHeight)
+                                    width: latestWidth,
+                                    height: latestHeight
                                 }
                             })
-                        }
-
-                        const handleMouseUp = () => {
-                            setIsResizing(false)
                             document.removeEventListener('mousemove', handleMouseMove)
                             document.removeEventListener('mouseup', handleMouseUp)
                         }
@@ -854,7 +910,16 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                         const currentItem = items && items.length > 0 ? items[carouselIndex] : null
 
                         return (
-                            <div className="group/carousel relative w-full bg-black/5" style={{ aspectRatio: globalAspectRatio || '16/9' }}>
+                            <div
+                                onClick={(e) => {
+                                    if (!isReadOnly) {
+                                        e.stopPropagation()
+                                        onSelect?.(block.id)
+                                    }
+                                }}
+                                className="group/carousel relative w-full bg-black/5"
+                                style={{ aspectRatio: globalAspectRatio || '16/9' }}
+                            >
                                 <div className="w-full h-full overflow-hidden relative">
                                     <AnimatePresence mode="wait">
                                         {currentItem && (
@@ -876,7 +941,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-4 text-sm z-10 break-words">{currentItem.caption}</div>
                                                 )}
                                                 {!isReadOnly && (
-                                                    <div className="absolute z-50 top-4 right-4 opacity-0 group-hover/carousel:opacity-100 transition-opacity">
+                                                    <div className="absolute z-50 top-4 right-4 opacity-0 group-hover/carousel:opacity-100 group-focus-within/carousel:opacity-100 transition-opacity">
                                                         <ImageToolbar
                                                             onUpload={() => { setActiveGalleryIndex(carouselIndex); setUploadMode('gallery-replace'); setIsUploadOpen(true) }}
                                                             onAttach={() => { setActiveGalleryIndex(carouselIndex); setUploadMode('gallery-attach'); setIsUploadOpen(true) }}
@@ -965,7 +1030,10 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         style={globalAspectRatio ? { aspectRatio: globalAspectRatio } : {}}
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            if (!isReadOnly) return
+                                            if (!isReadOnly) {
+                                                onSelect?.(block.id)
+                                                return
+                                            }
                                             if (item.attachment) setAttachmentPopupItem(item)
                                             else setLightboxIndex(i)
                                         }}
@@ -985,7 +1053,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                             draggable={false}
                                         />
                                         {!isReadOnly && (
-                                            <div className="absolute z-50 top-2 left-2 right-2 opacity-0 group-hover/item:opacity-100 transition-opacity flex justify-center pointer-events-none">
+                                            <div className="absolute z-50 top-2 left-2 right-2 opacity-0 group-hover/item:opacity-100 group-focus-within/item:opacity-100 transition-opacity flex justify-center pointer-events-none">
                                                 <div className="pointer-events-auto shadow-sm">
                                                     <ImageToolbar
                                                         onUpload={() => { setActiveGalleryIndex(i); setUploadMode('gallery-replace'); setIsUploadOpen(true) }}
@@ -1019,7 +1087,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
 
                             {!isReadOnly && items && items.length < 24 && (
                                 <button
-                                    onClick={(e) => { e.stopPropagation(); setUploadMode('gallery-add'); setIsUploadOpen(true); }}
+                                    onClick={(e) => { e.stopPropagation(); onSelect?.(block.id); setUploadMode('gallery-add'); setIsUploadOpen(true); }}
                                     className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 rounded-lg hover:border-[#FF0054] hover:bg-pink-50/30 transition-all group/add-item h-full min-h-[200px]"
                                 >
                                     <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-3 group-hover/add-item:bg-pink-100 transition-colors">
@@ -1042,18 +1110,24 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             <PopoverPrimitive.Content
                                 side="top"
                                 align="center"
-                                sideOffset={12}
+                                sideOffset={8}
                                 collisionPadding={10}
-                                className="z-[2000] outline-none animate-in fade-in zoom-in-95 duration-200"
+                                className="z-[2000] outline-none animate-in fade-in zoom-in-95 duration-200 before:absolute before:-bottom-3 before:left-0 before:right-0 before:h-3 before:content-['']"
                                 onOpenAutoFocus={(e) => e.preventDefault()}
+                                onMouseEnter={handleMouseEnter}
+                                onMouseLeave={handleMouseLeave}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    onSelect?.(block.id)
+                                }}
                             >
                                 {block.type === 'video' ? (
                                     <VideoFocalGroup
-                                        onUpload={() => { setUploadMode('video'); setIsUploadOpen(true) }}
-                                        onChange={() => { setUploadMode('video'); setIsUploadOpen(true) }}
-                                        onLink={handleLink}
+                                        onUpload={() => { onSelect?.(block.id); setUploadMode('video'); setIsUploadOpen(true) }}
+                                        onChange={() => { onSelect?.(block.id); setUploadMode('video'); setIsUploadOpen(true) }}
+                                        onLink={() => { onSelect?.(block.id); handleLink() }}
                                         onSelect={() => onSelect?.(block.id)}
-                                        onSettings={() => setIsSettingsOpen(true)}
+                                        onSettings={() => { onSelect?.(block.id); setIsSettingsOpen(true) }}
                                         onDelete={() => onDelete?.(block.id)}
                                         onAnimate={onAnimate}
                                         onDuplicate={() => onDuplicate?.(block.id)}
@@ -1062,16 +1136,23 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 ) : (
                                     <MediaToolbar
                                         onUpload={() => {
+                                            onSelect?.(block.id)
                                             if (block.type === 'gallery' || block.type === 'carousel') setUploadMode('gallery-add')
                                             else setUploadMode('image')
                                             setIsUploadOpen(true)
                                         }}
                                         onDelete={() => onDelete?.(block.id)}
-                                        onLink={handleLink}
+                                        onLink={() => {
+                                            onSelect?.(block.id)
+                                            handleLink()
+                                        }}
                                         onSelect={() => onSelect?.(block.id)}
                                         onMoveUp={() => { }}
                                         onMoveDown={() => { }}
-                                        onSettings={() => setIsSettingsOpen(true)}
+                                        onSettings={() => {
+                                            onSelect?.(block.id)
+                                            setIsSettingsOpen(true)
+                                        }}
                                         onAnimate={onAnimate}
                                         onDuplicate={() => onDuplicate?.(block.id)}
                                         onCopy={() => onCopy?.(block.id)}
@@ -1095,6 +1176,12 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 collisionPadding={10}
                                 className="z-[2000] outline-none animate-in fade-in zoom-in-95 duration-200"
                                 onOpenAutoFocus={(e) => e.preventDefault()}
+                                onMouseEnter={handleMouseEnter}
+                                onMouseLeave={handleMouseLeave}
+                                onClick={(e) => {
+                                    e.stopPropagation()
+                                    onSelect?.(block.id)
+                                }}
                             >
                                 {block.type === 'video' ? (
                                     <VideoSettingsPanel onClose={() => setIsSettingsOpen(false)} settings={style || {}} onUpdate={handleSettingsUpdate} />

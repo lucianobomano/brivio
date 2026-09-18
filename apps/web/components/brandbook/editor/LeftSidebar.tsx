@@ -18,7 +18,8 @@ import {
     Trash2,
     Monitor,
     ChevronLeft,
-    ChevronRight
+    ChevronRight,
+    Pencil
 } from "lucide-react"
 import { toast } from "sonner"
 import { CATEGORIES, getEffectiveCategory } from "@/lib/brandbook-utils"
@@ -109,6 +110,10 @@ function PageSettingsPopover({
     onOpenChange: (open: boolean) => void
 }) {
     const [tempTitle, setTempTitle] = useState(module.title)
+
+    React.useEffect(() => {
+        setTempTitle(module.title)
+    }, [module.title, isOpen])
 
     return (
         <Popover open={isOpen} onOpenChange={onOpenChange}>
@@ -221,6 +226,22 @@ function SidebarItem({ module, isActive, onSelect, isReadOnly, customStyle, ...a
 
     const [isHovered, setIsHovered] = useState(false)
     const [isMenuOpen, setIsMenuOpen] = useState(false)
+    const [isEditingInline, setIsEditingInline] = useState(false)
+    const [inlineTitle, setInlineTitle] = useState(module.title)
+
+    React.useEffect(() => {
+        setInlineTitle(module.title)
+    }, [module.title])
+
+    const handleFinishInlineRename = () => {
+        setIsEditingInline(false)
+        const trimmed = inlineTitle.trim()
+        if (trimmed && trimmed !== module.title) {
+            actions.onRenameModule?.(module.id, trimmed)
+        } else {
+            setInlineTitle(module.title)
+        }
+    }
 
     // Image 1 reference: Simple item but on hover shows floating controls
     return (
@@ -232,7 +253,7 @@ function SidebarItem({ module, isActive, onSelect, isReadOnly, customStyle, ...a
             onMouseLeave={() => setIsHovered(false)}
             /* Added min-h to prevent layout shift */
             className={cn(
-                "group relative flex items-center justify-between py-1.5 px-3 pl-8 cursor-pointer transition-colors text-sm mb-[1px] min-h-[32px]",
+                "group relative flex items-center justify-between py-1.5 px-3 pl-8 cursor-pointer transition-colors text-sm mb-[1px] min-h-[32px] w-full min-w-0 max-w-full overflow-visible",
                 isActive
                     ? "text-[#ff0054] font-bold"
                     : "text-black hover:text-black",
@@ -246,26 +267,63 @@ function SidebarItem({ module, isActive, onSelect, isReadOnly, customStyle, ...a
                 </div>
             )}
 
-            <div className="flex items-center gap-2 overflow-hidden w-full relative">
-                <span
-                    className="truncate select-none"
-                    style={isActive ? { ...customStyle, color: '#ff0054' } : customStyle}
-                >
-                    {module.title}
-                </span>
+            <div className="flex items-center gap-2 overflow-hidden w-full min-w-0 relative pr-[92px]">
+                {isEditingInline ? (
+                    <input
+                        type="text"
+                        value={inlineTitle}
+                        onChange={(e) => setInlineTitle(e.target.value)}
+                        onBlur={handleFinishInlineRename}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault()
+                                handleFinishInlineRename()
+                            } else if (e.key === 'Escape') {
+                                e.preventDefault()
+                                setIsEditingInline(false)
+                                setInlineTitle(module.title)
+                            }
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white border border-[#FF0054] rounded px-1.5 py-0.5 text-xs text-black font-medium focus:outline-none w-full shadow-xs"
+                        autoFocus
+                    />
+                ) : (
+                    <span
+                        className="truncate select-none cursor-pointer block min-w-0"
+                        title={isReadOnly ? undefined : "Duplo clique para renomear"}
+                        onDoubleClick={(e) => {
+                            if (isReadOnly) return
+                            e.stopPropagation()
+                            setIsEditingInline(true)
+                            setInlineTitle(module.title)
+                        }}
+                        style={isActive ? { ...customStyle, color: '#ff0054' } : customStyle}
+                    >
+                        {module.title}
+                    </span>
+                )}
             </div>
 
             {/* Hover Floating Menu (Image 1 style) - Hidden in read-only mode */}
             {(!isReadOnly && (isHovered || isMenuOpen)) && (
                 <div
-                    className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center bg-[#EDEDED] rounded-md shadow-sm px-1.5 py-0.5 gap-2 animate-in fade-in duration-150 z-20 border border-gray-300"
+                    className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center bg-[#EDEDED] rounded-md shadow-sm px-1.5 py-0.5 gap-1.5 animate-in fade-in duration-150 z-20 border border-gray-300 shrink-0 whitespace-nowrap select-none"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    <button className="text-gray-500 hover:text-blue-600 transition-colors flex items-center justify-center" title="Add sub-page">
-                        <Plus className="w-3.5 h-3.5" />
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            setIsEditingInline(true)
+                            setInlineTitle(module.title)
+                        }}
+                        className="text-gray-500 hover:text-[#FF0054] transition-colors flex items-center justify-center p-0.5 rounded hover:bg-black/5"
+                        title="Renomear página"
+                    >
+                        <Pencil className="w-3 h-3" />
                     </button>
                     <button
-                        className="text-gray-500 hover:text-blue-600 transition-colors flex items-center justify-center"
+                        className="text-gray-500 hover:text-blue-600 transition-colors flex items-center justify-center p-0.5 rounded hover:bg-black/5"
                         title="View"
                     >
                         <Eye className="w-3.5 h-3.5" />
@@ -318,10 +376,15 @@ export function LeftSidebar({
     const [isAddPagesModalOpen, setIsAddPagesModalOpen] = useState(false)
     const [filterCategory, setFilterCategory] = useState<string | null>(null)
     const [deletedSubCategories, setDeletedSubCategories] = useState<string[]>([])
+    const [customCategoryNames, setCustomCategoryNames] = useState<Record<string, string>>({})
+    const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
+    const [tempCategoryName, setTempCategoryName] = useState("")
+    const [openMenuCatId, setOpenMenuCatId] = useState<string | null>(null)
+    const editCategoryInputRef = React.useRef<HTMLInputElement>(null)
     const { getStyleById, settings } = useBrandDesign()
     const menuStyle = getStyleById('menu')
 
-    // Load deleted subcategories from localStorage
+    // Load deleted subcategories and custom category names from localStorage
     React.useEffect(() => {
         if (typeof window !== 'undefined' && brandbookId) {
             try {
@@ -329,11 +392,41 @@ export function LeftSidebar({
                 if (saved) {
                     setDeletedSubCategories(JSON.parse(saved))
                 }
+                const savedNames = localStorage.getItem(`brandbook_${brandbookId}_custom_category_names`)
+                if (savedNames) {
+                    setCustomCategoryNames(JSON.parse(savedNames))
+                }
             } catch (e) {
-                console.error("Failed to load deleted subcategories", e)
+                console.error("Failed to load brandbook sidebar customizations", e)
             }
         }
     }, [brandbookId])
+
+    const startRenamingCategory = (catId: string, currentLabel: string) => {
+        setOpenMenuCatId(null)
+        setEditingCategoryId(catId)
+        setTempCategoryName(currentLabel)
+        setOpenCategories(prev => prev.includes(catId) ? prev : [...prev, catId])
+    }
+
+    const handleSaveCategoryName = (catId: string) => {
+        setEditingCategoryId(null)
+        const trimmed = tempCategoryName.trim()
+        if (!trimmed) return
+
+        setCustomCategoryNames(prev => {
+            const next = { ...prev, [catId]: trimmed }
+            if (typeof window !== 'undefined' && brandbookId) {
+                try {
+                    localStorage.setItem(`brandbook_${brandbookId}_custom_category_names`, JSON.stringify(next))
+                } catch (e) {
+                    console.error("Failed to save custom category name", e)
+                }
+            }
+            return next
+        })
+        toast.success(`Separador renomeado para "${trimmed}"`)
+    }
 
     const handleDeleteSubCategory = (subCatId: string, subCatLabel: string) => {
         if (typeof window !== 'undefined' && !window.confirm(`Tem certeza que deseja excluir o subseparador "${subCatLabel}"? As páginas existentes serão preservadas em "Outras páginas".`)) {
@@ -350,15 +443,17 @@ export function LeftSidebar({
         toast.success(`Subseparador "${subCatLabel}" excluído`)
     }
 
-    const sidebarTextStyle = menuStyle ? {
-        fontFamily: menuStyle.font,
-        fontWeight: menuStyle.weight,
-        letterSpacing: `${menuStyle.spacing}em`,
-        lineHeight: menuStyle.height,
-        fontSize: `${menuStyle.size}px`,
+    const sidebarTextStyle = {
+        fontFamily: (menuStyle?.font && menuStyle.font !== 'Rubik' && menuStyle.font !== 'Roboto' && menuStyle.font !== 'Satoshi' && menuStyle.font !== 'Satoshi bold')
+            ? `"${menuStyle.font}", var(--font-inter), 'Inter', sans-serif`
+            : "var(--font-inter), 'Inter', sans-serif",
+        fontWeight: menuStyle?.weight || '400',
+        letterSpacing: menuStyle?.spacing ? `${menuStyle.spacing}em` : 'normal',
+        lineHeight: menuStyle?.height || '1.4',
+        fontSize: menuStyle?.size ? `${menuStyle.size}px` : '13px',
         color: '#000000',
-        textTransform: menuStyle.casing === 'capitalize' ? 'capitalize' : (menuStyle.casing === 'uppercase' ? 'uppercase' : (menuStyle.casing === 'lowercase' ? 'lowercase' : 'none'))
-    } as React.CSSProperties : { color: '#000000' }
+        textTransform: 'none' as const
+    } as React.CSSProperties
 
     // Modules categorized
     const modulesByCategory = React.useMemo(() => {
@@ -423,24 +518,76 @@ export function LeftSidebar({
         }
     }
 
+    const formatCategoryLabel = (str: string) => {
+        if (!str) return str
+        if (str === 'ESTRATEGIA') return 'Estratégia'
+        if (str === str.toUpperCase() && str.length > 3) {
+            return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+        }
+        return str
+    }
+
     const renderCategoryHeader = (catId: string, label: string, isSubCategory = false) => {
         const isHidden = isCategoryHidden(catId)
+        const rawLabel = customCategoryNames[catId] || label
+        const displayLabel = formatCategoryLabel(rawLabel)
+        const isEditing = editingCategoryId === catId
 
         return (
-            <div className="flex items-center justify-between w-full py-0.5 select-none">
-                <div className="flex items-center gap-1.5 min-w-0">
+            <div className="relative flex items-center justify-between w-full py-0.5 select-none min-h-[26px]">
+                <div className="flex items-center gap-1.5 min-w-0 flex-1 pr-20">
                     <svg
                         viewBox="0 0 10 10"
                         className="w-2.5 h-2.5 fill-current shrink-0 transition-transform duration-200 text-black/60 group-data-[state=open]:rotate-0 group-data-[state=closed]:-rotate-90"
                     >
                         <path d="M1,3 L9,3 L5,7 Z" />
                     </svg>
-                    <span className="truncate">{label}</span>
+                    {isEditing ? (
+                        <input
+                            ref={editCategoryInputRef}
+                            type="text"
+                            value={tempCategoryName}
+                            onChange={(e) => setTempCategoryName(e.target.value)}
+                            onBlur={() => handleSaveCategoryName(catId)}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                    e.preventDefault()
+                                    handleSaveCategoryName(catId)
+                                } else if (e.key === 'Escape') {
+                                    e.preventDefault()
+                                    setEditingCategoryId(null)
+                                }
+                            }}
+                            onClick={(e) => {
+                                e.stopPropagation()
+                                e.preventDefault()
+                            }}
+                            className="bg-white border border-[#FF0054] rounded px-1.5 py-0.5 text-xs text-black font-semibold focus:outline-none w-full max-w-[170px] shadow-xs"
+                            style={{ fontFamily: "var(--font-inter), 'Inter', sans-serif" }}
+                            autoFocus
+                        />
+                    ) : (
+                        <span
+                            className="truncate cursor-pointer"
+                            title={isReadOnly ? undefined : "Duplo clique para renomear o separador"}
+                            onDoubleClick={(e) => {
+                                if (isReadOnly) return
+                                e.stopPropagation()
+                                e.preventDefault()
+                                startRenamingCategory(catId, displayLabel)
+                            }}
+                        >
+                            {displayLabel}
+                        </span>
+                    )}
                 </div>
 
                 {!isReadOnly && (
                     <div
-                        className="hidden group-hover:flex items-center bg-[#EAEAEA] rounded-md shadow-sm border border-gray-300 overflow-hidden ml-2 h-6"
+                        className={cn(
+                            "absolute right-1 top-1/2 -translate-y-1/2 items-center bg-[#EDEDED] rounded-md shadow-md border border-gray-300 overflow-hidden h-6 z-30 shrink-0",
+                            openMenuCatId === catId ? "flex" : "hidden group-hover:flex"
+                        )}
                         onClick={(e) => {
                             e.stopPropagation()
                             e.preventDefault()
@@ -487,33 +634,48 @@ export function LeftSidebar({
                             {isHidden ? <EyeOff className="w-3 h-3 text-gray-400" /> : <Eye className="w-3 h-3" />}
                         </div>
 
-                        <DropdownMenu>
+                        <DropdownMenu
+                            open={openMenuCatId === catId}
+                            onOpenChange={(open) => setOpenMenuCatId(open ? catId : null)}
+                        >
                             <DropdownMenuTrigger asChild>
-                                <div
-                                    role="button"
-                                    tabIndex={0}
+                                <button
+                                    type="button"
                                     className="h-full px-2 hover:bg-black/5 text-[#0F172A] hover:text-[#FF0054] transition-colors flex items-center justify-center cursor-pointer"
                                     title="Mais opções"
                                     onClick={(e) => {
                                         e.stopPropagation()
-                                        e.preventDefault()
                                     }}
                                 >
                                     <MoreVertical className="w-3 h-3" />
-                                </div>
+                                </button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
-                                className="bg-[#111116] border border-[#222] text-white rounded-lg shadow-xl p-1 z-[2500]"
+                                side="bottom"
+                                sideOffset={4}
+                                className="bg-[#111116] border border-[#222] text-white rounded-lg shadow-xl p-1 z-[2500] min-w-[190px]"
                                 onClick={(e) => e.stopPropagation()}
                             >
                                 <DropdownMenuItem
-                                    className="hover:bg-[#FF0054] hover:text-white px-3 py-1.5 text-xs rounded-sm cursor-pointer"
+                                    className="hover:bg-[#FF0054] hover:text-white px-3 py-1.5 text-xs rounded-sm cursor-pointer flex items-center gap-2"
+                                    onClick={(e) => {
+                                        e.stopPropagation()
+                                        startRenamingCategory(catId, displayLabel)
+                                    }}
+                                >
+                                    <Pencil className="w-3.5 h-3.5" />
+                                    Renomear separador
+                                </DropdownMenuItem>
+
+                                <DropdownMenuItem
+                                    className="hover:bg-[#FF0054] hover:text-white px-3 py-1.5 text-xs rounded-sm cursor-pointer flex items-center gap-2"
                                     onClick={(e) => {
                                         e.stopPropagation()
                                         handleAddCustomPage(catId)
                                     }}
                                 >
+                                    <Plus className="w-3.5 h-3.5" />
                                     Adicionar página personalizada
                                 </DropdownMenuItem>
 
@@ -522,7 +684,7 @@ export function LeftSidebar({
                                         className="text-red-400 hover:bg-red-500/20 hover:text-red-300 px-3 py-1.5 text-xs rounded-sm cursor-pointer flex items-center gap-2"
                                         onClick={(e) => {
                                             e.stopPropagation()
-                                            handleDeleteSubCategory(catId, label)
+                                            handleDeleteSubCategory(catId, displayLabel)
                                         }}
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -581,10 +743,13 @@ export function LeftSidebar({
         <>
             <div
                 className={cn(
-                    "relative h-full flex flex-col flex-shrink-0 select-none transition-all duration-300 ease-in-out z-[1500]",
-                    isCollapsed ? "w-0" : "w-64"
+                    "relative h-full flex flex-col flex-shrink-0 select-none transition-all duration-300 ease-in-out z-[1500] font-sans",
+                    isCollapsed ? "w-0" : "w-72"
                 )}
-                style={{ backgroundColor: settings.menu_background }}
+                style={{
+                    backgroundColor: settings.menu_background,
+                    fontFamily: "var(--font-inter), 'Inter', sans-serif"
+                }}
             >
                 {/* Collapse Toggle - Positioned on the right edge/joint */}
                 <button
@@ -636,7 +801,7 @@ export function LeftSidebar({
                             </div>
                         </div>
 
-                        <ScrollArea className="flex-1 px-3">
+                        <ScrollArea className="flex-1 px-3 overflow-x-hidden [&>div>div]:!block">
                             <Accordion type="multiple" value={openCategories} onValueChange={setOpenCategories} className="w-full space-y-2">
                                 {CATEGORIES.map(category => {
                                     const isParentWithSubcats = category.subCategories && category.subCategories.length > 0
@@ -652,8 +817,8 @@ export function LeftSidebar({
                                     return (
                                         <AccordionItem key={category.id} value={category.id} className="border-none">
                                             <AccordionTrigger
-                                                style={{ color: sidebarTextStyle.color }}
-                                                className="group px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100 [&>svg]:hidden"
+                                                style={{ ...sidebarTextStyle, fontWeight: 600 }}
+                                                className="group relative w-full px-2 py-1 text-xs font-semibold hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100 [&>svg]:hidden"
                                             >
                                                 {renderCategoryHeader(category.id, category.label)}
                                             </AccordionTrigger>
@@ -666,10 +831,10 @@ export function LeftSidebar({
                                                     <Accordion type="multiple" defaultValue={visibleSubCategories.map(s => s.id)} className="mt-1">
                                                         {visibleSubCategories.map(subCategory => {
                                                             return (
-                                                                <AccordionItem key={subCategory.id} value={subCategory.id} className="border-none ml-2">
+                                                                <AccordionItem key={subCategory.id} value={subCategory.id} className="border-none ml-2 max-w-[calc(100%-8px)]">
                                                                     <AccordionTrigger
-                                                                        style={{ color: sidebarTextStyle.color }}
-                                                                        className="group px-2 py-1 text-[11px] font-semibold hover:no-underline rounded-sm transition-colors opacity-90 hover:opacity-100 [&>svg]:hidden"
+                                                                        style={{ ...sidebarTextStyle, fontWeight: 600 }}
+                                                                        className="group relative w-full px-2 py-1 text-[11px] font-semibold hover:no-underline rounded-sm transition-colors opacity-90 hover:opacity-100 [&>svg]:hidden"
                                                                     >
                                                                         {renderCategoryHeader(subCategory.id, subCategory.label, true)}
                                                                     </AccordionTrigger>
@@ -689,8 +854,8 @@ export function LeftSidebar({
                                 {/* 2. Others Section */}
                                 <AccordionItem value="others" className="border-none">
                                     <AccordionTrigger
-                                        style={{ color: sidebarTextStyle.color }}
-                                        className="group px-2 py-1 text-xs font-bold uppercase tracking-wider hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100 [&>svg]:hidden"
+                                        style={{ ...sidebarTextStyle, fontWeight: 600 }}
+                                        className="group relative w-full px-2 py-1 text-xs font-semibold hover:no-underline rounded-sm transition-colors mb-1 opacity-90 hover:opacity-100 [&>svg]:hidden"
                                     >
                                         {renderCategoryHeader('others', 'Outras páginas')}
                                     </AccordionTrigger>

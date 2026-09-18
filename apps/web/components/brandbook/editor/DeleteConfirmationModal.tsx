@@ -5,6 +5,7 @@ import {
     Dialog,
     DialogContent,
     DialogHeader,
+    DialogTitle,
     DialogDescription,
     DialogFooter,
 } from "@/components/ui/dialog"
@@ -36,7 +37,7 @@ export function DeleteConfirmationModal({
             >
                 {/* Header decorativo rosa */}
                 <div className="h-[50px] bg-[#FF0054] px-6 flex items-center justify-between shrink-0">
-                    <span className="text-white font-bold text-[16px] tracking-tight">{title}</span>
+                    <DialogTitle className="text-white font-bold text-[16px] tracking-tight">{title}</DialogTitle>
                     <button
                         onClick={onClose}
                         className="w-[22px] h-[22px] rounded-full bg-[#111116] hover:bg-black/40 transition-colors flex items-center justify-center group"

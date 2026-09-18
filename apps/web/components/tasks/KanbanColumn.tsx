@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { useTheme } from "next-themes"
 import { Plus, X, Loader2 } from "lucide-react"
 import { useDroppable } from "@dnd-kit/core"
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable"
@@ -123,42 +124,21 @@ export default function KanbanColumn({
         <div
             ref={setNodeRef}
             className={cn(
-                "w-[375px] flex-shrink-0 rounded-xl bg-[#12121a] flex flex-col h-[800px] mt-6 transition-all duration-300",
-                highlight
-                    ? ""
-                    : "border-2 border-[#2a2a2e]"
+                "w-[375px] flex-shrink-0 rounded-xl flex flex-col h-[800px] mt-6 transition-all duration-300 shadow-sm dark:shadow-none kanban-col-container",
+                highlight && "is-highlighted"
             )}
-            style={highlight ? {
-                background: 'linear-gradient(#12121a, #12121a) padding-box, linear-gradient(to bottom, #DD005A, #FF002D, #06D6A0, #311C99) border-box',
-                border: '2px solid transparent',
-            } : undefined}
-            onMouseEnter={(e) => {
-                if (!highlight) {
-                    e.currentTarget.style.background = 'linear-gradient(#12121a, #12121a) padding-box, linear-gradient(to bottom, #DD005A, #FF002D, #06D6A0, #311C99) border-box';
-                    e.currentTarget.style.border = '2px solid transparent';
-                }
-            }}
-            onMouseLeave={(e) => {
-                if (!highlight) {
-                    e.currentTarget.style.background = '#12121a';
-                    e.currentTarget.style.border = '2px solid #2a2a2e';
-                }
-            }}
         >
             {/* Column Header */}
             <div className="p-4">
                 {/* Title Row */}
                 <div className="flex items-center justify-between mb-3">
-                    <h3 className={cn(
-                        "font-semibold text-base",
-                        highlight ? "text-white" : "text-white"
-                    )}>
+                    <h3 className="font-semibold text-base text-zinc-900 dark:text-white">
                         {title}
                     </h3>
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="h-6 w-6 text-gray-500 hover:text-white"
+                        className="h-6 w-6 text-zinc-400 hover:text-zinc-900 dark:text-gray-500 dark:hover:text-white"
                         onClick={() => setIsAddingTask(true)}
                     >
                         <Plus className="w-4 h-4" />
@@ -168,7 +148,7 @@ export default function KanbanColumn({
                 {/* Progress Bar - Only if NOT Focus Mode */}
                 {!isFocusMode && (showProgress || !showMonthlyCount) && (
                     <div className="flex items-center space-x-3 mb-3">
-                        <div className="flex-1 h-2 bg-[#2a2a2e] rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-zinc-100 dark:bg-[#2a2a2e] rounded-full overflow-hidden">
                             <div
                                 className="h-full transition-all duration-500"
                                 style={{
@@ -177,7 +157,7 @@ export default function KanbanColumn({
                                 }}
                             />
                         </div>
-                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                        <span className="text-xs text-zinc-500 dark:text-gray-500 whitespace-nowrap font-mono">
                             {completedCount}/{totalCount} Done
                         </span>
                     </div>
@@ -186,7 +166,7 @@ export default function KanbanColumn({
                 {/* Monthly count for Done column */}
                 {!isFocusMode && showMonthlyCount && (
                     <div className="flex items-center space-x-3 mb-3">
-                        <div className="flex-1 h-2 bg-[#2a2a2e] rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-zinc-100 dark:bg-[#2a2a2e] rounded-full overflow-hidden">
                             <div
                                 className="h-full transition-all duration-500"
                                 style={{
@@ -195,7 +175,7 @@ export default function KanbanColumn({
                                 }}
                             />
                         </div>
-                        <span className="text-xs text-gray-500 whitespace-nowrap">
+                        <span className="text-xs text-zinc-500 dark:text-gray-500 whitespace-nowrap font-mono">
                             {completedCount}/{totalCount} Done
                         </span>
                     </div>
@@ -223,7 +203,7 @@ export default function KanbanColumn({
                             ))
                         ) : (
                             <div className="flex-1 flex flex-col items-center justify-center min-h-full">
-                                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3" style={{ background: 'linear-gradient(135deg, rgba(221,0,90,0.2), rgba(255,0,45,0.2), rgba(6,214,160,0.2), rgba(49,28,153,0.2))' }}>
+                                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-gradient-to-br from-pink-500/10 via-teal-500/10 to-indigo-500/10 dark:from-pink-500/20 dark:via-teal-500/20 dark:to-indigo-500/20 border border-zinc-200/50 dark:border-white/5">
                                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                         <defs>
                                             <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -237,7 +217,7 @@ export default function KanbanColumn({
                                         <polyline points="22,4 12,14.01 9,11.01" stroke="url(#iconGradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                     </svg>
                                 </div>
-                                <span className="text-sm text-gray-500">All clear</span>
+                                <span className="text-sm text-zinc-400 dark:text-zinc-400 font-medium">All clear</span>
                             </div>
                         )
                     ) : (
@@ -258,7 +238,7 @@ export default function KanbanColumn({
                         ) : (
                             completedTasksList.length === 0 && (
                                 <div className="flex-1 flex flex-col items-center justify-center min-h-full">
-                                    <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3" style={{ background: 'linear-gradient(135deg, rgba(221,0,90,0.2), rgba(255,0,45,0.2), rgba(6,214,160,0.2), rgba(49,28,153,0.2))' }}>
+                                    <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 bg-gradient-to-br from-pink-500/10 via-teal-500/10 to-indigo-500/10 dark:from-pink-500/20 dark:via-teal-500/20 dark:to-indigo-500/20 border border-zinc-200/50 dark:border-white/5">
                                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <defs>
                                                 <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -272,7 +252,7 @@ export default function KanbanColumn({
                                             <polyline points="22,4 12,14.01 9,11.01" stroke="url(#iconGradient)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                                         </svg>
                                     </div>
-                                    <span className="text-sm text-gray-500">All clear</span>
+                                    <span className="text-sm text-zinc-400 dark:text-zinc-400 font-medium">All clear</span>
                                 </div>
                             )
                         )
@@ -281,10 +261,10 @@ export default function KanbanColumn({
                     {/* Done Section in Focus Mode */}
                     {isFocusMode && completedTasksList.length > 0 && (
                         <div className="mt-4">
-                            <div className="h-[1px] bg-[#515151] w-full my-2" />
+                            <div className="h-[1px] bg-zinc-200 dark:bg-[#515151] w-full my-2" />
                             <div className="flex justify-between items-center mb-2 px-1">
-                                <span className="text-sm text-gray-400 font-medium">{completedTasksList.length} Done</span>
-                                <span className="text-sm text-gray-500 font-mono">{Math.floor(doneTime / 60)}h {doneTime % 60}min</span>
+                                <span className="text-sm text-zinc-600 dark:text-gray-400 font-medium">{completedTasksList.length} Done</span>
+                                <span className="text-sm text-zinc-500 dark:text-gray-500 font-mono">{Math.floor(doneTime / 60)}h {doneTime % 60}min</span>
                             </div>
                             <div className="space-y-2 opacity-60 hover:opacity-100 transition-opacity">
                                 {completedTasksList.map((task, index) => (
@@ -308,11 +288,11 @@ export default function KanbanColumn({
 
             {/* Inline Add Task Form */}
             {isAddingTask && (
-                <div className="px-4 pb-4 border-t border-[#2a2a2e] mt-2 pt-4">
+                <div className="px-4 pb-4 border-t border-zinc-100 dark:border-[#2a2a2e] mt-2 pt-4">
                     <div className="flex items-center justify-between mb-3">
                         <button
                             onClick={handleCancel}
-                            className="flex items-center text-xs text-gray-500 hover:text-white"
+                            className="flex items-center text-xs text-zinc-500 hover:text-zinc-900 dark:text-gray-500 dark:hover:text-white transition-colors"
                         >
                             <X className="w-3 h-3 mr-1" />
                             CANCEL
@@ -322,34 +302,34 @@ export default function KanbanColumn({
                     <div className="space-y-2">
                         <div className="flex gap-2">
                             <div className="flex-1">
-                                <label className="text-[10px] text-gray-500 mb-1 block">Title</label>
+                                <label className="text-[10px] text-zinc-500 dark:text-gray-500 mb-1 block">Title</label>
                                 <Input
                                     value={newTaskTitle}
                                     onChange={(e) => setNewTaskTitle(e.target.value)}
                                     placeholder="Enter task title*"
-                                    className="h-8 bg-[#0a0a0c] border-[#2a2a2e] text-white placeholder:text-gray-600 text-xs"
+                                    className="h-8 bg-zinc-50 dark:bg-[#0a0a0c] border-zinc-200 dark:border-[#2a2a2e] text-zinc-900 dark:text-white placeholder:text-zinc-400 dark:placeholder:text-gray-600 text-xs"
                                     onKeyDown={(e) => e.key === "Enter" && handleAddTask()}
                                     autoFocus
                                 />
                             </div>
                             <div className="w-16">
-                                <label className="text-[10px] text-gray-500 mb-1 block">Est time</label>
+                                <label className="text-[10px] text-zinc-500 dark:text-gray-500 mb-1 block">Est time</label>
                                 <Input
                                     value={estimatedTime}
                                     onChange={(e) => setEstimatedTime(e.target.value)}
                                     placeholder="00:00"
-                                    className="h-8 bg-[#0a0a0c] border-[#2a2a2e] text-white text-center text-xs font-mono"
+                                    className="h-8 bg-zinc-50 dark:bg-[#0a0a0c] border-zinc-200 dark:border-[#2a2a2e] text-zinc-900 dark:text-white text-center text-xs font-mono"
                                 />
                             </div>
                         </div>
 
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-gray-500">Add a new task</span>
+                            <span className="text-[10px] text-zinc-500 dark:text-gray-500">Add a new task</span>
                             <Button
                                 onClick={handleAddTask}
                                 disabled={!newTaskTitle.trim() || isLoading}
                                 size="sm"
-                                className="h-7 bg-white text-black hover:bg-gray-200 font-medium text-xs px-3"
+                                className="h-7 bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 font-medium text-xs px-3 shadow-xs transition-colors"
                             >
                                 {isLoading ? (
                                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -367,7 +347,7 @@ export default function KanbanColumn({
                 <div className="px-4 pb-2 pt-2">
                     <button
                         onClick={() => setIsAddingTask(true)}
-                        className="flex items-center text-xs text-gray-500 hover:text-white transition-colors"
+                        className="flex items-center text-xs text-zinc-500 hover:text-zinc-900 dark:text-gray-500 dark:hover:text-white transition-colors font-medium"
                     >
                         <Plus className="w-3 h-3 mr-1" />
                         ADD TASK
@@ -380,14 +360,14 @@ export default function KanbanColumn({
                 {!isFocusMode && showBrivio ? (
                     <Button
                         onClick={() => setIsFocusMode(true)}
-                        className="w-full h-10 bg-[#1a1a1e] hover:bg-[#2a2a2e] text-gray-400 hover:text-white rounded-lg border border-[#2a2a2e] text-sm font-medium"
+                        className="w-full h-10 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 hover:text-zinc-900 rounded-lg border border-zinc-200/80 dark:bg-[#1a1a1e] dark:hover:bg-[#2a2a2e] dark:text-gray-400 dark:hover:text-white dark:border-[#2a2a2e] text-sm font-medium transition-colors"
                     >
                         Brivio* it
                     </Button>
                 ) : isFocusMode ? (
                     <>
                         <Button
-                            className="flex-1 h-10 text-white rounded-full font-medium text-sm border-none"
+                            className="flex-1 h-10 text-white rounded-full font-medium text-sm border-none shadow-sm"
                             style={{
                                 background: 'linear-gradient(90deg, #DD005A 0%, #311C99 100%)'
                             }}
@@ -396,7 +376,7 @@ export default function KanbanColumn({
                         </Button>
                         <Button
                             onClick={() => setIsFocusMode(false)}
-                            className="flex-1 h-10 bg-[#1a1a1e] text-gray-400 hover:text-white rounded-full border border-[#2a2a2e] text-sm font-medium hover:bg-[#2a2a2e]"
+                            className="flex-1 h-10 bg-zinc-100 text-zinc-700 hover:text-zinc-900 rounded-full border border-zinc-200 hover:bg-zinc-200 dark:bg-[#1a1a1e] dark:text-gray-400 dark:hover:text-white dark:border-[#2a2a2e] text-sm font-medium dark:hover:bg-[#2a2a2e] transition-colors"
                         >
                             Close session
                         </Button>

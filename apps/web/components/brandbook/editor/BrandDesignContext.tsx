@@ -92,10 +92,10 @@ interface BrandDesignContextType {
 }
 
 const DEFAULT_FONT_STYLES: FontStyle[] = [
-    { id: 'menu', title: 'Menu', font: 'Rubik', weight: '400', spacing: '0.0', height: '1.3', size: '13', color: '#ffffff', casing: 'none' },
-    { id: 'body', title: 'Body', font: 'Roboto', weight: '400', spacing: '0.0', height: '1.3', size: '16', color: '#333333', casing: 'none' },
-    { id: 'h1', title: 'Heading 1', font: 'Satoshi', weight: '700', spacing: '0.0', height: '1.2', size: '32', color: '#111111', casing: 'none' },
-    { id: 'h2', title: 'Heading 2', font: 'Satoshi', weight: '600', spacing: '0.0', height: '1.3', size: '24', color: '#222222', casing: 'none' },
+    { id: 'menu', title: 'Menu', font: 'Inter', weight: '400', spacing: '0.0', height: '1.3', size: '13', color: '#ffffff', casing: 'none' },
+    { id: 'body', title: 'Body', font: 'Inter', weight: '400', spacing: '0.0', height: '1.5', size: '16', color: '#333333', casing: 'none' },
+    { id: 'h1', title: 'Heading 1', font: 'Inter', weight: '700', spacing: '0.0', height: '1.2', size: '32', color: '#111111', casing: 'none' },
+    { id: 'h2', title: 'Heading 2', font: 'Inter', weight: '600', spacing: '0.0', height: '1.3', size: '24', color: '#222222', casing: 'none' },
 ]
 
 const DEFAULT_SETTINGS: BrandSettingsState = {
@@ -171,9 +171,14 @@ export function BrandDesignProvider({
 
                     if (dbSettings.font_styles && Object.keys(dbSettings.font_styles).length > 0) {
                         // If stored as object/array in JSONB, cast it
-                        const storedFonts = Array.isArray(dbSettings.font_styles)
+                        const rawFonts: FontStyle[] = Array.isArray(dbSettings.font_styles)
                             ? dbSettings.font_styles
                             : DEFAULT_FONT_STYLES
+                        const storedFonts = rawFonts.map(f => ({
+                            ...f,
+                            font: (!f.font || f.font === 'Rubik' || f.font === 'Roboto' || f.font === 'Satoshi bold') ? 'Inter' : f.font,
+                            casing: (f.id === 'menu' && f.casing === 'uppercase') ? 'none' : (f.casing || 'none')
+                        }))
                         setFontStyles(storedFonts)
                     }
 

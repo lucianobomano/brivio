@@ -1,6 +1,6 @@
 import React from "react"
 import { X, Upload } from "lucide-react"
-import { Dialog, DialogContent, DialogTrigger, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogTrigger, DialogClose, DialogTitle } from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 interface UploadAssetDialogProps {
@@ -34,7 +34,7 @@ export const UploadAssetDialog = ({ isOpen, onOpenChange, onUpload, onSelectFrom
             <DialogContent className="max-w-[718px] p-0 bg-[#15161B] border border-[#333] text-white gap-0 rounded-lg overflow-hidden outline-none [&>button:last-child]:hidden">
                 {/* Header */}
                 <div className="h-[60px] bg-[#FF0054] px-6 flex items-center justify-between shrink-0">
-                    <span className="text-white font-bold text-lg">Upload asset</span>
+                    <DialogTitle className="text-white font-bold text-lg">Upload asset</DialogTitle>
                     <button
                         type="button"
                         onClick={(e) => {

@@ -3,6 +3,7 @@ import { Check, ArrowUp, ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { MarginSettingsControl, BlockMargin } from "./blocks/MarginSettingsControl"
+import { InlineColorPicker } from "@/components/ui/inline-color-picker"
 
 interface TextSettingsPanelProps {
     isOpen: boolean
@@ -174,17 +175,15 @@ export function TextSettingsPanel({
                     {/* Color Picker Area (Text Color) */}
                     <div className="flex flex-col gap-2">
                         <span className="text-gray-400 text-sm">Cor do texto</span>
-                        <div
-                            className="w-full h-[100px] rounded-sm relative cursor-crosshair border border-white/10"
-                            style={{ backgroundColor: color }}
-                        >
-                            <input
-                                type="color"
-                                value={color}
-                                onChange={(e) => onColorChange(e.target.value)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                        </div>
+                        <InlineColorPicker
+                            color={color}
+                            onChange={(newHex) => {
+                                onColorChange(newHex)
+                                setHexInput(newHex)
+                            }}
+                            height={90}
+                            showHueSlider={true}
+                        />
 
                         {/* Hex Input Row */}
                         <div className="flex gap-2 h-[34px]">
@@ -222,24 +221,15 @@ export function TextSettingsPanel({
                     {/* Background Color Area */}
                     <div className="flex flex-col gap-2">
                         <span className="text-gray-400 text-sm">Cor do fundo</span>
-                        <div
-                            className="w-full h-[60px] rounded-sm relative cursor-crosshair border border-white/10"
-                            style={{ backgroundColor: backgroundColor || 'transparent' }}
-                        >
-                            <input
-                                type="color"
-                                value={backgroundColor || '#ffffff'}
-                                onChange={(e) => onBackgroundColorChange?.(e.target.value)}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                            />
-                            {!backgroundColor && (
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
-                                    <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                                        <line x1="0" y1="100" x2="100" y2="0" stroke="rgba(239, 68, 68, 0.5)" strokeWidth="2" />
-                                    </svg>
-                                </div>
-                            )}
-                        </div>
+                        <InlineColorPicker
+                            color={backgroundColor || '#ffffff'}
+                            onChange={(newHex) => {
+                                onBackgroundColorChange?.(newHex)
+                                setBgHexInput(newHex)
+                            }}
+                            height={75}
+                            showHueSlider={true}
+                        />
 
                         {/* Bg Hex Input Row */}
                         <div className="flex gap-2 h-[34px]">

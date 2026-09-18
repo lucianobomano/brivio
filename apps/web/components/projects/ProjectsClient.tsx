@@ -15,7 +15,17 @@ import {
     ChevronDown,
     Sparkles,
     Plus,
+    ArrowLeft,
+    Eye,
+    PanelLeft,
+    Moon,
+    Sun,
+    Timer,
+    ChevronsUpDown,
+    Home,
 } from "lucide-react"
+import { useTheme } from "next-themes"
+import Image from "next/image"
 import { useSearchParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -54,6 +64,8 @@ import { GlobalSettingsView } from "../settings/GlobalSettingsView"
 import { UnifiedHeader } from "@/components/layout/UnifiedHeader"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
+import { useWorkspace } from "@/components/providers/WorkspaceProvider"
+import type { WorkspaceSettings } from "@/app/actions/settings"
 
 export interface Project {
     id: string
@@ -128,24 +140,50 @@ interface ProjectsClientProps {
     initialProjects: Project[]
     initialStages: Stage[]
     workspaceId?: string
+    initialWorkspace?: WorkspaceSettings | null
     user: AppUser | null
 }
 
 const viewNames: Record<string, string> = {
     dashboard: "Dashboard",
-    padrao: "Padrão",
-    list: "Lista",
+    padrao: "Grupo",
+    list: "Tabela",
     board: "Quadro",
     gallery: "Galeria",
     calendar: "Calendário",
     gantt: "Gantt",
     map: "Mapa",
-    workload: "Carga de Trabalho"
+    workload: "Carga"
 }
 
-export function ProjectsClient({ initialProjects, initialStages, workspaceId, user }: ProjectsClientProps) {
+export function ProjectsClient({ initialProjects, initialStages, workspaceId, initialWorkspace, user }: ProjectsClientProps) {
     const searchParams = useSearchParams()
     const router = useRouter()
+    const { theme, setTheme } = useTheme()
+    const [mounted, setMounted] = React.useState(false)
+    const [isSidebarCollapsed, setIsSidebarCollapsed] = React.useState(false)
+    const searchInputRef = React.useRef<HTMLInputElement>(null)
+    const { workspace } = useWorkspace()
+
+    const currentWorkspace = workspace || initialWorkspace
+    const studioName = currentWorkspace?.name || user?.profile?.name || "Studio"
+    const studioInitial = (studioName.trim()[0] || "S").toUpperCase()
+    const studioLogo = currentWorkspace?.logo_url || currentWorkspace?.favicon_url
+
+    React.useEffect(() => {
+        setMounted(true)
+    }, [])
+
+    React.useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+                e.preventDefault()
+                searchInputRef.current?.focus()
+            }
+        }
+        window.addEventListener("keydown", handleKeyDown)
+        return () => window.removeEventListener("keydown", handleKeyDown)
+    }, [])
 
     // View state driven by query parameter
     const [view, setView] = React.useState((searchParams.get("view") as "dashboard" | "padrao" | "list" | "board" | "gallery" | "calendar" | "gantt" | "map" | "workload") || "dashboard")
@@ -174,6 +212,32 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
         window.addEventListener("popstate", handlePopState)
         return () => window.removeEventListener("popstate", handlePopState)
     }, [])
+
+    const handleNavClick = (itemId: string) => {
+        setView(itemId as typeof view)
+        setActiveProject(null)
+        const params = new URLSearchParams(window.location.search)
+        if (itemId === "dashboard") {
+            params.delete("view")
+        } else {
+            params.set("view", itemId)
+        }
+        const newSearch = params.toString()
+        const newUrl = `${window.location.pathname}${newSearch ? "?" + newSearch : ""}`
+        window.history.pushState(null, "", newUrl)
+    }
+
+    const SIDEBAR_NAV_ITEMS = [
+        { id: "dashboard", label: "Dashboard", icon: Home },
+        { id: "padrao", label: "Grupo", icon: LayoutGrid },
+        { id: "list", label: "Tabela", icon: Table },
+        { id: "board", label: "Quadro", icon: BoardIcon },
+        { id: "gallery", label: "Galeria", icon: LayoutGrid },
+        { id: "calendar", label: "Calendário", icon: CalendarIcon },
+        { id: "gantt", label: "Gantt", icon: GanttChartSquare },
+        { id: "map", label: "Mapa", icon: MapIcon },
+        { id: "workload", label: "Carga", icon: Users },
+    ]
 
     const [projects, setProjects] = React.useState<Project[]>(initialProjects || [])
     const [stages, setStages] = React.useState<Stage[]>(initialStages || [])
@@ -305,26 +369,24 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
         return cats
     }, [projects, categoryColors])
     return (
-        <div className="flex flex-col h-full bg-bg-0">
-
-            {
-                activeProject && (
-                    <ProjectTaskCreateModal
-                        isOpen={isTaskCreateModalOpen}
-                        onClose={() => {
-                            setIsTaskCreateModalOpen(false)
-                            setSelectedStageIdForTask(undefined)
-                            setSelectedDateForTask(undefined)
-                        }}
-                        onSuccess={handleTaskSuccess}
-                        projectId={activeProject.id}
-                        stages={roadmap.map(s => ({ id: s.id, name: s.name, color: s.color }))}
-                        sprints={sprints.filter(s => !s.project_id || s.project_id === activeProject.id)}
-                        initialStageId={selectedStageIdForTask}
-                        initialStartDate={selectedDateForTask}
-                    />
-                )
-            }
+        <div className="flex h-screen w-full overflow-hidden bg-bg-0 text-text-primary font-sans">
+            {/* Modals */}
+            {activeProject && (
+                <ProjectTaskCreateModal
+                    isOpen={isTaskCreateModalOpen}
+                    onClose={() => {
+                        setIsTaskCreateModalOpen(false)
+                        setSelectedStageIdForTask(undefined)
+                        setSelectedDateForTask(undefined)
+                    }}
+                    onSuccess={handleTaskSuccess}
+                    projectId={activeProject.id}
+                    stages={roadmap.map(s => ({ id: s.id, name: s.name, color: s.color }))}
+                    sprints={sprints.filter(s => !s.project_id || s.project_id === activeProject.id)}
+                    initialStageId={selectedStageIdForTask}
+                    initialStartDate={selectedDateForTask}
+                />
+            )}
 
             <ProjectDetailsModal
                 isOpen={!!projectForDetails}
@@ -407,156 +469,364 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                 }}
             />
 
-            {/* ===== NEW GLOBAL HEADER (From Dashboard) ===== */}
-            <UnifiedHeader
-                user={user}
-                onAddClick={() => setIsCreateModalOpen(true)}
-                addLabel="Novo Projeto"
-                onSecondaryAddClick={() => setIsStageModalOpen(true)}
-                secondaryAddLabel="Criar Etapa"
-                onSettingsClick={() => setIsSettingsOpen(true)}
-            />
-
-            {/* ===== NEW PROJECT NAVIGATION BAR ===== */}
-            {
-                activeProject && (
-                    <div className="w-full flex justify-center shrink-0 z-20 mt-8">
-                        <div
-                            className="flex items-center border border-[#373737] bg-[#16171C] h-[60px] px-2"
-                            style={{ width: "1520px", borderRadius: "100px", gap: "8px" }}
+            {/* ===== LEFT SIDEBAR (Styled like Image 4) ===== */}
+            <aside className={cn(
+                "h-screen flex flex-col shrink-0 border-r border-zinc-200 dark:border-white/[0.06] bg-white dark:bg-[#09090b] transition-all duration-300 z-30 select-none shadow-xs",
+                isSidebarCollapsed ? "w-[68px]" : "w-[260px]"
+            )}>
+                {/* Header: Studio Badge & Real Name, Moon/Sun, Collapse */}
+                <div className={cn(
+                    "h-14 px-3.5 flex items-center justify-between border-b border-zinc-200 dark:border-white/[0.06] shrink-0",
+                    isSidebarCollapsed ? "justify-center px-0" : ""
+                )}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-6 h-6 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-white/10 flex items-center justify-center text-xs font-bold text-zinc-900 dark:text-white shrink-0 shadow-sm overflow-hidden">
+                            {studioLogo ? (
+                                <Image
+                                    src={studioLogo}
+                                    alt={studioName}
+                                    width={24}
+                                    height={24}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                studioInitial
+                            )}
+                        </div>
+                        {!isSidebarCollapsed && (
+                            <span className="font-semibold text-[13px] text-zinc-900 dark:text-zinc-100 truncate tracking-tight" title={studioName}>
+                                {studioName}
+                            </span>
+                        )}
+                    </div>
+                    {!isSidebarCollapsed ? (
+                        <div className="flex items-center gap-0.5 shrink-0">
+                            <button
+                                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                                className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                                title="Alternar tema"
+                            >
+                                {mounted && theme === "light" ? (
+                                    <Sun className="w-3.5 h-3.5 text-amber-500" />
+                                ) : (
+                                    <Moon className="w-3.5 h-3.5" />
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setIsSidebarCollapsed(true)}
+                                className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors"
+                                title="Recolher barra lateral"
+                            >
+                                <PanelLeft className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    ) : (
+                        <button
+                            onClick={() => setIsSidebarCollapsed(false)}
+                            className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors mt-1"
+                            title="Expandir barra lateral"
                         >
-                            {[
-                                { id: "overview", label: "Overview" },
-                                { id: "tarefas", label: "Tarefas" },
-                                { id: "cronograma", label: "Cronograma" },
-                                { id: "propostas", label: "Propostas" },
-                                { id: "cobrancas", label: "Cobranças" },
-                                { id: "arquivos", label: "Arquivos" },
-                                { id: "contratos", label: "Contratos" },
-                            ].map((tab) => (
-                                <button
-                                    key={tab.id}
-                                    onClick={() => setActiveProjectTab(tab.id)}
-                                    className={cn(
-                                        "px-6 h-[44px] rounded-[100px] text-[16px] font-medium transition-all duration-300 font-inter",
-                                        activeProjectTab === tab.id
-                                            ? "bg-[#2E313C] text-white"
-                                            : "text-[#97A1B3] hover:text-white"
-                                    )}
-                                >
-                                    {tab.label}
-                                </button>
-                            ))}
+                            <PanelLeft className="w-3.5 h-3.5" />
+                        </button>
+                    )}
+                </div>
+
+                {/* Search Bar */}
+                {!isSidebarCollapsed ? (
+                    <div className="px-3 pt-3 pb-1.5 shrink-0">
+                        <div className="relative flex items-center">
+                            <Search className="absolute left-2.5 w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 pointer-events-none" />
+                            <input
+                                ref={searchInputRef}
+                                type="text"
+                                placeholder="Search"
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full bg-zinc-100 dark:bg-[#141416] border border-zinc-200 dark:border-white/[0.06] rounded-lg pl-8 pr-9 py-1.5 text-xs text-zinc-900 dark:text-zinc-200 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:border-zinc-400 dark:focus:border-white/20 transition-colors"
+                            />
+                            <div className="absolute right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white dark:bg-white/[0.04] border border-zinc-200 dark:border-white/[0.08] text-[9px] font-mono text-zinc-500 dark:text-zinc-400 shadow-xs">
+                                <span>⌘</span>
+                                <span>K</span>
+                            </div>
                         </div>
                     </div>
-                )
-            }
+                ) : (
+                    <div className="flex justify-center pt-3 pb-1 shrink-0">
+                        <button
+                            onClick={() => setIsSidebarCollapsed(false)}
+                            className="w-9 h-9 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.04] transition-colors"
+                            title="Pesquisar (⌘K)"
+                        >
+                            <Search className="w-4 h-4" />
+                        </button>
+                    </div>
+                )}
 
-            {/* Main Content */}
-            <div className="flex-1 overflow-hidden flex flex-col pt-8">
-                {/* Secondary Navigation (Filters and Views) */}
-                {/* Secondary Navigation (Filters and Views) - Hidden on Dashboard and when NOT on Tasks tab within a project */}
-                {(!activeProject || activeProjectTab === "tarefas") && (
-                    <div className="px-10 mb-6 shrink-0">
-                        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 xl:gap-6 w-full min-w-0">
-                            <div className="flex items-center gap-4 w-full overflow-hidden min-w-0">
-                                {activeProject && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => setActiveProject(null)}
-                                        className="h-11 px-4 rounded-[8px] text-[10px] font-black uppercase tracking-tight hover:bg-bg-2 border border-bg-3 gap-2"
-                                    >
-                                        <ChevronDown className="w-3.5 h-3.5 rotate-90" />
-                                        Voltar
-                                    </Button>
+                {/* Middle scrollable section: Views (Image 3) + Projects */}
+                <div className="flex-1 overflow-y-auto no-scrollbar py-2 px-3 space-y-1">
+                    {/* Primary Views (from Image 3) */}
+                    {SIDEBAR_NAV_ITEMS.map((item) => {
+                        const Icon = item.icon
+                        const isActive = view === item.id && !activeProject
+
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => handleNavClick(item.id)}
+                                className={cn(
+                                    "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors text-left",
+                                    isSidebarCollapsed ? "justify-center px-0 py-2.5" : "",
+                                    isActive
+                                        ? "bg-zinc-100 dark:bg-[#1c1c20] text-zinc-900 dark:text-white font-medium shadow-xs"
+                                        : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/[0.04]"
                                 )}
-                                <div className="bg-bg-1 border border-bg-3 p-1.5 rounded-[8px] flex items-center shadow-sm w-full min-w-0 overflow-hidden">
-                                    <Tabs
-                                        value={view}
-                                        onValueChange={(v) => {
-                                            setView(v as typeof view)
-                                            const params = new URLSearchParams(window.location.search)
-                                            if (v === "dashboard") {
-                                                params.delete("view")
-                                            } else {
-                                                params.set("view", v)
-                                            }
-                                            const newSearch = params.toString()
-                                            const newUrl = `${window.location.pathname}${newSearch ? "?" + newSearch : ""}`
-                                            window.history.pushState(null, "", newUrl)
-                                        }}
-                                        className="bg-transparent border-none w-full min-w-0"
-                                    >
-                                        <TabsList className="bg-transparent p-0 border-none h-11 gap-1 flex justify-start overflow-x-auto no-scrollbar w-full">
-                                            <TabsTrigger value="dashboard" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <BoardIcon className="w-3.5 h-3.5" />
-                                                Dashboard
-                                            </TabsTrigger>
-                                            <TabsTrigger value="padrao" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <LayoutGrid className="w-3.5 h-3.5" />
-                                                Grupo
-                                            </TabsTrigger>
-                                            <TabsTrigger value="list" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <Table className="w-3.5 h-3.5" />
-                                                Tabela
-                                            </TabsTrigger>
-                                            <TabsTrigger value="board" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <BoardIcon className="w-3.5 h-3.5" />
-                                                Quadro
-                                            </TabsTrigger>
-                                            <TabsTrigger value="gallery" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <LayoutGrid className="w-3.5 h-3.5" />
-                                                Galeria
-                                            </TabsTrigger>
-                                            <TabsTrigger value="calendar" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <CalendarIcon className="w-3.5 h-3.5" />
-                                                Calendário
-                                            </TabsTrigger>
-                                            <TabsTrigger value="gantt" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <GanttChartSquare className="w-3.5 h-3.5" />
-                                                Gantt
-                                            </TabsTrigger>
-                                            <TabsTrigger value="map" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <MapIcon className="w-3.5 h-3.5" />
-                                                Mapa
-                                            </TabsTrigger>
-                                            <TabsTrigger value="workload" className="px-5 h-9 rounded-[8px] text-[18px] font-[300] tracking-tight transition-all flex items-center gap-2 data-[state=active]:bg-accent-indigo data-[state=active]:text-white">
-                                                <Users className="w-3.5 h-3.5" />
-                                                Carga
-                                            </TabsTrigger>
-                                        </TabsList>
-                                    </Tabs>
-                                </div>
+                                title={item.label}
+                            >
+                                <Icon className={cn("w-4 h-4 shrink-0", isActive ? "text-zinc-900 dark:text-white" : "text-zinc-500 dark:text-zinc-400")} />
+                                {!isSidebarCollapsed && <span>{item.label}</span>}
+                            </button>
+                        )
+                    })}
+
+                    {/* Divider */}
+                    <div className="my-3 border-t border-zinc-200 dark:border-white/[0.06] mx-1" />
+
+                    {/* Projects / Clients List (Image 4) */}
+                    <div className="space-y-0.5">
+                        {projects.slice(0, 5).map((p, idx) => {
+                            const initial = (p.name || "P")[0].toUpperCase()
+                            const colors = [
+                                "bg-teal-500/15 text-teal-600 dark:text-teal-400 border-teal-500/30",
+                                "bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30",
+                                "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30",
+                                "bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30",
+                                "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30",
+                            ]
+                            const colorClass = colors[idx % colors.length]
+                            const isSelected = activeProject?.id === p.id
+
+                            return (
+                                <button
+                                    key={p.id}
+                                    onClick={() => {
+                                        setActiveProject(p)
+                                        setActiveProjectTab("overview")
+                                        setView("padrao")
+                                    }}
+                                    className={cn(
+                                        "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors text-left",
+                                        isSidebarCollapsed ? "justify-center px-0" : "",
+                                        isSelected
+                                            ? "bg-zinc-100 dark:bg-[#1c1c20] text-zinc-900 dark:text-white font-medium shadow-xs"
+                                            : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/[0.03]"
+                                    )}
+                                    title={p.name}
+                                >
+                                    <div className={cn(
+                                        "w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold border shrink-0",
+                                        colorClass
+                                    )}>
+                                        {initial}
+                                    </div>
+                                    {!isSidebarCollapsed && (
+                                        <span className="truncate flex-1">{p.name}</span>
+                                    )}
+                                </button>
+                            )
+                        })}
+
+                        {/* Add Client / Add Project button */}
+                        <button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            className={cn(
+                                "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-white/[0.03] transition-colors",
+                                isSidebarCollapsed ? "justify-center px-0" : ""
+                            )}
+                            title="Add client"
+                        >
+                            <Plus className="w-3.5 h-3.5 shrink-0" />
+                            {!isSidebarCollapsed && <span>Add client</span>}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Bottom Section (Image 4): Free trial + Track time + User profile */}
+                <div className="mt-auto border-t border-zinc-200 dark:border-white/[0.06] p-3 space-y-3 shrink-0">
+                    {/* Trial banner */}
+                    {!isSidebarCollapsed && (
+                        <div className="space-y-1.5 px-1">
+                            <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-normal">
+                                14 days left on your free trial
                             </div>
-
-                            <div className="flex-1 flex items-center justify-end gap-3 w-full shrink-0">
-                                <div className="relative max-w-md w-full">
-                                    <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" />
-                                    <input
-                                        type="text"
-                                        placeholder="Pesquisar..."
-                                        value={searchQuery}
-                                        onChange={(e) => setSearchQuery(e.target.value)}
-                                        className="w-full bg-bg-1 border border-bg-3 rounded-[8px] pl-12 pr-6 h-12 text-[11px] font-bold text-text-primary placeholder:text-text-tertiary focus:outline-none focus:border-accent-indigo/50 transition-all shadow-sm"
-                                    />
-                                </div>
-                                {!activeProject && (
-                                    <Button
-                                        onClick={() => setIsCreateModalOpen(true)}
-                                        className="h-12 px-6 bg-accent-indigo hover:bg-accent-indigo/90 text-white rounded-[8px] text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-sm shrink-0"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Novo Projeto
-                                    </Button>
-                                )}
+                            <div className="w-full h-1 bg-zinc-200 dark:bg-white/[0.08] rounded-full overflow-hidden">
+                                <div className="w-[38%] h-full bg-zinc-800 dark:bg-white/70 rounded-full" />
                             </div>
                         </div>
+                    )}
+
+                    {/* Track time */}
+                    <button
+                        onClick={() => router.push("/focus")}
+                        className={cn(
+                            "w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.04] transition-colors",
+                            isSidebarCollapsed ? "justify-center px-0" : ""
+                        )}
+                        title="Track time"
+                    >
+                        <Timer className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
+                        {!isSidebarCollapsed && <span>Track time</span>}
+                    </button>
+
+                    {/* User profile card */}
+                    <div
+                        onClick={() => setIsSettingsOpen(true)}
+                        className={cn(
+                            "flex items-center gap-2.5 p-2 rounded-xl bg-zinc-50 hover:bg-zinc-100/80 dark:bg-white/[0.02] dark:hover:bg-white/[0.05] border border-zinc-200/80 dark:border-white/[0.04] cursor-pointer transition-colors shadow-xs",
+                            isSidebarCollapsed ? "justify-center p-1.5" : ""
+                        )}
+                        title={user?.profile?.name || user?.name || "Luciano Bom-Ano"}
+                    >
+                        <div className="relative w-8 h-8 rounded-full overflow-hidden shrink-0 border border-zinc-200 dark:border-white/10 bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center">
+                            {user?.profile?.avatar_url || user?.avatar ? (
+                                <Image
+                                    src={user?.profile?.avatar_url || user?.avatar || ""}
+                                    alt="User Avatar"
+                                    fill
+                                    className="object-cover"
+                                />
+                            ) : (
+                                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                                    {(user?.profile?.name || user?.name || "L")[0]?.toUpperCase()}
+                                </span>
+                            )}
+                        </div>
+                        {!isSidebarCollapsed && (
+                            <>
+                                <div className="flex flex-col min-w-0 flex-1">
+                                    <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-200 truncate leading-tight">
+                                        {user?.profile?.name || user?.name || "Luciano Bom-Ano"}
+                                    </span>
+                                    <span className="text-[10px] text-zinc-500 truncate leading-tight mt-0.5">
+                                        {user?.email || "lucistarlucianolusseque..."}
+                                    </span>
+                                </div>
+                                <ChevronsUpDown className="w-3.5 h-3.5 text-zinc-400 dark:text-zinc-500 shrink-0" />
+                            </>
+                        )}
+                    </div>
+                </div>
+            </aside>
+
+            {/* ===== MAIN CONTENT AREA ===== */}
+            <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0 bg-bg-0">
+                {/* Unified Project Navigation Bar (when inside a project) */}
+                {activeProject ? (
+                    <div className="w-full flex justify-center shrink-0 z-20 mt-6 mb-2 px-6">
+                        <div
+                            className="flex items-center justify-between border border-zinc-200/80 dark:border-white/[0.08] bg-white/95 dark:bg-[#0e0e11]/95 backdrop-blur-md h-[56px] px-3.5 shadow-md dark:shadow-xl w-full max-w-[1520px] rounded-full gap-3"
+                        >
+                            {/* Lado Esquerdo: Info do Projeto (Imagem 1) */}
+                            <div className="flex items-center gap-3 shrink-0 min-w-0 pr-4 border-r border-zinc-200 dark:border-white/[0.08]">
+                                <button
+                                    onClick={() => {
+                                        setActiveProject(null)
+                                        setActiveProjectTab("overview")
+                                    }}
+                                    title="Voltar aos projetos"
+                                    className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors shrink-0"
+                                >
+                                    <ArrowLeft className="w-4 h-4" />
+                                </button>
+
+                                {/* Ícone Quadrado do Projeto */}
+                                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#181215] border border-red-500/20 flex items-center justify-center shrink-0 shadow-sm overflow-hidden">
+                                    {activeProject.brand?.logo_url ? (
+                                        <Image
+                                            src={activeProject.brand.logo_url}
+                                            alt={activeProject.name}
+                                            width={32}
+                                            height={32}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-red-500 font-bold text-xs">
+                                            {(activeProject.name || "P")[0]?.toUpperCase()}
+                                        </span>
+                                    )}
+                                </div>
+
+                                {/* Título e Subtítulo */}
+                                <div className="flex flex-col min-w-0">
+                                    <h1 className="text-xs font-bold tracking-wide uppercase text-zinc-900 dark:text-zinc-100 leading-tight truncate">
+                                        {activeProject.name}
+                                    </h1>
+                                    <div className="flex items-center gap-1.5 text-[11px] text-zinc-500 dark:text-zinc-400 font-normal mt-0.5 leading-tight truncate">
+                                        <span>{activeProject.category || "branding"}</span>
+                                        <span>·</span>
+                                        <span>Design</span>
+                                        <span className="text-zinc-400 dark:text-zinc-600 font-medium">···</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Centro: Abas de Navegação (Imagem 2) */}
+                            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar py-1">
+                                {[
+                                    { id: "overview", label: "Overview" },
+                                    { id: "tarefas", label: "Tarefas" },
+                                    { id: "cronograma", label: "Cronograma" },
+                                    { id: "propostas", label: "Propostas" },
+                                    { id: "cobrancas", label: "Cobranças" },
+                                    { id: "arquivos", label: "Arquivos" },
+                                    { id: "contratos", label: "Contratos" },
+                                ].map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        onClick={() => setActiveProjectTab(tab.id)}
+                                        className={cn(
+                                            "px-4 h-[36px] rounded-full text-xs font-medium transition-all duration-200 font-sans whitespace-nowrap",
+                                            activeProjectTab === tab.id
+                                                ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-white shadow-sm"
+                                                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.03]"
+                                        )}
+                                    >
+                                        {tab.label}
+                                    </button>
+                                ))}
+                            </div>
+
+                            {/* Lado Direito: Ação "Ver como cliente" (Imagem 1) */}
+                            <div className="flex items-center shrink-0 pl-3 border-l border-zinc-200 dark:border-white/[0.08]">
+                                <button
+                                    onClick={() => toast.info("Modo de visualização do cliente ativado")}
+                                    className="flex items-center gap-1.5 px-3.5 h-[36px] rounded-full border border-zinc-200 dark:border-white/[0.08] bg-zinc-100 hover:bg-zinc-200 dark:bg-white/[0.03] dark:hover:bg-white/[0.08] text-xs font-medium text-zinc-700 hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-white transition-all shadow-sm"
+                                >
+                                    <Eye className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                                    <span className="whitespace-nowrap">Ver como cliente</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <div className="h-14 px-8 flex items-center justify-between border-b border-zinc-200/80 dark:border-white/[0.04] shrink-0 bg-transparent">
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-zinc-500 font-medium">Projectos</span>
+                            <span className="text-xs text-zinc-400 dark:text-zinc-600">/</span>
+                            <span className="text-xs text-zinc-900 dark:text-zinc-200 font-semibold">{viewNames[view]}</span>
+                        </div>
+                        <Button
+                            onClick={() => setIsCreateModalOpen(true)}
+                            size="sm"
+                            className="h-8 px-3.5 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 rounded-lg text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                        >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Novo Projeto</span>
+                        </Button>
                     </div>
                 )}
 
                 {/* Content View Container */}
-                <div className="flex-1 overflow-y-auto p-10 pt-6 no-scrollbar relative min-h-0 bg-bg-0">
+                <div className="flex-1 overflow-y-auto p-10 pt-6 no-scrollbar relative min-h-0 bg-bg-0 pb-36">
                     <AnimatePresence mode="wait">
                         <motion.div
                             key={activeProject ? `project-${activeProject.id}-${view}` : `grid-${view}`}
@@ -679,6 +949,7 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, us
                                         <ProjectOverviewView
                                             project={activeProject}
                                             stages={roadmap}
+                                            onNavigateTab={setActiveProjectTab}
                                             onBack={() => {
                                                 setActiveProject(null)
                                                 setActiveProjectTab("overview")

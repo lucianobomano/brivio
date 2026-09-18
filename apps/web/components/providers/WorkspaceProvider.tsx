@@ -14,13 +14,15 @@ const WorkspaceContext = React.createContext<WorkspaceContextType | undefined>(u
 
 export function WorkspaceProvider({
     children,
-    initialWorkspaceId
+    initialWorkspaceId,
+    initialWorkspace
 }: {
     children: React.ReactNode
     initialWorkspaceId?: string
+    initialWorkspace?: WorkspaceSettings | null
 }) {
-    const [workspace, setWorkspace] = React.useState<WorkspaceSettings | null>(null)
-    const [isLoading, setIsLoading] = React.useState(true)
+    const [workspace, setWorkspace] = React.useState<WorkspaceSettings | null>(initialWorkspace || null)
+    const [isLoading, setIsLoading] = React.useState(!initialWorkspace)
 
     const fetchWorkspace = React.useCallback(async (id: string) => {
         setIsLoading(true)
@@ -52,7 +54,20 @@ export function WorkspaceProvider({
                             if (data?.workspace_id) {
                                 fetchWorkspace(data.workspace_id)
                             } else {
-                                setIsLoading(false)
+                                // Fallback 2: Check workspaces table for created_by
+                                supabase
+                                    .from('workspaces')
+                                    .select('id')
+                                    .eq('created_by', user.id)
+                                    .limit(1)
+                                    .single()
+                                    .then(({ data: wsData }) => {
+                                        if (wsData?.id) {
+                                            fetchWorkspace(wsData.id)
+                                        } else {
+                                            setIsLoading(false)
+                                        }
+                                    })
                             }
                         })
                 } else {
@@ -78,7 +93,11 @@ export function WorkspaceProvider({
 export function useWorkspace() {
     const context = React.useContext(WorkspaceContext)
     if (context === undefined) {
-        throw new Error("useWorkspace must be used within a WorkspaceProvider")
+        return {
+            workspace: null,
+            isLoading: false,
+            refreshWorkspace: async () => {}
+        }
     }
     return context
 }

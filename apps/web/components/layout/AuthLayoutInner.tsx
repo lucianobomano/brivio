@@ -27,9 +27,10 @@ interface AuthLayoutInnerProps {
     }
     showSidebar?: boolean
     workspaceId?: string
+    initialWorkspace?: any
 }
 
-export function AuthLayoutInner({ children, user, showSidebar = true, workspaceId }: AuthLayoutInnerProps) {
+export function AuthLayoutInner({ children, user, showSidebar = true, workspaceId, initialWorkspace }: AuthLayoutInnerProps) {
     const pathname = usePathname()
     const { activeView } = useSpaNavigation()
 
@@ -87,10 +88,10 @@ export function AuthLayoutInner({ children, user, showSidebar = true, workspaceI
     }
 
     return (
-        <WorkspaceProvider initialWorkspaceId={workspaceId}>
+        <WorkspaceProvider initialWorkspaceId={workspaceId} initialWorkspace={initialWorkspace}>
             <div className={cn(
-                "flex min-h-screen bg-bg-0 selection:bg-accent-indigo selection:text-white",
-                (isProjectsPage && currentPathname !== "/assets") ? "pb-32" : ""
+                "flex min-h-screen h-screen overflow-hidden bg-bg-0 selection:bg-accent-indigo selection:text-white",
+                (isProjectsPage && currentPathname !== "/assets" && currentPathname !== "/projects") ? "pb-24" : ""
             )}>
                 {/* Bottom Navigation is shown for all SPA-enabled pages */}
                 {isProjectsPage && <BottomNavigation />}
@@ -102,11 +103,11 @@ export function AuthLayoutInner({ children, user, showSidebar = true, workspaceI
                     {/* Main Content Area */}
                     <main className={cn(
                         "flex-1 overflow-y-auto w-full",
-                        shouldShowSidebar ? "p-8" : (isDashboard || isCommunity || currentPathname === "/assets" || currentPathname === "/standups" || currentPathname === "/tasks" || currentPathname === "/roadmap" || currentPathname === "/focus") ? "p-0" : "p-8"
+                        shouldShowSidebar ? "p-8" : (isDashboard || isCommunity || currentPathname === "/projects" || currentPathname === "/assets" || currentPathname === "/standups" || currentPathname === "/tasks" || currentPathname === "/roadmap" || currentPathname === "/focus") ? "p-0" : "p-8"
                     )}>
                         <div className={cn(
-                            "w-full",
-                            (shouldShowSidebar || (!isDashboard && !isCommunity && currentPathname !== "/assets" && currentPathname !== "/tasks" && currentPathname !== "/roadmap" && currentPathname !== "/focus")) ? "max-w-[1600px] mx-auto" : ""
+                            "w-full h-full",
+                            (shouldShowSidebar || (!isDashboard && !isCommunity && currentPathname !== "/projects" && currentPathname !== "/assets" && currentPathname !== "/tasks" && currentPathname !== "/roadmap" && currentPathname !== "/focus")) ? "max-w-[1600px] mx-auto" : ""
                         )}>
                             {renderSpaContent()}
                         </div>

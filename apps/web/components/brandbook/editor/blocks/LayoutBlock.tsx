@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 // Usually better to have a generic renderer or Import it.
 // React handles circular imports fine usually for components if implementation is clean.
 import { BlockRenderer } from "./BlockRenderer"
-import { Plus, ArrowLeft, ArrowRight, Clipboard } from "lucide-react"
+import { Plus, ArrowLeft, ArrowRight, Clipboard, GripVertical } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ColumnSettingsPanel } from "./ColumnSettingsPanel"
 import { useState, useRef, useEffect } from "react"
@@ -15,6 +15,7 @@ import { ColumnSplitter } from "./ColumnSplitter"
 import { useBrandDesign } from "../BrandDesignContext"
 import { uploadBrandbookMedia } from "@/app/actions/brandbook"
 import { toast } from "sonner"
+import { motion } from "framer-motion"
 
 interface LayoutBlockProps {
     block: Block
@@ -46,7 +47,7 @@ export const LayoutBlock = ({
     clipboard,
     onPasteBlock
 }: LayoutBlockProps) => {
-    const { brandId, setIsResizingGlobal } = useBrandDesign()
+    const { brandId, setIsResizingGlobal, isResizingGlobal } = useBrandDesign()
     // Determine columns from variant or content
     // content.columns = [{ id: 'col-1', blocks: [] }, ...]
     const columns = block.content.columns || []
@@ -81,7 +82,20 @@ export const LayoutBlock = ({
             if (col.id === colId) {
                 return {
                     ...col,
-                    blocks: col.blocks.map((b: Block) => b.id === blockId ? { ...b, content: newContent } : b)
+                    blocks: col.blocks.map((b: Block) => {
+                        if (b.id === blockId) {
+                            if (newContent && typeof newContent === 'object' && 'position' in newContent) {
+                                const { position, ...rest } = newContent
+                                return {
+                                    ...b,
+                                    position,
+                                    content: Object.keys(rest).length > 0 ? (typeof b.content === 'object' ? { ...b.content, ...rest } : rest) : b.content
+                                }
+                            }
+                            return { ...b, content: newContent }
+                        }
+                        return b
+                    })
                 }
             }
             return col
@@ -102,7 +116,8 @@ export const LayoutBlock = ({
                 }
                 return {
                     ...col,
-                    settings: { ...col.settings, ...settings }
+                    settings: { ...col.settings, ...settings },
+                    position: settings.position || col.position || col.settings?.position
                 }
             }
             return col
@@ -534,10 +549,16 @@ export const LayoutBlock = ({
     const columnGap = block.content.settings?.columnGap ?? 32
     const gapValue = noColumnGap ? 0 : columnGap
 
+    const isSectionFreeFlow = Boolean(block.content.settings?.isFreeFlow)
+
     return (
         <div className="w-full h-full flex flex-col relative overflow-visible group/layout-section">
             <div
-                className={cn("grid w-full flex-1 min-h-0 transition-all duration-300 relative overflow-visible", getGridClass(colCount))}
+                className={cn(
+                    "grid w-full flex-1 min-h-0 relative overflow-visible",
+                    isResizingGlobal || isSectionFreeFlow ? "transition-none" : "transition-all duration-300",
+                    getGridClass(colCount)
+                )}
                 id={`layout-block-${block.id}`}
             style={{
                 padding: '0px',
@@ -571,14 +592,31 @@ export const LayoutBlock = ({
                 }
 
                 return (
-                    <div
+                    <motion.div
                         key={col.id}
+                        drag={!isReadOnly && isSectionFreeFlow}
+                        dragMomentum={false}
+                        dragElastic={0}
+                        initial={false}
+                        animate={{
+                            x: isSectionFreeFlow ? (col.settings?.position?.x ?? col.position?.x ?? 0) : 0,
+                            y: isSectionFreeFlow ? (col.settings?.position?.y ?? col.position?.y ?? 0) : 0,
+                        }}
+                        onDragEnd={(_, info) => {
+                            const currentPos = col.settings?.position || col.position || { x: 0, y: 0 }
+                            const newX = currentPos.x + info.offset.x
+                            const newY = currentPos.y + info.offset.y
+                            handleColumnSettingsChange(col.id, { position: { x: newX, y: newY } })
+                        }}
                         className={cn(
-                            "relative group/col flex flex-col transition-all duration-300 overflow-visible w-full",
-                            col.blocks && col.blocks.length > 0 ? "min-h-0" : `min-h-[32px] ${!isReadOnly ? "border border-dashed border-gray-200 hover:border-[#FF0054]" : ""}`
+                            "relative group/col flex flex-col overflow-visible w-full",
+                            isResizingGlobal || isSectionFreeFlow ? "transition-none" : "transition-all duration-300",
+                            col.blocks && col.blocks.length > 0 ? "min-h-0" : `min-h-[32px] ${!isReadOnly ? "border border-dashed border-gray-200 hover:border-[#FF0054]" : ""}`,
+                            isSectionFreeFlow && !isReadOnly && "cursor-grab active:cursor-grabbing hover:ring-1 hover:ring-[#FF0054]/40 z-20"
                         )}
                         style={{
                             gap: `${col.settings?.blockGap ?? 16}px`,
+                            touchAction: isSectionFreeFlow ? 'none' : 'auto',
                             minHeight: col.blocks?.some((b: any) => b.type === 'gallery' || b.type === 'carousel')
                                 ? 'auto'
                                 : (col.settings?.minHeight && col.settings.minHeight !== 'auto'
@@ -669,6 +707,7 @@ export const LayoutBlock = ({
                                         alignVertical: 'top',
                                         blockGap: 16,
                                         isFreeFlow: false,
+                                        position: { x: 0, y: 0 },
                                         columnWidth: 'auto',
                                         columnHeight: 'auto',
                                         isFullWidth: false,
@@ -681,17 +720,29 @@ export const LayoutBlock = ({
                                     onToggleLock={() => handleColumnSettingsChange(col.id, { isLocked: !col.settings?.isLocked })}
                                 >
                                     <button
-                                        className="bg-[#FF0054] text-white text-[10px] px-2 h-[24px] rounded-t-[4px] font-medium tracking-wide flex items-center gap-1 hover:bg-[#D90048] transition-colors"
+                                        className="bg-[#FF0054] text-white text-[10px] px-2 h-[24px] rounded-t-[4px] font-medium tracking-wide flex items-center gap-1 hover:bg-[#D90048] transition-colors cursor-pointer"
                                         onClick={(e) => e.stopPropagation()}
+                                        onPointerDown={(e) => e.stopPropagation()}
                                     >
                                         Edit column
                                     </button>
                                 </ColumnSettingsPanel>
 
+                                {isSectionFreeFlow && (
+                                    <div
+                                        className="bg-[#FF0054] text-white text-[10px] px-2 h-[24px] rounded-t-[4px] font-medium flex items-center gap-1 cursor-grab active:cursor-grabbing shadow-sm select-none"
+                                        title="Arrastar coluna livremente"
+                                    >
+                                        <GripVertical className="w-3 h-3" />
+                                        <span>Mover coluna</span>
+                                    </div>
+                                )}
+
                                 {colCount > 1 && (
                                     <div className="flex bg-[#FF0054] rounded-t-[4px] h-[24px] overflow-hidden">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleColumnMove(index, 'left') }}
+                                            onPointerDown={(e) => e.stopPropagation()}
                                             disabled={index === 0}
                                             className="px-2 hover:bg-[#D90048] disabled:opacity-50 transition-colors flex items-center justify-center text-white border-r border-white/20"
                                         >
@@ -699,6 +750,7 @@ export const LayoutBlock = ({
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); handleColumnMove(index, 'right') }}
+                                            onPointerDown={(e) => e.stopPropagation()}
                                             disabled={index === colCount - 1}
                                             className="px-2 hover:bg-[#D90048] disabled:opacity-50 transition-colors flex items-center justify-center text-white"
                                         >
@@ -714,7 +766,8 @@ export const LayoutBlock = ({
                                 <div
                                     key={b.id}
                                     className={cn(
-                                        "w-full flex flex-col transition-all duration-300 shrink-0 overflow-visible"
+                                        "w-full flex flex-col shrink-0 overflow-visible",
+                                        isResizingGlobal || col.settings?.isFreeFlow ? "transition-none" : "transition-all duration-300"
                                     )}
                                     style={{ alignItems: getAlignItems() }}
                                 >
@@ -790,7 +843,7 @@ export const LayoutBlock = ({
                                 onResizeEnd={handleResizeEnd}
                             />
                         )}
-                    </div>
+                    </motion.div>
                 )
             }
             )}

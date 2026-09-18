@@ -59,8 +59,13 @@ export function UnifiedHeader({
 }: UnifiedHeaderProps) {
     const { theme, setTheme } = useTheme()
     const router = useRouter()
+    const [mounted, setMounted] = React.useState(false)
     const [isPopoverOpen, setIsPopoverOpen] = React.useState(false)
     const popoverTimeoutRef = React.useRef<NodeJS.Timeout | null>(null)
+
+    React.useEffect(() => {
+        setMounted(true)
+    }, [])
 
     const handleMouseEnter = () => {
         if (popoverTimeoutRef.current) clearTimeout(popoverTimeoutRef.current)
@@ -84,7 +89,7 @@ export function UnifiedHeader({
                     {/* Logo */}
                     <div className="flex items-center relative cursor-pointer" style={{ width: "143px", height: "40px" }} onClick={() => router.push('/dashboard')}>
                         <Image
-                            src={theme === "light" ? "/brand/logo-light.png" : "/brand/logo-dark.png"}
+                            src={mounted && theme === "light" ? "/brand/logo-light.png" : "/brand/logo-dark.png"}
                             alt="Brivio"
                             fill
                             className="object-contain object-left"
@@ -108,9 +113,9 @@ export function UnifiedHeader({
                                 {/* Main Add Button */}
                                 <button
                                     onClick={onAddClick}
-                                    className="flex items-center justify-center text-text-primary text-sm font-bold group"
+                                    className="flex items-center justify-center font-bold text-xs text-text-primary group"
                                     style={{
-                                        width: "143px",
+                                        width: "125px",
                                         height: "41px",
                                         borderRadius: "100px 0 0 100px",
                                         background: "linear-gradient(135deg, #FF0054, #88007F, #06D6A0, #311C99)",
@@ -125,68 +130,89 @@ export function UnifiedHeader({
                                     </span>
                                 </button>
                                 {/* Dropdown Trigger */}
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <button
-                                            className="flex items-center justify-center group"
-                                            style={{
-                                                width: "44px",
-                                                height: "41px",
-                                                borderRadius: "0 100px 100px 0",
-                                                background: "linear-gradient(135deg, #FF0054, #88007F, #06D6A0, #311C99)",
-                                                padding: "3px",
-                                            }}
-                                        >
-                                            <span
-                                                className="flex items-center justify-center w-full h-full bg-bg-1 group-hover:bg-bg-2 transition-colors"
-                                                style={{ borderRadius: "0 97px 97px 0", padding: "0 15px" }}
+                                {mounted ? (
+                                    <DropdownMenu modal={false}>
+                                        <DropdownMenuTrigger asChild>
+                                            <button
+                                                suppressHydrationWarning
+                                                className="flex items-center justify-center group"
+                                                style={{
+                                                    width: "44px",
+                                                    height: "41px",
+                                                    borderRadius: "0 100px 100px 0",
+                                                    background: "linear-gradient(135deg, #FF0054, #88007F, #06D6A0, #311C99)",
+                                                    padding: "3px",
+                                                }}
                                             >
-                                                <ChevronDown className="w-6 h-6 text-text-primary" />
-                                            </span>
-                                        </button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-[220px] bg-bg-1 border-bg-3 p-2 rounded-2xl shadow-2xl z-[100]">
-                                        <DropdownMenuLabel className="text-[10px] font-black text-text-tertiary uppercase tracking-widest px-3 py-2">Quick Actions</DropdownMenuLabel>
-                                        <DropdownMenuItem
-                                            onClick={onAddClick}
-                                            className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent-indigo/5 cursor-pointer group/item"
-                                        >
-                                            <div className="w-8 h-8 rounded-lg bg-accent-indigo/10 flex items-center justify-center text-accent-indigo group-hover/item:bg-accent-indigo group-hover/item:text-white transition-colors">
-                                                <Plus className="w-4 h-4" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-text-primary">{addLabel}</span>
-                                                <span className="text-[10px] text-text-tertiary">Create new item</span>
-                                            </div>
-                                        </DropdownMenuItem>
-
-                                        {onSecondaryAddClick && (
+                                                <span
+                                                    className="flex items-center justify-center w-full h-full bg-bg-1 group-hover:bg-bg-2 transition-colors"
+                                                    style={{ borderRadius: "0 97px 97px 0", padding: "0 15px" }}
+                                                >
+                                                    <ChevronDown className="w-6 h-6 text-text-primary" />
+                                                </span>
+                                            </button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-[220px] bg-bg-1 border-bg-3 p-2 rounded-2xl shadow-2xl z-[100]">
+                                            <DropdownMenuLabel className="text-[10px] font-black text-text-tertiary uppercase tracking-widest px-3 py-2">Quick Actions</DropdownMenuLabel>
                                             <DropdownMenuItem
-                                                onClick={onSecondaryAddClick}
+                                                onClick={onAddClick}
                                                 className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent-indigo/5 cursor-pointer group/item"
                                             >
-                                                <div className="w-8 h-8 rounded-lg bg-accent-purple/10 flex items-center justify-center text-accent-purple group-hover/item:bg-accent-purple group-hover/item:text-white transition-colors">
-                                                    <LayoutGrid className="w-4 h-4" />
+                                                <div className="w-8 h-8 rounded-lg bg-accent-indigo/10 flex items-center justify-center text-accent-indigo group-hover/item:bg-accent-indigo group-hover/item:text-white transition-colors">
+                                                    <Plus className="w-4 h-4" />
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-xs font-bold text-text-primary">{secondaryAddLabel || "Other Action"}</span>
-                                                    <span className="text-[10px] text-text-tertiary">Secondary action</span>
+                                                    <span className="text-xs font-bold text-text-primary">{addLabel}</span>
+                                                    <span className="text-[10px] text-text-tertiary">Create new item</span>
                                                 </div>
                                             </DropdownMenuItem>
-                                        )}
 
-                                        <DropdownMenuSeparator className="bg-bg-3 my-2" />
-                                        <DropdownMenuItem className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent-indigo/5 cursor-pointer group/item opacity-50">
-                                            <div className="w-8 h-8 rounded-lg bg-bg-2 flex items-center justify-center text-text-tertiary">
-                                                <Sparkles className="w-4 h-4" />
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-xs font-bold text-text-primary">AI Template</span>
-                                                <span className="text-[10px] text-text-tertiary">Generate via intelligence</span>
-                                            </div>
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                            {onSecondaryAddClick && (
+                                                <DropdownMenuItem
+                                                    onClick={onSecondaryAddClick}
+                                                    className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent-indigo/5 cursor-pointer group/item"
+                                                >
+                                                    <div className="w-8 h-8 rounded-lg bg-accent-purple/10 flex items-center justify-center text-accent-purple group-hover/item:bg-accent-purple group-hover/item:text-white transition-colors">
+                                                        <LayoutGrid className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-bold text-text-primary">{secondaryAddLabel || "Other Action"}</span>
+                                                        <span className="text-[10px] text-text-tertiary">Secondary action</span>
+                                                    </div>
+                                                </DropdownMenuItem>
+                                            )}
+
+                                            <DropdownMenuSeparator className="bg-bg-3 my-2" />
+                                            <DropdownMenuItem className="flex items-center gap-3 p-3 rounded-xl hover:bg-accent-indigo/5 cursor-pointer group/item opacity-50">
+                                                <div className="w-8 h-8 rounded-lg bg-bg-2 flex items-center justify-center text-text-tertiary">
+                                                    <Sparkles className="w-4 h-4" />
+                                                </div>
+                                                <div className="flex flex-col">
+                                                    <span className="text-xs font-bold text-text-primary">AI Template</span>
+                                                    <span className="text-[10px] text-text-tertiary">Generate via intelligence</span>
+                                                </div>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                ) : (
+                                    <button
+                                        className="flex items-center justify-center group"
+                                        style={{
+                                            width: "44px",
+                                            height: "41px",
+                                            borderRadius: "0 100px 100px 0",
+                                            background: "linear-gradient(135deg, #FF0054, #88007F, #06D6A0, #311C99)",
+                                            padding: "3px",
+                                        }}
+                                    >
+                                        <span
+                                            className="flex items-center justify-center w-full h-full bg-bg-1 group-hover:bg-bg-2 transition-colors"
+                                            style={{ borderRadius: "0 97px 97px 0", padding: "0 15px" }}
+                                        >
+                                            <ChevronDown className="w-6 h-6 text-text-primary" />
+                                        </span>
+                                    </button>
+                                )}
                             </div>
 
                             {/* Theme Toggle (Inline) */}

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
-import { getTaskLists } from "@/app/actions/tasks"
+import { getUserProjectsWithTasks } from "@/app/actions/tasks"
 import TasksClientPage from "./TasksClient"
 import { AuthLayoutInner } from "@/components/layout/AuthLayoutInner"
 
@@ -14,8 +14,8 @@ export default async function TasksPage() {
         redirect('/login')
     }
 
-    // Fetch user's task lists
-    const lists = await getTaskLists(user.id)
+    // Fetch user's projects with their internal tasks
+    const projects = await getUserProjectsWithTasks(user.id)
 
     const userData = {
         name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Creator',
@@ -30,7 +30,7 @@ export default async function TasksPage() {
                     id: user.id,
                     name: user.user_metadata?.full_name || 'Creator'
                 }}
-                initialLists={lists}
+                initialProjects={projects}
             />
         </AuthLayoutInner>
     )

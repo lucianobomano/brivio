@@ -3,33 +3,21 @@
 import React, { useState, useEffect } from "react"
 import {
     Plus,
-    Search,
-    Settings,
-    Grid,
-    Home,
     CheckCircle2,
     MoreVertical,
+    MoveUpRight,
+    FolderKanban,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { CreateListModal } from "@/components/tasks/CreateListModal"
-import { TaskListWithTasks } from "@/app/actions/tasks"
+import { CreateProjectModal } from "@/components/tasks/CreateProjectModal"
+import { ProjectCardItem, getUserProjectsWithTasks } from "@/app/actions/tasks"
 import { useRouter } from "next/navigation"
-import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { StandupHeader } from "@/components/standups/StandupHeader"
 
 interface TasksClientPageProps {
     user: { id: string; name: string }
-    initialLists: TaskListWithTasks[]
-}
-
-// Get appropriate greeting based on time of day
-function getGreeting() {
-    const hour = new Date().getHours()
-    if (hour < 12) return "Good Morning"
-    if (hour < 18) return "Good Afternoon"
-    return "Good Evening"
+    initialProjects?: ProjectCardItem[]
 }
 
 // Format minutes to HH:MM (e.g. 90 -> 01:30)
@@ -44,14 +32,13 @@ function formatTotalDuration(minutes: number) {
     const hrs = Math.floor(minutes / 60)
     const mins = minutes % 60
     if (hrs === 0) return `${mins}min`
+    if (mins === 0) return `${hrs}hr`
     return `${hrs}hr ${mins}min`
 }
 
-import { Maximize2, MoveUpRight } from "lucide-react"
-
-export default function TasksClientPage({ user, initialLists }: TasksClientPageProps) {
+export default function TasksClientPage({ user, initialProjects }: TasksClientPageProps) {
     const router = useRouter()
-    const [lists, setLists] = useState<TaskListWithTasks[]>(initialLists || [])
+    const [projects, setProjects] = useState<ProjectCardItem[]>(initialProjects || [])
     const [currentUser, setCurrentUser] = useState(user)
 
     useEffect(() => {
@@ -71,99 +58,129 @@ export default function TasksClientPage({ user, initialLists }: TasksClientPageP
     }, [user])
 
     useEffect(() => {
-        if (currentUser?.id && (!initialLists || initialLists.length === 0)) {
-            import("@/app/actions/tasks").then(({ getTaskLists }) => {
-                getTaskLists(currentUser.id).then((data) => {
-                    setLists(data)
-                })
+        if (currentUser?.id && (!initialProjects || initialProjects.length === 0)) {
+            getUserProjectsWithTasks(currentUser.id).then((data) => {
+                setProjects(data)
             })
-        } else if (initialLists) {
-            setLists(initialLists)
+        } else if (initialProjects) {
+            setProjects(initialProjects)
         }
-    }, [initialLists, currentUser])
+    }, [initialProjects, currentUser])
 
-    const [greeting, setGreeting] = useState("Good Morning")
-    const [currentHour, setCurrentHour] = useState(12)
-
-    useEffect(() => {
-        const hour = new Date().getHours()
-        setCurrentHour(hour)
-        if (hour < 12) setGreeting("Good Morning")
-        else if (hour < 18) setGreeting("Good Afternoon")
-        else setGreeting("Good Evening")
-    }, [])
-
-    const handleListCreated = () => {
+    const handleProjectCreated = () => {
         router.refresh()
+        if (currentUser?.id) {
+            getUserProjectsWithTasks(currentUser.id).then((data) => {
+                setProjects(data)
+            })
+        }
     }
 
     return (
-        <div className="bg-[#0a0a0c] text-white min-h-screen font-sans">
+        <div className="bg-bg-0 text-text-primary min-h-full flex-1 flex flex-col font-sans">
             {/* Header */}
             <StandupHeader />
 
             {/* Content */}
-            <div className="px-8 py-12">
-                <div className="max-w-[1400px] mx-auto">
-                    {/* Lists Grid */}
+            <div className="px-8 py-10 flex-1">
+                <div className="max-w-[1520px] mx-auto">
+                    {/* Projects Grid */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {/* Existing Lists */}
-                        {lists.map((list) => {
+                        {/* Project Cards */}
+                        {projects.map((project) => {
                             // Filter pending tasks
-                            const pendingTasks = list.tasks?.filter(t => !t.completed) || []
+                            const pendingTasks = project.tasks?.filter(t => !t.completed) || []
                             const totalTime = pendingTasks.reduce((acc, t) => acc + (t.estimated_time || 0), 0)
                             const displayTasks = pendingTasks.slice(0, 4) // Show top 4
 
                             return (
-                                <Link key={list.id} href={`/tasks/${list.id}`}>
-                                    <div className="w-full h-[333px] rounded-xl border border-[#2a2a2e] bg-[#12121a] hover:border-[#3a3a3e] transition-colors relative group cursor-pointer flex flex-col">
+                                <Link key={project.id} href={`/tasks/${project.id}`}>
+                                    <div className="w-full h-[333px] rounded-2xl border border-zinc-200/80 dark:border-[#2a2a2e] bg-white dark:bg-[#12121a] hover:border-zinc-300 dark:hover:border-[#3a3a3e] hover:shadow-md dark:hover:shadow-2xl transition-all shadow-sm relative group cursor-pointer flex flex-col overflow-hidden">
                                         {/* Header */}
-                                        <div className="flex items-center justify-between p-4 pb-2">
-                                            <div className="flex items-center space-x-2">
-                                                <div
-                                                    className="w-6 h-6 rounded flex items-center justify-center text-white text-xs font-bold"
-                                                    style={list.color.includes('gradient')
-                                                        ? { background: list.color }
-                                                        : { backgroundColor: list.color }
-                                                    }
-                                                >
-                                                    {list.title.charAt(0).toUpperCase()}
+                                        <div className="flex items-center justify-between p-5 pb-3">
+                                            <div className="flex items-center space-x-2.5 min-w-0">
+                                                {project.brand?.logo_url ? (
+                                                    <img
+                                                        src={project.brand.logo_url}
+                                                        alt={project.name}
+                                                        className="w-7 h-7 rounded-lg object-cover shadow-xs shrink-0 border border-zinc-200/60 dark:border-white/10"
+                                                    />
+                                                ) : (
+                                                    <div
+                                                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold shadow-xs shrink-0"
+                                                        style={project.color.includes('gradient')
+                                                            ? { background: project.color }
+                                                            : { backgroundColor: project.color }
+                                                        }
+                                                    >
+                                                        {project.name.charAt(0).toUpperCase()}
+                                                    </div>
+                                                )}
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="text-sm font-semibold text-zinc-900 dark:text-white truncate">
+                                                        {project.name}
+                                                    </div>
+                                                    {project.brand?.name && (
+                                                        <div className="text-[10px] text-zinc-400 dark:text-gray-500 truncate leading-tight">
+                                                            {project.brand.name}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                <span className="text-sm font-medium text-white">{list.title}</span>
                                             </div>
-                                            <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 text-gray-400">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                className="h-7 w-7 opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-zinc-700 dark:text-gray-400 dark:hover:text-white transition-opacity shrink-0"
+                                                onClick={(e) => {
+                                                    e.preventDefault()
+                                                    e.stopPropagation()
+                                                    router.push(`/projects/${project.id}`)
+                                                }}
+                                                title="Ver detalhes do projeto"
+                                            >
                                                 <MoreVertical className="w-4 h-4" />
                                             </Button>
                                         </div>
 
                                         {/* Tasks List or Empty State */}
-                                        <div className="flex-1 p-3 overflow-hidden relative">
+                                        <div className="flex-1 px-4 py-2 overflow-hidden relative flex flex-col justify-center">
                                             {pendingTasks.length > 0 ? (
-                                                <div className="space-y-2">
+                                                <div className="space-y-2.5 w-full">
                                                     {displayTasks.map((task, idx) => (
-                                                        <div key={task.id} className="bg-[#1a1a1e] rounded-lg p-3 flex justify-between items-center group-hover:opacity-40 transition-opacity">
+                                                        <div
+                                                            key={task.id}
+                                                            className="bg-zinc-50 dark:bg-[#1a1a22] border border-zinc-100/80 dark:border-[#2A2A35]/50 rounded-xl p-3 flex justify-between items-center group-hover:opacity-40 transition-opacity"
+                                                        >
                                                             <div className="flex items-center space-x-3 overflow-hidden">
-                                                                <span className="text-gray-600 text-xs w-3 font-mono">{idx + 1}</span>
-                                                                <span className="text-sm text-gray-300 truncate font-medium">{task.title}</span>
+                                                                <span className="text-zinc-400 dark:text-zinc-500 text-xs w-3 font-mono shrink-0">
+                                                                    {idx + 1}
+                                                                </span>
+                                                                <span className="text-xs font-medium text-zinc-800 dark:text-zinc-200 truncate">
+                                                                    {task.title}
+                                                                </span>
                                                             </div>
-                                                            <span className="text-xs text-gray-600 font-mono">{formatTime(task.estimated_time || 0)}</span>
+                                                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono shrink-0 ml-2">
+                                                                {formatTime(task.estimated_time || 0)}
+                                                            </span>
                                                         </div>
                                                     ))}
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col items-center justify-center h-full group-hover:opacity-20 transition-opacity">
-                                                    <div className="w-12 h-12 rounded-full border-2 border-dashed border-[#2a2a2e] flex items-center justify-center mb-3">
-                                                        <div className="w-8 h-8 rounded-full bg-[#ff0054] flex items-center justify-center">
+                                                    <div className="w-12 h-12 rounded-full border-2 border-dashed border-zinc-200 dark:border-[#2a2a2e] flex items-center justify-center mb-3">
+                                                        <div className="w-8 h-8 rounded-full bg-[#ff0054] flex items-center justify-center shadow-xs">
                                                             <CheckCircle2 className="w-4 h-4 text-white" />
                                                         </div>
                                                     </div>
-                                                    <span className="text-xs text-gray-500 font-medium tracking-wide">ALL CLEAR</span>
+                                                    <span className="text-xs text-zinc-400 dark:text-zinc-400 font-medium tracking-wide">
+                                                        ALL CLEAR
+                                                    </span>
                                                 </div>
                                             )}
 
                                             {/* Open Button Overlay (Center) */}
                                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-300 z-10 translate-y-2 group-hover:translate-y-0">
-                                                <div className="px-6 py-2.5 rounded-full bg-[#ff0054] text-white text-sm font-semibold flex items-center shadow-lg shadow-[#ff0054]/20">
+                                                <div className="px-6 py-2.5 rounded-full bg-[#ff0054] text-white text-sm font-semibold flex items-center shadow-lg shadow-[#ff0054]/25">
                                                     <MoveUpRight className="w-4 h-4 mr-2" />
                                                     Open
                                                 </div>
@@ -171,12 +188,12 @@ export default function TasksClientPage({ user, initialLists }: TasksClientPageP
                                         </div>
 
                                         {/* Footer */}
-                                        <div className="p-4 pt-2 flex items-center justify-between border-t border-transparent">
-                                            <span className="text-[11px] text-gray-500 font-medium">
-                                                {pendingTasks.length} pending tasks
+                                        <div className="p-5 pt-3 flex items-center justify-between border-t border-zinc-100 dark:border-white/[0.04]">
+                                            <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
+                                                {pendingTasks.length} pending {pendingTasks.length === 1 ? 'task' : 'tasks'}
                                             </span>
                                             {pendingTasks.length > 0 && (
-                                                <span className="text-[11px] text-gray-500 font-medium">
+                                                <span className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium font-mono">
                                                     Est: {formatTotalDuration(totalTime)}
                                                 </span>
                                             )}
@@ -186,13 +203,15 @@ export default function TasksClientPage({ user, initialLists }: TasksClientPageP
                             )
                         })}
 
-                        {/* Create List Card */}
-                        <CreateListModal userId={currentUser?.id || user.id} onListCreated={handleListCreated}>
-                            <div className="w-full h-[333px] rounded-xl border-2 border-dashed border-[#2a2a2e] bg-transparent hover:border-[#3a3a3e] transition-colors flex flex-col items-center justify-center cursor-pointer group">
-                                <Plus className="w-8 h-8 text-gray-600 group-hover:text-gray-400 mb-3" />
-                                <span className="text-sm text-gray-600 group-hover:text-gray-400 font-medium tracking-wide">CREATE LIST</span>
+                        {/* Create Project Card */}
+                        <CreateProjectModal userId={currentUser?.id || user.id} onProjectCreated={handleProjectCreated}>
+                            <div className="w-full h-[333px] rounded-2xl border-2 border-dashed border-zinc-300 dark:border-[#2a2a2e] bg-zinc-50/50 dark:bg-transparent hover:border-zinc-400 dark:hover:border-[#3a3a3e] hover:bg-zinc-100/60 dark:hover:bg-white/[0.02] transition-all flex flex-col items-center justify-center cursor-pointer group shadow-2xs">
+                                <Plus className="w-8 h-8 text-zinc-400 group-hover:text-zinc-600 dark:text-zinc-400 dark:group-hover:text-zinc-200 mb-3 transition-colors" />
+                                <span className="text-xs font-semibold text-zinc-500 group-hover:text-zinc-700 dark:text-zinc-400 dark:group-hover:text-zinc-200 tracking-wider transition-colors">
+                                    CREATE PROJECT
+                                </span>
                             </div>
-                        </CreateListModal>
+                        </CreateProjectModal>
                     </div>
                 </div>
             </div>

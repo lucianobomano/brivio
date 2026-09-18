@@ -45,79 +45,264 @@ import {
 const ResizableWrapper = ({
     children,
     width,
+    height,
     onWidthChange,
+    onHeightChange,
     isFocused,
     isReadOnly,
     className
 }: {
     children: React.ReactNode,
     width?: string | number,
+    height?: string | number,
     onWidthChange: (width: string) => void,
+    onHeightChange?: (height: string) => void,
     isFocused: boolean,
     isReadOnly?: boolean,
     className?: string
 }) => {
     const containerRef = React.useRef<HTMLDivElement>(null);
-    const [isResizing, setIsResizing] = React.useState<'left' | 'right' | null>(null);
+    const [isResizing, setIsResizing] = React.useState<'left' | 'right' | 'top' | 'bottom' | null>(null);
 
-    const handleMouseDown = (e: React.MouseEvent, side: 'left' | 'right') => {
+    const handlePointerDownHorizontal = (e: React.PointerEvent, side: 'left' | 'right') => {
         if (isReadOnly) return;
         e.preventDefault();
         e.stopPropagation();
+
+        const handleElement = e.currentTarget as HTMLElement;
+        try {
+            handleElement.setPointerCapture(e.pointerId);
+        } catch {}
+
         setIsResizing(side);
 
-        const startX = e.pageX;
+        const startX = e.clientX;
         const startWidth = containerRef.current?.offsetWidth || 0;
         const maxWidth = containerRef.current?.parentElement?.offsetWidth || 1200;
 
-        const handleMouseMove = (mmE: MouseEvent) => {
-            const delta = mmE.pageX - startX;
+        if (containerRef.current) {
+            containerRef.current.style.transition = 'none';
+        }
+
+        const prevUserSelect = document.body.style.userSelect;
+        const prevCursor = document.body.style.cursor;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'ew-resize';
+
+        let rafId: number | null = null;
+        let latestWidth = startWidth;
+
+        const handlePointerMove = (mmE: PointerEvent) => {
+            const delta = mmE.clientX - startX;
             let newWidth = side === 'right' ? startWidth + delta : startWidth - delta;
 
-            // Constraints
-            newWidth = Math.max(200, Math.min(newWidth, maxWidth));
-            onWidthChange(`${newWidth}px`);
+            newWidth = Math.max(80, Math.min(newWidth, maxWidth));
+            latestWidth = newWidth;
+
+            if (rafId === null) {
+                rafId = requestAnimationFrame(() => {
+                    rafId = null;
+                    if (containerRef.current) {
+                        containerRef.current.style.width = `${latestWidth}px`;
+                    }
+                });
+            }
         };
 
-        const handleMouseUp = () => {
+        const handlePointerUp = (upE: PointerEvent) => {
+            try {
+                handleElement.releasePointerCapture(upE.pointerId);
+            } catch {}
+
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+
+            document.body.style.userSelect = prevUserSelect;
+            document.body.style.cursor = prevCursor;
+
             setIsResizing(null);
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+
+            if (containerRef.current) {
+                containerRef.current.style.transition = '';
+                const finalWidth = `${latestWidth}px`;
+                containerRef.current.style.width = finalWidth;
+                onWidthChange(finalWidth);
+            }
+
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerUp);
         };
 
-        window.addEventListener('mousemove', handleMouseMove);
-        window.addEventListener('mouseup', handleMouseUp);
+        window.addEventListener('pointermove', handlePointerMove, { passive: true });
+        window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('pointercancel', handlePointerUp);
+    };
+
+    const handlePointerDownVertical = (e: React.PointerEvent, side: 'top' | 'bottom') => {
+        if (isReadOnly || !onHeightChange) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        const handleElement = e.currentTarget as HTMLElement;
+        try {
+            handleElement.setPointerCapture(e.pointerId);
+        } catch {}
+
+        setIsResizing(side);
+
+        const startY = e.clientY;
+        const startHeight = containerRef.current?.offsetHeight || 0;
+
+        if (containerRef.current) {
+            containerRef.current.style.transition = 'none';
+        }
+
+        const innerTextarea = containerRef.current?.querySelector('textarea') as HTMLTextAreaElement | null;
+        if (innerTextarea) {
+            innerTextarea.style.transition = 'none';
+        }
+
+        const prevUserSelect = document.body.style.userSelect;
+        const prevCursor = document.body.style.cursor;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'ns-resize';
+
+        let rafId: number | null = null;
+        let latestHeight = startHeight;
+
+        const handlePointerMove = (mmE: PointerEvent) => {
+            const delta = mmE.clientY - startY;
+            let newHeight = side === 'bottom' ? startHeight + delta : startHeight - delta;
+
+            newHeight = Math.max(24, Math.min(newHeight, 1600));
+            latestHeight = newHeight;
+
+            if (rafId === null) {
+                rafId = requestAnimationFrame(() => {
+                    rafId = null;
+                    if (containerRef.current) {
+                        containerRef.current.style.height = `${latestHeight}px`;
+                        containerRef.current.style.minHeight = `${latestHeight}px`;
+                    }
+                    if (innerTextarea) {
+                        innerTextarea.style.height = `${latestHeight}px`;
+                        innerTextarea.style.minHeight = `${latestHeight}px`;
+                    }
+                });
+            }
+        };
+
+        const handlePointerUp = (upE: PointerEvent) => {
+            try {
+                handleElement.releasePointerCapture(upE.pointerId);
+            } catch {}
+
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+
+            document.body.style.userSelect = prevUserSelect;
+            document.body.style.cursor = prevCursor;
+
+            setIsResizing(null);
+
+            if (containerRef.current) {
+                containerRef.current.style.transition = '';
+                const finalHeight = `${latestHeight}px`;
+                containerRef.current.style.height = finalHeight;
+                containerRef.current.style.minHeight = finalHeight;
+                if (innerTextarea) {
+                    innerTextarea.style.transition = '';
+                    innerTextarea.style.height = finalHeight;
+                    innerTextarea.style.minHeight = finalHeight;
+                }
+                onHeightChange(finalHeight);
+            }
+
+            window.removeEventListener('pointermove', handlePointerMove);
+            window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerUp);
+        };
+
+        window.addEventListener('pointermove', handlePointerMove, { passive: true });
+        window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('pointercancel', handlePointerUp);
     };
 
     return (
         <div
             ref={containerRef}
-            style={{ width: width || '100%', position: 'relative' }}
-            className={cn("mx-auto transition-[width] duration-75", className)}
+            style={{
+                width: width || '100%',
+                maxWidth: '100%',
+                minHeight: height || 'auto',
+                position: 'relative'
+            }}
+            className={cn(
+                "mx-auto transition-[width,min-height] duration-200 ease-out max-w-full",
+                isResizing && "transition-none",
+                className
+            )}
         >
             {children}
             {isFocused && !isReadOnly && (
                 <>
                     {/* Right Handle */}
                     <div
-                        onMouseDown={(e) => handleMouseDown(e, 'right')}
+                        onPointerDown={(e) => handlePointerDownHorizontal(e, 'right')}
                         className={cn(
-                            "absolute top-1/4 right-[-4px] w-[6px] h-1/2 cursor-ew-resize z-50 rounded-full transition-all group/handle",
-                            isResizing === 'right' ? "bg-[#ff0054]" : "bg-transparent hover:bg-[#ff0054]/50"
+                            "absolute top-0 right-[-10px] w-[20px] h-full cursor-ew-resize z-[110] flex items-center justify-center group/handle"
                         )}
                     >
-                        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-[#ff0054] opacity-0 group-hover/handle:opacity-100 transition-opacity" />
+                        <div className={cn(
+                            "w-[6px] h-32 max-h-[80%] rounded-full transition-all bg-[#ff0054]",
+                            isResizing === 'right' ? "scale-x-125 shadow-lg" : "scale-x-100 opacity-0 group-hover/handle:opacity-100"
+                        )} />
                     </div>
                     {/* Left Handle */}
                     <div
-                        onMouseDown={(e) => handleMouseDown(e, 'left')}
+                        onPointerDown={(e) => handlePointerDownHorizontal(e, 'left')}
                         className={cn(
-                            "absolute top-1/4 left-[-4px] w-[6px] h-1/2 cursor-ew-resize z-50 rounded-full transition-all group/handle",
-                            isResizing === 'left' ? "bg-[#ff0054]" : "bg-transparent hover:bg-[#ff0054]/50"
+                            "absolute top-0 left-[-10px] w-[20px] h-full cursor-ew-resize z-[110] flex items-center justify-center group/handle"
                         )}
                     >
-                        <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 w-[2px] bg-[#ff0054] opacity-0 group-hover/handle:opacity-100 transition-opacity" />
+                        <div className={cn(
+                            "w-[6px] h-32 max-h-[80%] rounded-full transition-all bg-[#ff0054]",
+                            isResizing === 'left' ? "scale-x-125 shadow-lg" : "scale-x-100 opacity-0 group-hover/handle:opacity-100"
+                        )} />
                     </div>
+                    {/* Bottom Handle */}
+                    {onHeightChange && (
+                        <div
+                            onPointerDown={(e) => handlePointerDownVertical(e, 'bottom')}
+                            className={cn(
+                                "absolute bottom-[-10px] left-0 h-[20px] w-full cursor-ns-resize z-[110] flex items-center justify-center group/handle"
+                            )}
+                        >
+                            <div className={cn(
+                                "w-32 max-w-[80%] h-[6px] rounded-full transition-all bg-[#ff0054]",
+                                isResizing === 'bottom' ? "scale-y-125 shadow-lg" : "scale-y-100 opacity-0 group-hover/handle:opacity-100"
+                            )} />
+                        </div>
+                    )}
+                    {/* Top Handle */}
+                    {onHeightChange && (
+                        <div
+                            onPointerDown={(e) => handlePointerDownVertical(e, 'top')}
+                            className={cn(
+                                "absolute top-[-10px] left-0 h-[20px] w-full cursor-ns-resize z-[110] flex items-center justify-center group/handle"
+                            )}
+                        >
+                            <div className={cn(
+                                "w-32 max-w-[80%] h-[6px] rounded-full transition-all bg-[#ff0054]",
+                                isResizing === 'top' ? "scale-y-125 shadow-lg" : "scale-y-100 opacity-0 group-hover/handle:opacity-100"
+                            )} />
+                        </div>
+                    )}
                 </>
             )}
         </div>
@@ -275,9 +460,14 @@ const HeadlineBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onMove
             )}
             <ResizableWrapper
                 width={block.content.style?.width}
+                height={block.content.style?.height}
                 onWidthChange={(newWidth) => onUpdate(block.id, {
                     ...block.content,
                     style: { ...block.content.style, width: newWidth }
+                })}
+                onHeightChange={(newHeight) => onUpdate(block.id, {
+                    ...block.content,
+                    style: { ...block.content.style, height: newHeight }
                 })}
                 isFocused={isFocused}
                 isReadOnly={isReadOnly}
@@ -460,9 +650,14 @@ const TextBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onMove }: 
             )}
             <ResizableWrapper
                 width={block.content.style?.width}
+                height={block.content.style?.height}
                 onWidthChange={(newWidth) => onUpdate(block.id, {
                     ...block.content,
                     style: { ...block.content.style, width: newWidth }
+                })}
+                onHeightChange={(newHeight) => onUpdate(block.id, {
+                    ...block.content,
+                    style: { ...block.content.style, height: newHeight }
                 })}
                 isFocused={isFocused}
                 isReadOnly={isReadOnly}

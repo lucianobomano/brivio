@@ -1,6 +1,6 @@
 "use client"
 
-import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogClose, DialogTitle } from "@/components/ui/dialog"
 import {
     Heading,
     Type,
@@ -59,7 +59,7 @@ export function AddSectionDialog({ isOpen, onOpenChange, onSelectBlock }: AddSec
             <DialogContent className="max-w-[732px] p-0 bg-[#15161B] border-none text-white overflow-hidden shadow-2xl gap-0 [&>button]:hidden flex flex-col">
                 {/* Header */}
                 <div className="bg-[#FF0054] h-[60px] px-[30px] flex items-center justify-between shrink-0">
-                    <h2 className="text-[16px] font-bold text-white">Add Element</h2>
+                    <DialogTitle className="text-[16px] font-bold text-white">Add Element</DialogTitle>
                     <DialogClose className="text-white hover:text-white/80 transition-opacity">
                         <div className="bg-white rounded-full w-[20px] h-[20px] flex items-center justify-center">
                             {/* Close Icon excluded as per request "Circle... with function to close", strictly following image which looks like a solid circle or maybe x inside? 

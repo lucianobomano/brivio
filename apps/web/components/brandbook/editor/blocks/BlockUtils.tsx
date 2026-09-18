@@ -33,6 +33,7 @@ export const AutoResizeTextarea = ({ value, onChange, placeholder, className, st
         resize: 'none' as const,
         overflow: fixedHeight ? 'auto' : 'hidden',
         height: fixedHeight || undefined,
+        minHeight: fixedHeight || undefined,
     }
 
     return (
@@ -103,43 +104,83 @@ export const ResizableWrapper = ({
         if (isReadOnly) return;
         e.preventDefault();
         e.stopPropagation();
+
+        const handleElement = e.currentTarget as HTMLElement;
+        try {
+            handleElement.setPointerCapture(e.pointerId);
+        } catch {}
+
         setIsResizing(side);
         setIsResizingGlobal(true);
 
-        const startX = e.pageX;
+        const startX = e.clientX;
         const startWidth = containerRef.current?.offsetWidth || 0;
         const parentElement = containerRef.current?.parentElement;
         const maxWidth = parentElement?.offsetWidth || 1200;
 
+        if (containerRef.current) {
+            containerRef.current.style.transition = 'none';
+        }
+
+        const prevUserSelect = document.body.style.userSelect;
+        const prevCursor = document.body.style.cursor;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'ew-resize';
+
+        let rafId: number | null = null;
+        let latestWidth = startWidth;
+
         const handlePointerMove = (mmE: PointerEvent) => {
-            const delta = mmE.pageX - startX;
+            const delta = mmE.clientX - startX;
             // For centered elements, we need double delta because it grows on both sides
             const multiplier = align === 'center' ? 2 : 1;
             let newWidth = side === 'right' ? startWidth + delta * multiplier : startWidth - delta * multiplier;
 
             // Constraints
-            newWidth = Math.max(200, Math.min(newWidth, maxWidth));
+            newWidth = Math.max(80, Math.min(newWidth, maxWidth));
+            latestWidth = newWidth;
 
-            if (containerRef.current) {
-                containerRef.current.style.width = `${newWidth}px`;
-                containerRef.current.style.transition = 'none';
+            if (rafId === null) {
+                rafId = requestAnimationFrame(() => {
+                    rafId = null;
+                    if (containerRef.current) {
+                        containerRef.current.style.width = `${latestWidth}px`;
+                    }
+                });
             }
         };
 
-        const handlePointerUp = () => {
+        const handlePointerUp = (upE: PointerEvent) => {
+            try {
+                handleElement.releasePointerCapture(upE.pointerId);
+            } catch {}
+
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+
+            document.body.style.userSelect = prevUserSelect;
+            document.body.style.cursor = prevCursor;
+
             setIsResizing(null);
             setIsResizingGlobal(false);
+
             if (containerRef.current) {
-                const finalWidth = containerRef.current.style.width;
                 containerRef.current.style.transition = '';
-                if (finalWidth) onWidthChange(finalWidth);
+                const finalWidth = `${latestWidth}px`;
+                containerRef.current.style.width = finalWidth;
+                onWidthChange(finalWidth);
             }
+
             window.removeEventListener('pointermove', handlePointerMove);
             window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerUp);
         };
 
-        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointermove', handlePointerMove, { passive: true });
         window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('pointercancel', handlePointerUp);
     };
 
     // Vertical resize handler
@@ -147,39 +188,95 @@ export const ResizableWrapper = ({
         if (isReadOnly || !onHeightChange) return;
         e.preventDefault();
         e.stopPropagation();
+
+        const handleElement = e.currentTarget as HTMLElement;
+        try {
+            handleElement.setPointerCapture(e.pointerId);
+        } catch {}
+
         setIsResizing(side);
         setIsResizingGlobal(true);
 
-        const startY = e.pageY;
+        const startY = e.clientY;
         const startHeight = containerRef.current?.offsetHeight || 0;
 
+        if (containerRef.current) {
+            containerRef.current.style.transition = 'none';
+        }
+
+        const innerTextarea = containerRef.current?.querySelector('textarea') as HTMLTextAreaElement | null;
+        if (innerTextarea) {
+            innerTextarea.style.transition = 'none';
+        }
+
+        const prevUserSelect = document.body.style.userSelect;
+        const prevCursor = document.body.style.cursor;
+        document.body.style.userSelect = 'none';
+        document.body.style.cursor = 'ns-resize';
+
+        let rafId: number | null = null;
+        let latestHeight = startHeight;
+
         const handlePointerMove = (mmE: PointerEvent) => {
-            const delta = mmE.pageY - startY;
+            const delta = mmE.clientY - startY;
             let newHeight = side === 'bottom' ? startHeight + delta : startHeight - delta;
 
-            // Constraints - minimum 40px, maximum 1200px
-            newHeight = Math.max(40, Math.min(newHeight, 1200));
+            // Constraints - minimum 24px, maximum 1600px
+            newHeight = Math.max(24, Math.min(newHeight, 1600));
+            latestHeight = newHeight;
 
-            if (containerRef.current) {
-                containerRef.current.style.minHeight = `${newHeight}px`;
-                containerRef.current.style.transition = 'none';
+            if (rafId === null) {
+                rafId = requestAnimationFrame(() => {
+                    rafId = null;
+                    if (containerRef.current) {
+                        containerRef.current.style.height = `${latestHeight}px`;
+                        containerRef.current.style.minHeight = `${latestHeight}px`;
+                    }
+                    if (innerTextarea) {
+                        innerTextarea.style.height = `${latestHeight}px`;
+                        innerTextarea.style.minHeight = `${latestHeight}px`;
+                    }
+                });
             }
         };
 
-        const handlePointerUp = () => {
+        const handlePointerUp = (upE: PointerEvent) => {
+            try {
+                handleElement.releasePointerCapture(upE.pointerId);
+            } catch {}
+
+            if (rafId !== null) {
+                cancelAnimationFrame(rafId);
+                rafId = null;
+            }
+
+            document.body.style.userSelect = prevUserSelect;
+            document.body.style.cursor = prevCursor;
+
             setIsResizing(null);
             setIsResizingGlobal(false);
+
             if (containerRef.current) {
-                const finalHeight = containerRef.current.style.minHeight;
                 containerRef.current.style.transition = '';
-                if (finalHeight && onHeightChange) onHeightChange(finalHeight);
+                const finalHeight = `${latestHeight}px`;
+                containerRef.current.style.height = finalHeight;
+                containerRef.current.style.minHeight = finalHeight;
+                if (innerTextarea) {
+                    innerTextarea.style.transition = '';
+                    innerTextarea.style.height = finalHeight;
+                    innerTextarea.style.minHeight = finalHeight;
+                }
+                onHeightChange(finalHeight);
             }
+
             window.removeEventListener('pointermove', handlePointerMove);
             window.removeEventListener('pointerup', handlePointerUp);
+            window.removeEventListener('pointercancel', handlePointerUp);
         };
 
-        window.addEventListener('pointermove', handlePointerMove);
+        window.addEventListener('pointermove', handlePointerMove, { passive: true });
         window.addEventListener('pointerup', handlePointerUp);
+        window.addEventListener('pointercancel', handlePointerUp);
     };
 
     return (

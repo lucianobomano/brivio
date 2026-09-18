@@ -495,11 +495,12 @@ export function ColumnSettingsPanel({
 
                     {/* Free Flow Toggle */}
                     <div className="mt-2.5 h-[50px] pb-2.5 flex items-center justify-between border-b border-[#333]">
-                        <span className="font-light text-gray-400">Free-flow grid</span>
+                        <span className="font-light text-gray-400">Movimento livre</span>
                         <button
+                            type="button"
                             onClick={() => onFreeFlowChange?.(!isFreeFlow)}
                             className={cn(
-                                "w-[44px] h-[24px] rounded-full relative transition-colors duration-200",
+                                "w-[44px] h-[24px] rounded-full relative transition-colors duration-200 cursor-pointer",
                                 isFreeFlow ? "bg-[#FF0054]" : "bg-[#2A2B35]"
                             )}
                         >
