@@ -119,7 +119,7 @@ export function ProjectDetailClient({
                     {project.images.map((img, idx) => (
                         <div key={idx} className={cn("w-full aspect-video rounded-[8px] overflow-hidden border border-bg-3 relative")}>
                             {img.startsWith('http') ? (
-                                <img src={img} alt="" className="w-full h-full object-cover" />
+                                <img loading="lazy" decoding="async" src={img} alt="" className="w-full h-full object-cover" />
                             ) : (
                                 <div className={cn("w-full h-full", img)} />
                             )}

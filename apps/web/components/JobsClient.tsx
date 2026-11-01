@@ -137,7 +137,7 @@ export function JobsClient({ initialJobs = [] }: { initialJobs?: Job[] }) {
                             <div className="flex justify-between items-start mb-8">
                                 <div className="w-14 h-14 rounded-2xl bg-bg-2 border border-bg-3 flex items-center justify-center text-lg font-bold text-text-secondary overflow-hidden">
                                     {job.companyLogo.startsWith('http') ? (
-                                        <img src={job.companyLogo} alt={job.company} className="w-full h-full object-cover" />
+                                        <img loading="lazy" decoding="async" src={job.companyLogo} alt={job.company} className="w-full h-full object-cover" />
                                     ) : (
                                         job.companyLogo
                                     )}

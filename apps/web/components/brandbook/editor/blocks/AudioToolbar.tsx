@@ -58,6 +58,9 @@ export const AudioToolbar = ({
                 <button onClick={(e) => { e.stopPropagation(); onSelect() }} className="p-1.5 text-[#97A1B3] hover:text-white transition-colors rounded-sm hover:bg-white/10" title="Select">
                     <MousePointerClick className="w-4 h-4" />
                 </button>
+                <button onClick={(e) => { e.stopPropagation(); onSettings() }} className="p-1.5 text-[#97A1B3] hover:text-white transition-colors rounded-sm hover:bg-white/10" title="Definições">
+                    <Settings className="w-4 h-4" />
+                </button>
                 <button onClick={(e) => { e.stopPropagation(); onAnimate?.() }} className="p-1.5 text-[#97A1B3] hover:text-[#FF0054] transition-colors rounded-sm hover:bg-white/10" title="Animar bloco">
                     <Zap className="w-4 h-4 fill-transparent hover:fill-[#FF0054]" />
                 </button>

@@ -1,9 +1,13 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/server"
+import { assertProposalAccess, assertProposalModulesAccess, denyUnlessAllowed } from "@/lib/brand-access"
 import { revalidatePath } from "next/cache"
 
 export async function createProposalModule(proposalId: string, type: string, order: number) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalAccess(proposalId))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     const titles: Record<string, string> = {
@@ -36,6 +40,9 @@ export async function createProposalModule(proposalId: string, type: string, ord
 }
 
 export async function updateProposalModuleContent(moduleId: string, content: Record<string, any>, proposalId?: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalModulesAccess([moduleId]))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     const { error } = await supabase
@@ -59,6 +66,9 @@ export async function updateProposalModuleContent(moduleId: string, content: Rec
 }
 
 export async function deleteProposalModule(moduleId: string, proposalId?: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalModulesAccess([moduleId]))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     const { error } = await supabase
@@ -79,12 +89,16 @@ export async function deleteProposalModule(moduleId: string, proposalId?: string
 }
 
 export async function updateProposalModule(moduleId: string, updates: Record<string, any>, proposalId?: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalModulesAccess([moduleId]))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     const { error } = await supabase
         .from('proposal_modules')
         .update({
-            ...updates,
+            // SECURITY: `updates` comes from the client; never let it move the section to another proposal
+            ...Object.fromEntries(Object.entries(updates || {}).filter(([key]) => key !== 'id' && key !== 'proposal_id')),
             updated_at: new Date().toISOString()
         })
         .eq('id', moduleId)
@@ -102,6 +116,9 @@ export async function updateProposalModule(moduleId: string, updates: Record<str
 }
 
 export async function duplicateProposalModule(moduleId: string, proposalId: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalModulesAccess([moduleId]))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     // Get source module
@@ -149,6 +166,9 @@ export async function duplicateProposalModule(moduleId: string, proposalId: stri
 }
 
 export async function reorderProposalModules(items: { id: string, order: number }[]) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalModulesAccess(items.map(item => item.id)))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     const updates = items.map(item =>
@@ -164,6 +184,9 @@ export async function reorderProposalModules(items: { id: string, order: number 
 }
 
 export async function addProposalPages(proposalId: string, pageTitles: string[]) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalAccess(proposalId))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     // Get current max order
@@ -199,6 +222,9 @@ export async function addProposalPages(proposalId: string, pageTitles: string[])
 }
 
 export async function getProposalModules(proposalId: string) {
+    // SECURITY: the admin client bypasses RLS; proposal sections are for the proposal's team only
+    const denied = await denyUnlessAllowed(() => assertProposalAccess(proposalId))
+    if (denied) return []
     const supabase = await createAdminClient()
 
     const { data, error } = await supabase

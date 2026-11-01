@@ -1,3 +1,6 @@
+import { BRIVIO_BRANDBOOK_TEMPLATE } from "./brivio-brandbook-template"
+import { ANTIMATERIA_BRANDBOOK_TEMPLATE } from "./antimateria-brandbook-template"
+
 // Automatically generated from Merimbamba brandbook page layouts
 export const GUIDE_INTRO_TEMPLATE = {
   "blocks": [
@@ -1340,6 +1343,8 @@ export interface BuiltinBrandbookTemplate {
 }
 
 export const BUILTIN_BRANDBOOK_TEMPLATES: BuiltinBrandbookTemplate[] = [
+  BRIVIO_BRANDBOOK_TEMPLATE,
+  ANTIMATERIA_BRANDBOOK_TEMPLATE,
   {
     id: "tpl_editorial_minimalist",
     name: "Editorial & Minimalista",

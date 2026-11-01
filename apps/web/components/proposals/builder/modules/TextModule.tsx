@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react"
 import { Textarea } from "@/components/ui/textarea"
 import { useDebounce } from "@/lib/utils" // Ensure this exists or use a local hook
-import { updateModuleContent } from "@/app/actions/brandbook"
+import { updateProposalModuleContent as updateModuleContent } from "@/app/actions/proposal-builder"
 
 interface TextModuleProps {
     moduleId: string

@@ -27,8 +27,12 @@ import {
     Copy,
     CopyPlus,
     Zap,
-    Check
+    Check,
+    RotateCcw
 } from "lucide-react"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import { EDITOR_COLLISION_PADDING } from "./editorLayout"
+import { FloatingPanel } from "./FloatingPanel"
 import { cn } from "@/lib/utils"
 import {
     DropdownMenu,
@@ -52,6 +56,14 @@ interface TextToolbarProps {
     currentFont?: string
     onLineHeightChange?: (height: string) => void
     currentLineHeight?: string
+    /** Letter spacing in % of the font size (0 = the font's own spacing), like design tools */
+    currentLetterSpacing?: number
+    /** Saves a spacing (on release of the slider, so one drag is one undo step) */
+    onLetterSpacingChange?: (percent: number) => void
+    /** Shows a spacing while dragging without saving it; null ends the preview */
+    onLetterSpacingPreview?: (percent: number | null) => void
+    /** Live line height while the slider moves (null = back to the saved value) */
+    onLineHeightPreview?: (height: number | null) => void
     onFormat?: (type: 'bold' | 'light' | 'italic' | 'underline' | 'strikethrough') => void
     activeFormats?: string[]
     onListFormat?: (type: 'disc' | 'decimal' | null) => void
@@ -92,6 +104,211 @@ interface TextToolbarProps {
     className?: string
 }
 
+const LINE_HEIGHT_MIN = 0.7
+const LINE_HEIGHT_MAX = 3
+const LINE_HEIGHT_PRESETS = [1, 1.2, 1.5, 2]
+
+/** Line height control: four quick presets plus a slider / exact value for any spacing, with live preview */
+const LineHeightControl = ({ value, onChange, onPreview, onOpenChange }: {
+    value?: string
+    onOpenChange?: (open: boolean) => void
+    onChange?: (height: string) => void
+    onPreview?: (height: number | null) => void
+}) => {
+    const current = parseFloat(value || '') || 1.5
+    const [draft, setDraft] = React.useState<number | null>(null)
+    const shown = draft ?? current
+    const clamp = (n: number) => Math.max(LINE_HEIGHT_MIN, Math.min(LINE_HEIGHT_MAX, Math.round(n * 100) / 100))
+    const format = (n: number) => (Number.isInteger(n) ? n.toFixed(1) : String(n))
+    // Without a preview the text follows the slider by saving as it moves
+    const preview = (n: number) => {
+        setDraft(n)
+        if (onPreview) onPreview(n)
+        else onChange?.(format(n))
+    }
+    const commit = (n: number | null = draft) => {
+        if (n !== null && n !== current) onChange?.(format(n))
+        setDraft(null)
+        onPreview?.(null)
+    }
+
+    return (
+        <Popover onOpenChange={(open) => { if (!open) commit(); onOpenChange?.(open) }}>
+            <PopoverTrigger asChild>
+                <button className="flex items-center gap-1 text-gray-400 hover:text-white p-1" title="Espaçamento entre linhas">
+                    <ArrowUpDown className="w-4 h-4" />
+                    <ChevronDown className="w-3 h-3" />
+                </button>
+            </PopoverTrigger>
+            <PopoverContent
+                align="start"
+                sideOffset={8}
+                collisionPadding={EDITOR_COLLISION_PADDING}
+                className="w-[240px] bg-[#15161B] border border-[#333] text-gray-300 p-3 shadow-xl rounded-md z-[60]"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Espaçamento entre linhas</span>
+                    <button
+                        onClick={() => commit(1.5)}
+                        className={cn("p-0.5", shown !== 1.5 ? "text-gray-400 hover:text-white" : "text-gray-600 pointer-events-none")}
+                        title="Repor (1.5)"
+                    >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+
+                <div className="flex gap-1 mb-3">
+                    {LINE_HEIGHT_PRESETS.map(n => (
+                        <button
+                            key={n}
+                            onClick={() => commit(n)}
+                            className={cn(
+                                "flex-1 h-7 rounded text-[11px] font-semibold transition-colors",
+                                shown === n ? "bg-[#FF0054] text-white" : "bg-white/5 text-gray-400 hover:text-white"
+                            )}
+                        >
+                            {format(n)}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <input
+                        type="range"
+                        min={LINE_HEIGHT_MIN}
+                        max={LINE_HEIGHT_MAX}
+                        step={0.05}
+                        value={shown}
+                        onChange={(e) => preview(clamp(Number(e.target.value)))}
+                        onPointerUp={() => commit()}
+                        onKeyUp={() => commit()}
+                        onBlur={() => commit()}
+                        className="flex-1 accent-[#FF0054] cursor-pointer"
+                        aria-label="Espaçamento entre linhas"
+                    />
+                    <div className="flex items-center bg-[#1A1A20] border border-[#333] rounded px-1.5 h-[26px] w-[56px]">
+                        <input
+                            type="number"
+                            step={0.05}
+                            min={LINE_HEIGHT_MIN}
+                            max={LINE_HEIGHT_MAX}
+                            value={shown}
+                            onChange={(e) => preview(clamp(Number(e.target.value) || 1))}
+                            onBlur={() => commit()}
+                            onKeyDown={(e) => { if (e.key === 'Enter') commit() }}
+                            className="bg-transparent w-full text-right text-white text-xs outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                    </div>
+                </div>
+            </PopoverContent>
+        </Popover>
+    )
+}
+
+const LETTER_SPACING_MIN = -10
+const LETTER_SPACING_MAX = 50
+
+/** Letter spacing control: slider with live preview, exact value input, quick presets and reset */
+const LetterSpacingControl = ({ value, onChange, onPreview, onOpenChange }: {
+    value: number
+    onOpenChange?: (open: boolean) => void
+    onChange?: (percent: number) => void
+    onPreview?: (percent: number | null) => void
+}) => {
+    const [draft, setDraft] = React.useState<number | null>(null)
+    const shown = draft ?? value
+    const clamp = (n: number) => Math.max(LETTER_SPACING_MIN, Math.min(LETTER_SPACING_MAX, Math.round(n * 2) / 2))
+    const preview = (n: number) => { setDraft(n); onPreview?.(n) }
+    const commit = (n: number | null = draft) => {
+        if (n !== null && n !== value) onChange?.(n)
+        setDraft(null)
+        onPreview?.(null)
+    }
+
+    return (
+        <Popover onOpenChange={(open) => { if (!open) commit(); onOpenChange?.(open) }}>
+            <PopoverTrigger asChild>
+                <button
+                    className={cn("flex items-center gap-1 p-1", value !== 0 ? "text-white" : "text-gray-400 hover:text-white")}
+                    title="Espaçamento entre letras"
+                >
+                    {/* "A|V" glyph: two letters with spacing arrows */}
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        <path d="M1.5 10 L3.75 3 L6 10 M2.3 7.6 H5.2" />
+                        <path d="M10 3 L12.25 10 L14.5 3" />
+                        <path d="M3 13.5 H13 M4.5 12 L3 13.5 L4.5 15 M11.5 12 L13 13.5 L11.5 15" />
+                    </svg>
+                    <ChevronDown className="w-3 h-3" />
+                </button>
+            </PopoverTrigger>
+            <PopoverContent
+                align="start"
+                sideOffset={8}
+                collisionPadding={EDITOR_COLLISION_PADDING}
+                className="w-[240px] bg-[#15161B] border border-[#333] text-gray-300 p-3 shadow-xl rounded-md z-[60]"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between mb-3">
+                    <span className="text-[11px] font-medium uppercase tracking-wider text-gray-400">Espaçamento entre letras</span>
+                    <button
+                        onClick={() => commit(0)}
+                        className={cn("p-0.5", shown !== 0 ? "text-gray-400 hover:text-white" : "text-gray-600 pointer-events-none")}
+                        title="Repor (0%)"
+                    >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+
+                <div className="flex items-center gap-3">
+                    <input
+                        type="range"
+                        min={LETTER_SPACING_MIN}
+                        max={LETTER_SPACING_MAX}
+                        step={0.5}
+                        value={shown}
+                        onChange={(e) => preview(Number(e.target.value))}
+                        onPointerUp={() => commit()}
+                        onKeyUp={() => commit()}
+                        onBlur={() => commit()}
+                        className="flex-1 accent-[#FF0054] cursor-pointer"
+                        aria-label="Espaçamento entre letras"
+                    />
+                    <div className="flex items-center bg-[#1A1A20] border border-[#333] rounded px-1.5 h-[26px] w-[64px]">
+                        <input
+                            type="number"
+                            step={0.5}
+                            min={LETTER_SPACING_MIN}
+                            max={LETTER_SPACING_MAX}
+                            value={shown}
+                            onChange={(e) => preview(clamp(Number(e.target.value) || 0))}
+                            onBlur={() => commit()}
+                            onKeyDown={(e) => { if (e.key === 'Enter') commit() }}
+                            className="bg-transparent w-full text-right text-white text-xs outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                        />
+                        <span className="text-gray-500 text-[10px] ml-0.5">%</span>
+                    </div>
+                </div>
+
+                <div className="flex gap-1 mt-3">
+                    {[-5, -2, 0, 5, 10, 20].map(n => (
+                        <button
+                            key={n}
+                            onClick={() => commit(n)}
+                            className={cn(
+                                "flex-1 h-6 rounded text-[10px] font-semibold transition-colors",
+                                shown === n ? "bg-[#FF0054] text-white" : "bg-white/5 text-gray-400 hover:text-white"
+                            )}
+                        >
+                            {n > 0 ? `+${n}` : n}
+                        </button>
+                    ))}
+                </div>
+            </PopoverContent>
+        </Popover>
+    )
+}
+
 export const TextToolbar = ({
     onDelete,
     onDuplicate,
@@ -102,6 +319,10 @@ export const TextToolbar = ({
     currentFont,
     onLineHeightChange,
     currentLineHeight,
+    currentLetterSpacing = 0,
+    onLetterSpacingChange,
+    onLetterSpacingPreview,
+    onLineHeightPreview,
     onFormat,
     activeFormats = [],
     onListFormat,
@@ -141,6 +362,24 @@ export const TextToolbar = ({
     const [isLinkOpen, setIsLinkOpen] = React.useState(false)
     const [isCopied, setIsCopied] = React.useState(false)
     const [localFontSize, setLocalFontSize] = React.useState(currentFontSize?.replace('px', '') || '20')
+    // Font size list: our own dropdown, right under the size field
+    const [isSizeOpen, setIsSizeOpen] = React.useState(false)
+    const sizeGroupRef = React.useRef<HTMLDivElement>(null)
+    const sizeListRef = React.useRef<HTMLDivElement>(null)
+    React.useEffect(() => {
+        if (!isSizeOpen) return
+        const onDown = (e: PointerEvent) => {
+            const t = e.target as Node
+            if (sizeGroupRef.current?.contains(t) || sizeListRef.current?.contains(t)) return
+            setIsSizeOpen(false)
+        }
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); setIsSizeOpen(false) } }
+        document.addEventListener('pointerdown', onDown, true)
+        document.addEventListener('keydown', onKey, true)
+        // Show the current size in the middle of the list
+        const id = window.requestAnimationFrame(() => sizeListRef.current?.querySelector('[data-current="true"]')?.scrollIntoView({ block: 'center' }))
+        return () => { document.removeEventListener('pointerdown', onDown, true); document.removeEventListener('keydown', onKey, true); window.cancelAnimationFrame(id) }
+    }, [isSizeOpen])
 
     const handleCopy = (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -155,10 +394,12 @@ export const TextToolbar = ({
         }
     }, [currentFontSize])
 
-    // Notify parent when settings panel state changes
+    // Notify parent when settings panel state changes (the letter spacing popover counts too, so the toolbar stays)
+    const [isLetterSpacingOpen, setIsLetterSpacingOpen] = React.useState(false)
+    const [isLineHeightOpen, setIsLineHeightOpen] = React.useState(false)
     React.useEffect(() => {
-        onSettingsOpenChange?.(isSettingsOpen)
-    }, [isSettingsOpen, onSettingsOpenChange])
+        onSettingsOpenChange?.(isSettingsOpen || isLetterSpacingOpen || isLineHeightOpen)
+    }, [isSettingsOpen, isLetterSpacingOpen, isLineHeightOpen, onSettingsOpenChange])
 
     // Notify parent when link popover state changes
     React.useEffect(() => {
@@ -173,7 +414,7 @@ export const TextToolbar = ({
         <div className={cn("w-max min-w-max shrink-0", className)}>
             <div className="flex items-center bg-[#15161B] rounded-[4px] px-2 py-1.5 gap-2 shadow-xl border border-[#333] whitespace-nowrap w-max min-w-max shrink-0 select-none">
                 {/* 1. Font Size Input + Dropdown */}
-                <div className="flex items-center gap-0 pl-1 border-r border-[#333]/30 mr-1">
+                <div ref={sizeGroupRef} className="relative flex items-center gap-0 pl-1 border-r border-[#333]/30 mr-1">
                     <input
                         type="text"
                         value={localFontSize}
@@ -198,27 +439,52 @@ export const TextToolbar = ({
                         }}
                         className="w-[34px] h-7 bg-transparent border-none text-gray-300 focus:text-white text-[11px] font-bold text-center focus:outline-none p-0 selection:bg-[#FF0054]/30"
                     />
-                    <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                            <button className="text-gray-400 hover:text-white p-0.5 pr-1.5 transition-colors">
-                                <ChevronDown className="w-3.5 h-3.5 opacity-50" />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="bg-[#15161B] border border-[#333] text-gray-300 min-w-[80px] p-1 shadow-xl rounded-md z-[60] h-[200px] overflow-y-auto custom-scrollbar">
-                            {fontSizes.map((size) => (
-                                <DropdownMenuItem
-                                    key={size}
-                                    onClick={() => onFontSizeChange?.(size)}
-                                    className={cn(
-                                        "flex items-center justify-center cursor-pointer py-1.5 rounded-sm transition-colors text-xs hover:bg-[#2A2B35] hover:text-white focus:bg-[#2A2B35] focus:text-white",
-                                        currentFontSize === size && "text-[#FF0054] font-bold"
-                                    )}
-                                >
-                                    {size.replace('px', '')}
-                                </DropdownMenuItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <button
+                        type="button"
+                        title="Tamanho da letra"
+                        aria-haspopup="listbox"
+                        aria-expanded={isSizeOpen}
+                        // Keeps the text selection while the list is used
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => setIsSizeOpen(o => !o)}
+                        className={cn("p-0.5 pr-1.5 transition-colors", isSizeOpen ? "text-white" : "text-gray-400 hover:text-white")}
+                    >
+                        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", isSizeOpen ? "opacity-100 rotate-180" : "opacity-50")} />
+                    </button>
+                    {isSizeOpen && (
+                        <FloatingPanel placement="bottom-start" offset={8} zIndex={10050}>
+                            <div
+                                ref={sizeListRef}
+                                role="listbox"
+                                onMouseDown={(e) => e.preventDefault()}
+                                className="w-[76px] max-h-[240px] overflow-y-auto custom-scrollbar bg-[#15161B] border border-[#333] rounded-md shadow-xl p-1 animate-in fade-in slide-in-from-top-1 duration-150"
+                            >
+                                {fontSizes.map((size) => {
+                                    const current = currentFontSize === size
+                                    return (
+                                        <button
+                                            key={size}
+                                            type="button"
+                                            role="option"
+                                            aria-selected={current}
+                                            data-current={current}
+                                            onClick={() => {
+                                                onFontSizeChange?.(size)
+                                                setLocalFontSize(size.replace('px', ''))
+                                                setIsSizeOpen(false)
+                                            }}
+                                            className={cn(
+                                                "w-full h-7 rounded-sm text-xs tabular-nums transition-colors",
+                                                current ? "bg-[#FF0054] text-white font-bold" : "text-gray-300 hover:bg-[#2A2B35] hover:text-white"
+                                            )}
+                                        >
+                                            {size.replace('px', '')}
+                                        </button>
+                                    )
+                                })}
+                            </div>
+                        </FloatingPanel>
+                    )}
                 </div>
 
                 {/* Removed separate separator since it's now integrated in the block above */}
@@ -294,31 +560,18 @@ export const TextToolbar = ({
                             <ChevronDown className="w-3 h-3" />
                         </button>
                     </FontPicker>
-                    <DropdownMenu modal={false}>
-                        <DropdownMenuTrigger asChild>
-                            <button className="flex items-center gap-1 text-gray-400 hover:text-white p-1">
-                                <ArrowUpDown className="w-4 h-4" />
-                                <ChevronDown className="w-3 h-3" />
-                            </button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="bg-[#15161B] border border-[#333] text-gray-300 min-w-0 p-1 shadow-xl rounded-md z-[60] flex flex-row gap-1">
-                            {['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '2.0', '2.5', '3.0'].map((height) => (
-                                <DropdownMenuItem
-                                    key={height}
-                                    onClick={() => onLineHeightChange?.(height)}
-                                    className={cn(
-                                        "flex items-center justify-center cursor-pointer w-8 h-8 rounded-sm transition-colors text-[10px] font-bold",
-                                        currentLineHeight === height
-                                            ? "bg-[#FF0054] text-white hover:bg-[#FF0054] hover:text-white"
-                                            : "hover:bg-[#2A2B35] hover:text-white focus:bg-[#2A2B35] focus:text-white"
-                                    )}
-                                    title={`Espaçamento ${height}`}
-                                >
-                                    {height}
-                                </DropdownMenuItem>
-                            ))}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    <LineHeightControl
+                        value={currentLineHeight}
+                        onChange={onLineHeightChange}
+                        onPreview={onLineHeightPreview}
+                        onOpenChange={setIsLineHeightOpen}
+                    />
+                    <LetterSpacingControl
+                        value={currentLetterSpacing}
+                        onChange={onLetterSpacingChange}
+                        onPreview={onLetterSpacingPreview}
+                        onOpenChange={setIsLetterSpacingOpen}
+                    />
                 </div>
 
                 <div className="w-[1px] h-4 bg-[#333]" />

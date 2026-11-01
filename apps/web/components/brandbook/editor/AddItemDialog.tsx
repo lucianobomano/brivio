@@ -24,7 +24,19 @@ import {
     SeparatorVertical,
     List,
     LayoutTemplate,
-    SlidersHorizontal
+    SlidersHorizontal,
+    ListOrdered,
+    MoveHorizontal,
+    PanelBottom,
+    Shapes,
+    Ruler,
+    Ban,
+    CaseSensitive,
+    Columns4,
+    Shapes as ShapesIcon,
+    SlidersVertical,
+    Flower2,
+    Smartphone
 } from "lucide-react"
 
 interface AddItemDialogProps {
@@ -63,7 +75,19 @@ const ITEMS = [
     { id: 'separator-v', label: 'Separador Vertical', icon: SeparatorVertical, type: 'separator', variant: 'vertical' },
 
     { id: 'list', label: 'Lista de texto', icon: List, type: 'list' },
-    { id: 'story', label: 'Story Slider', icon: SlidersHorizontal, type: 'story' }
+    { id: 'story', label: 'Story Slider', icon: SlidersHorizontal, type: 'story' },
+    { id: 'index', label: 'Índice', icon: ListOrdered, type: 'index' },
+    { id: 'marquee', label: 'Texto em loop', icon: MoveHorizontal, type: 'marquee' },
+    { id: 'footer', label: 'Rodapé', icon: PanelBottom, type: 'footer' },
+    { id: 'logo-showcase', label: 'Logótipo', icon: Shapes, type: 'logo-showcase' },
+    { id: 'logo-size', label: 'Tamanho mínimo', icon: Ruler, type: 'logo-size' },
+    { id: 'logo-misuse', label: 'Usos incorretos', icon: Ban, type: 'logo-misuse' },
+    { id: 'type-specimen', label: 'Espécime tipográfico', icon: CaseSensitive, type: 'type-specimen' },
+    { id: 'color-accordion', label: 'Paleta em acordeão', icon: Columns4, type: 'color-accordion' },
+    { id: 'icon-specimen', label: 'Iconografia', icon: ShapesIcon, type: 'icon-specimen' },
+    { id: 'photo-grade', label: 'Tratamento fotográfico', icon: SlidersVertical, type: 'photo-grade' },
+    { id: 'motif-field', label: 'Formas da marca', icon: Flower2, type: 'motif-field' },
+    { id: 'social-mockup', label: 'Rede social', icon: Smartphone, type: 'social-mockup' }
 ]
 
 export function AddItemDialog({ isOpen, onOpenChange, onSelectBlock, onPaste, hasClipboard, onClearClipboard }: AddItemDialogProps) {

@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { invalidateShareRoadmap } from "@/lib/share-cache"
 
 const isUuid = (val: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
@@ -53,6 +54,7 @@ export async function updateProjectPosition(projectId: string, newPosition: numb
             `, newPosition, projectId)
         }
 
+        invalidateShareRoadmap()
         revalidatePath('/projects')
         return { success: true }
     } catch (error: any) {
@@ -97,6 +99,7 @@ export async function updateBatchProjectPositions(updates: { id: string, positio
             }
         }
 
+        invalidateShareRoadmap()
         revalidatePath('/projects')
         return { success: true }
     } catch (error: any) {

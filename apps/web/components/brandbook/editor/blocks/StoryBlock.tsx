@@ -25,6 +25,8 @@ import * as PopoverPrimitive from "@radix-ui/react-popover"
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 import { toast } from "sonner"
 import { FontPicker } from "../FontPicker"
+import { SmoothColorInput } from "../SmoothColorInput"
+import { EDITOR_COLLISION_PADDING } from "../editorLayout"
 
 interface StorySlide {
     id: string
@@ -356,6 +358,7 @@ export const StoryBlock = ({
                                 side="top"
                                 align="center"
                                 sideOffset={12}
+                                collisionPadding={EDITOR_COLLISION_PADDING}
                                 className="z-[2000] w-[320px] bg-[#111116] rounded-lg overflow-hidden shadow-2xl border border-[#222] text-sm font-sans flex flex-col max-h-[520px] outline-none animate-in fade-in zoom-in-95 duration-150 p-0"
                             >
                                 {/* Header (Identity from References 2 & 3) */}
@@ -421,7 +424,7 @@ export const StoryBlock = ({
                                         <div className="flex items-center justify-between pt-1">
                                             <span>Cor do título</span>
                                             <div className="relative flex items-center">
-                                                <input
+                                                <SmoothColorInput
                                                     type="color"
                                                     value={titleColor}
                                                     onChange={(e) => handleUpdateSettings({ titleColor: e.target.value })}
@@ -488,7 +491,7 @@ export const StoryBlock = ({
                                         <div className="flex items-center justify-between pt-1">
                                             <span>Cor da descrição</span>
                                             <div className="relative flex items-center">
-                                                <input
+                                                <SmoothColorInput
                                                     type="color"
                                                     value={textColor}
                                                     onChange={(e) => handleUpdateSettings({ textColor: e.target.value })}
@@ -512,7 +515,7 @@ export const StoryBlock = ({
                                         <div className="flex items-center justify-between">
                                             <span>Cor de destaque / ativa</span>
                                             <div className="relative flex items-center">
-                                                <input
+                                                <SmoothColorInput
                                                     type="color"
                                                     value={accentColor}
                                                     onChange={(e) => handleUpdateSettings({ accentColor: e.target.value, buttonColor: e.target.value })}
@@ -529,7 +532,7 @@ export const StoryBlock = ({
                                         <div className="flex items-center justify-between">
                                             <span>Cor da barra inativa</span>
                                             <div className="relative flex items-center">
-                                                <input
+                                                <SmoothColorInput
                                                     type="color"
                                                     value={barColor}
                                                     onChange={(e) => handleUpdateSettings({ barColor: e.target.value })}

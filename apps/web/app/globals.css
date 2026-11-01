@@ -156,6 +156,36 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* Minimal horizontal scrollbar used by the BrandOps node picker. */
+  .brandops-popover-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #71717a transparent;
+  }
+
+  .brandops-popover-scroll::-webkit-scrollbar {
+    width: 4px !important;
+    height: 4px !important;
+    background: transparent !important;
+  }
+
+  .brandops-popover-scroll::-webkit-scrollbar-track,
+  .brandops-popover-scroll::-webkit-scrollbar-corner {
+    background: transparent !important;
+  }
+
+  .brandops-popover-scroll::-webkit-scrollbar-thumb {
+    background: #71717a !important;
+    border-radius: 9999px;
+  }
+
+  .brandops-popover-scroll::-webkit-scrollbar-button,
+  .brandops-popover-scroll::-webkit-scrollbar-button:single-button {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+    background: transparent !important;
+  }
 }
 
 @keyframes fadeIn {
@@ -327,3 +357,297 @@
   background: linear-gradient(var(--kanban-col-bg), var(--kanban-col-bg)) padding-box,
               linear-gradient(to bottom, #DD005A, #FF002D, #06D6A0, #311C99) border-box !important;
 }
+
+/* Busy state for any button running an async action (set aria-busy="true").
+   Buttons that render their own spinner (ui/Button with `loading`) opt out with data-spinner. */
+button[aria-busy="true"] {
+  cursor: progress;
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+button[aria-busy="true"]:not([data-spinner])::after {
+  content: "";
+  display: inline-block;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-left: 0.5rem;
+  vertical-align: -0.125rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 9999px;
+  animation: btn-busy-spin 0.7s linear infinite;
+}
+
+@keyframes btn-busy-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  button[aria-busy="true"]:not([data-spinner])::after { animation-duration: 2s; }
+}
+
+/* Hover effects of sections, columns and blocks (see components/brandbook/editor/hoverEffects.ts).
+   Colors use !important because the elements carry their own inline colors; movement uses the
+   individual translate/scale properties so it never fights an inline transform (free-flow, animations). */
+.bh {
+  transition: background-color var(--bh-d), color var(--bh-d), border-color var(--bh-d), box-shadow var(--bh-d),
+    opacity var(--bh-d), translate var(--bh-d), scale var(--bh-d), border-radius var(--bh-d), border-width var(--bh-d);
+}
+.bh-radius:hover { border-radius: var(--bh-radius) !important; }
+.bh-border-width:hover { border-width: var(--bh-bw) !important; border-style: solid !important; }
+.bh-border-width:hover:not(.bh-border) { border-color: currentColor; }
+/* Titles / body text inside (text blocks carry data-text-role) */
+.bh-heading [data-text-role="heading"], .bh-body [data-text-role="body"] { transition: color var(--bh-d); }
+.bh-heading:hover [data-text-role="heading"] { color: var(--bh-heading) !important; }
+.bh-body:hover [data-text-role="body"] { color: var(--bh-body) !important; }
+.bh-bg:hover { background-color: var(--bh-bg) !important; }
+.bh-text:hover, .bh-text:hover :is(h1, h2, h3, h4, h5, h6, p, span, div, a, li, textarea, input) { color: var(--bh-text) !important; }
+.bh-border:hover { border-color: var(--bh-border) !important; }
+.bh-border:not([style*="border-width"]) { border: 1px solid transparent; }
+.bh-move:hover { translate: 0 var(--bh-lift); scale: var(--bh-scale); }
+.bh-shadow-soft:hover { box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.25) !important; }
+.bh-shadow-strong:hover { box-shadow: 0 24px 60px -16px rgb(0 0 0 / 0.45) !important; }
+.bh-opacity:hover { opacity: var(--bh-opacity) !important; }
+.bh-zoom img, .bh-gray img, .bh-zoom video { transition: scale var(--bh-d), filter var(--bh-d); }
+.bh-zoom:hover img, .bh-zoom:hover video { scale: var(--bh-zoom); }
+.bh-gray img { filter: grayscale(1); }
+.bh-gray:hover img { filter: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .bh, .bh img { transition-duration: 0.01s !important; }
+  .bh-move:hover, .bh-zoom:hover img { translate: none; scale: none; }
+}
+
+/* ===== Button animations (components/brandbook/editor/blocks/buttonPresets.ts) =====
+   Class .ba + .ba-<id> on the button; --ba-s scales every duration (speed). The button has an inline
+   transition, so .ba's own transition is !important. Fill effects draw a ::before layer in the text color. */
+.ba { --ba-s: 1; position: relative; isolation: isolate;
+  transition: transform calc(0.3s * var(--ba-s)) ease, box-shadow calc(0.3s * var(--ba-s)) ease,
+    filter calc(0.3s * var(--ba-s)) ease, letter-spacing calc(0.3s * var(--ba-s)) ease !important; }
+.ba-grow:hover { transform: scale(1.08); }
+.ba-shrink:hover { transform: scale(0.92); }
+.ba-pulse:hover { animation: ba-pulse calc(0.6s * var(--ba-s)) ease; }
+.ba-push:hover { animation: ba-push calc(0.3s * var(--ba-s)) linear; }
+.ba-pop:hover { animation: ba-pop calc(0.3s * var(--ba-s)) linear; }
+.ba-float:hover { transform: translateY(-6px); }
+.ba-sink:hover { transform: translateY(6px); }
+.ba-bob:hover { animation: ba-bob-float calc(0.3s * var(--ba-s)) ease-out forwards, ba-bob calc(1.5s * var(--ba-s)) ease-in-out calc(0.3s * var(--ba-s)) infinite alternate; }
+.ba-hang:hover { animation: ba-hang-sink calc(0.3s * var(--ba-s)) ease-out forwards, ba-hang calc(1.5s * var(--ba-s)) ease-in-out calc(0.3s * var(--ba-s)) infinite alternate; }
+.ba-skew:hover { transform: skewX(-10deg); }
+.ba-skew-forward { transform-origin: 0 100%; }
+.ba-skew-forward:hover { transform: skewX(-12deg); }
+.ba-wobble-h:hover { animation: ba-wobble-h calc(1s * var(--ba-s)) ease-in-out; }
+.ba-wobble-v:hover { animation: ba-wobble-v calc(1s * var(--ba-s)) ease-in-out; }
+.ba-wobble-skew:hover { animation: ba-wobble-skew calc(1s * var(--ba-s)) ease-in-out; }
+.ba-buzz:hover { animation: ba-buzz calc(0.15s * var(--ba-s)) linear infinite; }
+.ba-buzz-out:hover { animation: ba-buzz-out calc(0.75s * var(--ba-s)) linear; }
+.ba-shake:hover { animation: ba-shake calc(0.5s * var(--ba-s)) ease-in-out; }
+.ba-jello:hover { animation: ba-jello calc(0.9s * var(--ba-s)) both; }
+.ba-rubber:hover { animation: ba-rubber calc(0.8s * var(--ba-s)) both; }
+.ba-tada:hover { animation: ba-tada calc(0.9s * var(--ba-s)) both; }
+.ba-swing { transform-origin: top center; }
+.ba-swing:hover { animation: ba-swing calc(0.9s * var(--ba-s)) both; }
+.ba-rotate:hover { transform: rotate(4deg); }
+.ba-grow-rotate:hover { transform: scale(1.1) rotate(4deg); }
+.ba-forward:hover { transform: translateX(8px); }
+.ba-backward:hover { transform: translateX(-8px); }
+.ba-glow:hover { box-shadow: 0 0 22px 2px var(--ba-glow, rgba(255, 0, 84, 0.55)) !important; }
+.ba-shadow:hover { box-shadow: 0 12px 24px -10px rgba(0, 0, 0, 0.55) !important; }
+.ba-lift:hover { transform: translateY(-5px); box-shadow: 0 16px 28px -14px rgba(0, 0, 0, 0.6) !important; }
+.ba-ring:hover { box-shadow: 0 0 0 4px var(--ba-glow, rgba(255, 0, 84, 0.3)) !important; }
+.ba-lighten:hover { filter: brightness(1.15); }
+.ba-darken:hover { filter: brightness(0.85); }
+.ba-spacing:hover, .ba-spacing:hover input { letter-spacing: 0.12em; }
+.ba-spacing input { transition: letter-spacing calc(0.3s * var(--ba-s)) ease; }
+
+/* Fills: a layer behind the text, in the text color */
+.ba-fill { overflow: hidden; }
+.ba-fill::before { content: ""; position: absolute; inset: 0; z-index: -1; background: currentColor; opacity: 0.2;
+  transition: transform calc(0.35s * var(--ba-s)) ease-out; pointer-events: none; }
+.ba-sweep-right::before { transform: scaleX(0); transform-origin: left; }
+.ba-sweep-left::before { transform: scaleX(0); transform-origin: right; }
+.ba-sweep-up::before { transform: scaleY(0); transform-origin: bottom; }
+.ba-sweep-down::before { transform: scaleY(0); transform-origin: top; }
+.ba-bounce-right::before { transform: scaleX(0); transform-origin: left; transition-timing-function: cubic-bezier(0.52, 1.64, 0.37, 0.66); }
+.ba-shutter-h::before { transform: scaleX(0); transform-origin: center; }
+.ba-shutter-v::before { transform: scaleY(0); transform-origin: center; }
+.ba-radial::before { border-radius: 9999px; transform: scale(0); inset: -50%; }
+.ba-sweep-right:hover::before, .ba-sweep-left:hover::before, .ba-bounce-right:hover::before, .ba-shutter-h:hover::before { transform: scaleX(1); }
+.ba-sweep-up:hover::before, .ba-sweep-down:hover::before, .ba-shutter-v:hover::before { transform: scaleY(1); }
+.ba-radial:hover::before { transform: scale(1); }
+.ba-shine::before, .ba-loop-shine::before { background: linear-gradient(110deg, transparent 20%, rgba(255, 255, 255, 0.55) 50%, transparent 80%);
+  opacity: 1; transform: translateX(-120%); z-index: 1; }
+.ba-shine:hover::before { transform: translateX(120%); transition: transform calc(0.7s * var(--ba-s)) ease; }
+.ba-loop-shine::before { animation: ba-shine calc(2.6s * var(--ba-s)) ease-in-out infinite; transition: none; }
+.ba-underline::after, .ba-underline-left::after { content: ""; position: absolute; left: 0; right: 0; bottom: 6px; height: 2px;
+  background: currentColor; transform: scaleX(0); transition: transform calc(0.3s * var(--ba-s)) ease-out; margin: 0 18%; }
+.ba-underline::after { transform-origin: center; }
+.ba-underline-left::after { transform-origin: left; }
+.ba-underline:hover::after, .ba-underline-left:hover::after { transform: scaleX(1); }
+.ba-border-draw::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 2px currentColor; clip-path: inset(0 100% 100% 0); transition: clip-path calc(0.5s * var(--ba-s)) ease; }
+.ba-border-draw:hover::after { clip-path: inset(0 0 0 0); }
+
+/* Continuous */
+.ba-loop-pulse { animation: ba-pulse calc(1.4s * var(--ba-s)) ease-in-out infinite; }
+.ba-loop-breathe { animation: ba-breathe calc(3s * var(--ba-s)) ease-in-out infinite; }
+.ba-loop-bounce { animation: ba-bounce calc(1.6s * var(--ba-s)) ease infinite; }
+.ba-loop-wiggle { animation: ba-wiggle calc(2s * var(--ba-s)) ease-in-out infinite; }
+.ba-loop-glow { animation: ba-glow calc(2s * var(--ba-s)) ease-in-out infinite; }
+.ba-loop-heartbeat { animation: ba-heartbeat calc(1.5s * var(--ba-s)) ease-in-out infinite; }
+.ba-loop-float { animation: ba-float calc(3s * var(--ba-s)) ease-in-out infinite; }
+.ba-loop-ring { animation: ba-ring calc(1.8s * var(--ba-s)) ease-out infinite; }
+.ba-loop-shake { animation: ba-attention calc(3s * var(--ba-s)) ease-in-out infinite; }
+.ba-loop-gradient { background-image: linear-gradient(120deg, #94007C, #FF0054, #390099, #06D6A0, #94007C) !important;
+  background-size: 300% 100% !important; animation: ba-gradient calc(5s * var(--ba-s)) linear infinite; }
+
+@keyframes ba-pulse { 25% { transform: scale(1.08); } 75% { transform: scale(0.96); } }
+@keyframes ba-push { 50% { transform: scale(0.88); } 100% { transform: scale(1); } }
+@keyframes ba-pop { 50% { transform: scale(1.14); } }
+@keyframes ba-bob-float { to { transform: translateY(-8px); } }
+@keyframes ba-bob { from { transform: translateY(-8px); } to { transform: translateY(-4px); } }
+@keyframes ba-hang-sink { to { transform: translateY(8px); } }
+@keyframes ba-hang { from { transform: translateY(8px); } to { transform: translateY(4px); } }
+@keyframes ba-wobble-h { 16% { transform: translateX(8px); } 33% { transform: translateX(-6px); } 49% { transform: translateX(4px); } 66% { transform: translateX(-2px); } 83% { transform: translateX(1px); } 100% { transform: translateX(0); } }
+@keyframes ba-wobble-v { 16% { transform: translateY(8px); } 33% { transform: translateY(-6px); } 49% { transform: translateY(4px); } 66% { transform: translateY(-2px); } 83% { transform: translateY(1px); } 100% { transform: translateY(0); } }
+@keyframes ba-wobble-skew { 16% { transform: skewX(-12deg); } 33% { transform: skewX(10deg); } 49% { transform: skewX(-6deg); } 66% { transform: skewX(4deg); } 83% { transform: skewX(-2deg); } 100% { transform: skewX(0); } }
+@keyframes ba-buzz { 50% { transform: translateX(3px) rotate(2deg); } 100% { transform: translateX(-3px) rotate(-2deg); } }
+@keyframes ba-buzz-out { 10%, 30%, 50%, 70%, 90% { transform: translateX(3px) rotate(2deg); } 20%, 40%, 60%, 80% { transform: translateX(-3px) rotate(-2deg); } 100% { transform: none; } }
+@keyframes ba-shake { 20%, 60% { transform: translateX(-6px); } 40%, 80% { transform: translateX(6px); } }
+@keyframes ba-jello { 11% { transform: skewX(-12deg) skewY(-12deg); } 22% { transform: skewX(6deg) skewY(6deg); } 33% { transform: skewX(-3deg) skewY(-3deg); } 44% { transform: skewX(1.5deg) skewY(1.5deg); } 55% { transform: none; } }
+@keyframes ba-rubber { 30% { transform: scale(1.25, 0.75); } 40% { transform: scale(0.75, 1.25); } 50% { transform: scale(1.15, 0.85); } 65% { transform: scale(0.95, 1.05); } 75% { transform: scale(1.05, 0.95); } 100% { transform: none; } }
+@keyframes ba-tada { 10%, 20% { transform: scale(0.9) rotate(-3deg); } 30%, 50%, 70%, 90% { transform: scale(1.1) rotate(3deg); } 40%, 60%, 80% { transform: scale(1.1) rotate(-3deg); } 100% { transform: none; } }
+@keyframes ba-swing { 20% { transform: rotate(12deg); } 40% { transform: rotate(-8deg); } 60% { transform: rotate(4deg); } 80% { transform: rotate(-3deg); } 100% { transform: none; } }
+@keyframes ba-shine { 0%, 55% { transform: translateX(-120%); } 100% { transform: translateX(120%); } }
+@keyframes ba-breathe { 50% { transform: scale(1.04); } }
+@keyframes ba-bounce { 0%, 20%, 50%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-10px); } 60% { transform: translateY(-5px); } }
+@keyframes ba-wiggle { 0%, 70%, 100% { transform: rotate(0); } 75% { transform: rotate(-5deg); } 80% { transform: rotate(5deg); } 85% { transform: rotate(-3deg); } 90% { transform: rotate(2deg); } }
+@keyframes ba-glow { 50% { box-shadow: 0 0 24px 3px var(--ba-glow, rgba(255, 0, 84, 0.55)); } }
+@keyframes ba-heartbeat { 0%, 40%, 100% { transform: scale(1); } 10%, 30% { transform: scale(1.08); } 20% { transform: scale(0.98); } }
+@keyframes ba-float { 50% { transform: translateY(-6px); } }
+@keyframes ba-ring { 0% { box-shadow: 0 0 0 0 var(--ba-glow, rgba(255, 0, 84, 0.5)); } 100% { box-shadow: 0 0 0 16px rgba(255, 0, 84, 0); } }
+@keyframes ba-attention { 0%, 80%, 100% { transform: none; } 84%, 92% { transform: translateX(-5px) rotate(-2deg); } 88%, 96% { transform: translateX(5px) rotate(2deg); } }
+@keyframes ba-gradient { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .ba, .ba::before, .ba::after { animation: none !important; transition: none !important; }
+}
+
+/* Download block: download-icon hover effects */
+@keyframes dl-icon-bounce {
+  0%, 100% { transform: translateY(0); }
+  40% { transform: translateY(4px); }
+  70% { transform: translateY(-2px); }
+}
+@keyframes dl-icon-wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-12deg); }
+  75% { transform: rotate(12deg); }
+}
+.dl-icon-bounce { animation: dl-icon-bounce 0.7s ease-in-out infinite; }
+.dl-icon-wiggle { animation: dl-icon-wiggle 0.5s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .dl-icon-bounce, .dl-icon-wiggle { animation: none; }
+}
+
+/* "Texto em loop" block: the track moves by exactly one set of texts, so the loop has no seam */
+@keyframes marquee-x {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--marquee-shift, -50%)); }
+}
+.marquee-track { will-change: transform; }
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track { animation-play-state: paused !important; }
+}
+
+/* Footer block: its link texts take the footer's hover colour, without the default link underline
+   (texts with a background are its buttons: they keep their colours) */
+.brivio-footer [data-text-role].cursor-pointer { text-decoration-line: none; }
+.brivio-footer [data-text-role].cursor-pointer:not(.p-4):hover { color: var(--footer-accent) !important; opacity: 1; }
+.brivio-footer[data-underline] [data-text-role].cursor-pointer:not(.p-4):hover { text-decoration-line: underline; text-decoration-color: currentColor; }
+
+/* Cover backgrounds (CoverBackdrop): drifting blobs, aurora bands, Ken Burns zoom, film grain */
+.cover-drift { animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-direction: alternate; will-change: transform; }
+@keyframes cover-drift-0 { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(12%, 8%) scale(1.15); } 100% { transform: translate(-8%, 14%) scale(0.92); } }
+@keyframes cover-drift-1 { 0% { transform: translate(0, 0) scale(1.05); } 50% { transform: translate(-14%, 10%) scale(0.9); } 100% { transform: translate(6%, -12%) scale(1.12); } }
+@keyframes cover-drift-2 { 0% { transform: translate(0, 0) scale(0.95); } 50% { transform: translate(10%, -14%) scale(1.1); } 100% { transform: translate(-12%, -6%) scale(1); } }
+@keyframes cover-drift-3 { 0% { transform: translate(0, 0) scale(1.1); } 50% { transform: translate(-10%, -10%) scale(0.95); } 100% { transform: translate(14%, 6%) scale(1.05); } }
+.cover-aurora { animation-name: cover-aurora; animation-timing-function: linear; animation-iteration-count: infinite; }
+@keyframes cover-aurora { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+.cover-kenburns { animation-name: cover-kenburns; animation-timing-function: ease-in-out; animation-iteration-count: infinite; animation-direction: alternate; }
+@keyframes cover-kenburns { from { transform: scale(1) translate(0, 0); } to { transform: scale(1.14) translate(-2%, -2%); } }
+.cover-grain { animation: cover-grain 0.9s steps(6) infinite; }
+@keyframes cover-grain { 0% { transform: translate(0, 0); } 20% { transform: translate(-6%, 4%); } 40% { transform: translate(4%, -8%); } 60% { transform: translate(-8%, -2%); } 80% { transform: translate(6%, 6%); } 100% { transform: translate(0, 0); } }
+@media (prefers-reduced-motion: reduce) {
+  .cover-drift, .cover-aurora, .cover-kenburns, .cover-grain { animation-play-state: paused !important; }
+}
+
+/* Type specimen (TypeSpecimenBlock): glyph drawn stroke by stroke, weight slider */
+.ts-draw { stroke-dasharray: 3200; stroke-dashoffset: 3200; animation: ts-draw 3.6s ease-in-out infinite alternate; }
+@keyframes ts-draw { to { stroke-dashoffset: 0; } }
+.ts-range { -webkit-appearance: none; appearance: none; height: 2px; border-radius: 2px; background: color-mix(in srgb, var(--ts-accent) 40%, #3A3A3E); }
+.ts-range::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; border-radius: 50%; background: var(--ts-accent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ts-accent) 22%, transparent), 0 0 18px color-mix(in srgb, var(--ts-accent) 55%, transparent); cursor: pointer; }
+.ts-range::-moz-range-thumb { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--ts-accent); box-shadow: 0 0 0 6px color-mix(in srgb, var(--ts-accent) 22%, transparent), 0 0 18px color-mix(in srgb, var(--ts-accent) 55%, transparent); cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .ts-draw { animation: none; stroke-dashoffset: 0; } }
+
+/* Upload dialog: indeterminate progress bar */
+@keyframes upload-progress { 0% { transform: translateX(-110%); } 100% { transform: translateX(330%); } }
+
+/* Colour picker: appears out of the side of its trigger */
+@keyframes color-picker-in { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
+/* Gallery "Loop": lanes scrolling forever (the track holds its images twice) */
+@keyframes gallery-loop-y { from { transform: translateY(0); } to { transform: translateY(calc(-50% - var(--loop-gap, 0px))); } }
+@keyframes gallery-loop-x { from { transform: translateX(0); } to { transform: translateX(calc(-50% - var(--loop-gap, 0px))); } }
+
+/* Social mockup: progress bar of the current story */
+@keyframes social-story-progress { from { width: 0%; } to { width: 100%; } }
+
+/* ---------- Landing page (light by default, dark on request) ---------- */
+.lp {
+  --lp-bg: #FAFAF8;
+  --lp-bg-2: #FFFFFF;
+  --lp-surface: #F2F2EF;
+  --lp-text: #0E0F12;
+  --lp-muted: #5D6270;
+  --lp-faint: #9AA0AB;
+  --lp-line: rgba(14, 15, 18, 0.08);
+  --lp-line-strong: rgba(14, 15, 18, 0.14);
+  --lp-accent: #FF0054;
+  --lp-accent-soft: rgba(255, 0, 84, 0.08);
+  --lp-invert-bg: #0E0F12;
+  --lp-invert-text: #FFFFFF;
+  --lp-shadow: 0 1px 2px rgba(16, 17, 20, 0.04), 0 12px 32px rgba(16, 17, 20, 0.06);
+  --lp-shadow-lg: 0 2px 4px rgba(16, 17, 20, 0.04), 0 30px 80px rgba(16, 17, 20, 0.10);
+  color-scheme: light;
+  background: var(--lp-bg);
+  color: var(--lp-text);
+  transition: background-color .4s ease, color .4s ease;
+}
+.lp[data-theme="dark"] {
+  --lp-bg: #0B0B0E;
+  --lp-bg-2: #121217;
+  --lp-surface: #18181E;
+  --lp-text: #F4F4F6;
+  --lp-muted: #A1A6B2;
+  --lp-faint: #6B7080;
+  --lp-line: rgba(255, 255, 255, 0.08);
+  --lp-line-strong: rgba(255, 255, 255, 0.16);
+  --lp-accent-soft: rgba(255, 0, 84, 0.14);
+  --lp-invert-bg: #FFFFFF;
+  --lp-invert-text: #0E0F12;
+  --lp-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.35);
+  --lp-shadow-lg: 0 2px 4px rgba(0, 0, 0, 0.3), 0 30px 80px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+.lp ::selection { background: var(--lp-accent); color: #fff; }
+@keyframes lp-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+@keyframes lp-step { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@media (prefers-reduced-motion: reduce) {
+  .lp *, .lp *::before, .lp *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+/* Official Brivio logo on the landing: black on the light theme, white on the dark one */
+.lp .lp-logo-on-dark { display: none; }
+.lp[data-theme="dark"] .lp-logo-on-light { display: none; }
+.lp[data-theme="dark"] .lp-logo-on-dark { display: block; }

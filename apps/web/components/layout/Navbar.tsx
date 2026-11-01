@@ -2,7 +2,8 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { Logo } from "./Logo"
 import {
     LayoutDashboard,
@@ -181,7 +182,7 @@ export function Navbar() {
                                 >
                                     <div className="w-10 h-10 rounded-full bg-accent-indigo border-2 border-bg-1 shadow-lg flex items-center justify-center text-xs text-white font-black group-hover:scale-110 transition-all overflow-hidden cursor-pointer">
                                         {user?.profile?.avatar_url ? (
-                                            <img src={user.profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                                            <img loading="lazy" decoding="async" src={user.profile.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                                         ) : (
                                             <span>{user?.profile?.name?.substring(0, 2).toUpperCase() || user?.email?.substring(0, 2).toUpperCase() || "..."}</span>
                                         )}

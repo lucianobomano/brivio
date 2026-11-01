@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import {
     Dialog,
     DialogContent,
@@ -142,6 +143,9 @@ export function ProjectDetailsModal({ project, isOpen, onClose, stages, onRefres
             toast.error("Erro ao atualizar tarefa")
         }
     }
+
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
 
     const handleAddTask = async (task: { title: string; description?: string }) => {
         if (!project) return
@@ -377,7 +381,7 @@ export function ProjectDetailsModal({ project, isOpen, onClose, stages, onRefres
                                                     <DateRangePicker
                                                         startDate={project.start_date ? parseISO(project.start_date) : undefined}
                                                         due_date={project.due_date ? parseISO(project.due_date) : undefined}
-                                                        onSave={handleDateRangeSave}
+                                                        onSave={(...args: any[]) => runAction(() => (handleDateRangeSave as any)(...args))}
                                                     />
                                                 </PopoverContent>
                                             </Popover>
@@ -487,7 +491,7 @@ export function ProjectDetailsModal({ project, isOpen, onClose, stages, onRefres
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <span className="text-[16px] font-[300] text-gray-400 dark:text-gray-600">{completedCount}/{checklist.length}</span>
-                                            <TaskCreationPopover onAddTask={handleAddTask}>
+                                            <TaskCreationPopover onAddTask={(...args: any[]) => runAction(() => (handleAddTask as any)(...args))}>
                                                 <Button
                                                     variant="ghost"
                                                     size="icon"
@@ -627,7 +631,7 @@ export function ProjectDetailsModal({ project, isOpen, onClose, stages, onRefres
                                             </Button>
                                         </FileAttachmentPopover>
                                     ) : action.special === "task" ? (
-                                        <TaskCreationPopover key={i} onAddTask={handleAddTask}>
+                                        <TaskCreationPopover key={i} onAddTask={(...args: any[]) => runAction(() => (handleAddTask as any)(...args))}>
                                             <Button
                                                 variant="ghost"
                                                 className="w-full justify-start gap-4 px-4 h-11 bg-gray-100/50 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 text-gray-600 dark:text-gray-400 rounded-[8px] font-[300] text-[16px]"

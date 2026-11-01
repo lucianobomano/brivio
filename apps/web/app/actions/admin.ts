@@ -1,15 +1,20 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { createAdminClient, getCurrentUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 // Role enum: 'superadmin' | 'admin'
 
 export async function checkIsAdmin(email: string | undefined): Promise<{ isAdmin: boolean, role: string | null }> {
     if (!email) return { isAdmin: false, role: null }
+
+    // Only answers for the signed-in user: this is a public server action, and admin_users is
+    // read with the admin client (the table is closed to the browser by RLS)
+    const currentUser = await getCurrentUser()
+    if (!currentUser?.email || currentUser.email.toLowerCase() !== email.toLowerCase()) return { isAdmin: false, role: null }
     
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         const { data, error } = await supabase
             .from('admin_users')
             .select('role')
@@ -29,10 +34,10 @@ export async function checkIsAdmin(email: string | undefined): Promise<{ isAdmin
 
 export async function getAdminUsers() {
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         
         // Verify current user is superadmin
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getCurrentUser()
         const { isAdmin, role } = await checkIsAdmin(user?.email)
         
         if (!isAdmin || role !== 'superadmin') {
@@ -53,10 +58,10 @@ export async function getAdminUsers() {
 
 export async function addAdminUser(email: string) {
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         
         // Verify current user is superadmin
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getCurrentUser()
         const { isAdmin, role } = await checkIsAdmin(user?.email)
         
         if (!isAdmin || role !== 'superadmin') {
@@ -82,10 +87,10 @@ export async function addAdminUser(email: string) {
 
 export async function removeAdminUser(id: string) {
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         
         // Verify current user is superadmin
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getCurrentUser()
         const { isAdmin, role } = await checkIsAdmin(user?.email)
         
         if (!isAdmin || role !== 'superadmin') {
@@ -115,9 +120,9 @@ export async function removeAdminUser(id: string) {
 
 export async function getDashboardStats() {
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         
-        const { isAdmin } = await checkIsAdmin((await supabase.auth.getUser()).data.user?.email)
+        const { isAdmin } = await checkIsAdmin((await getCurrentUser())?.email)
         if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
         // Get total users
@@ -139,9 +144,9 @@ export async function getDashboardStats() {
 
 export async function getGlobalUsers() {
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         
-        const { isAdmin } = await checkIsAdmin((await supabase.auth.getUser()).data.user?.email)
+        const { isAdmin } = await checkIsAdmin((await getCurrentUser())?.email)
         if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
         const { data, error } = await supabase
@@ -158,9 +163,9 @@ export async function getGlobalUsers() {
 
 export async function getGlobalProjects() {
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         
-        const { isAdmin } = await checkIsAdmin((await supabase.auth.getUser()).data.user?.email)
+        const { isAdmin } = await checkIsAdmin((await getCurrentUser())?.email)
         if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
         const { data, error } = await supabase
@@ -177,9 +182,9 @@ export async function getGlobalProjects() {
 
 export async function getGlobalBrandbooks() {
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         
-        const { isAdmin } = await checkIsAdmin((await supabase.auth.getUser()).data.user?.email)
+        const { isAdmin } = await checkIsAdmin((await getCurrentUser())?.email)
         if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
         const { data, error } = await supabase
@@ -215,9 +220,9 @@ export async function getGlobalBrandbooks() {
 
 export async function getGlobalWorkspaces() {
     try {
-        const supabase = await createClient()
+        const supabase = await createAdminClient()
         
-        const { isAdmin } = await checkIsAdmin((await supabase.auth.getUser()).data.user?.email)
+        const { isAdmin } = await checkIsAdmin((await getCurrentUser())?.email)
         if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
         const { data, error } = await supabase
@@ -234,8 +239,8 @@ export async function getGlobalWorkspaces() {
 
 export async function deleteAdminProject(id: string) {
     try {
-        const supabase = await createClient()
-        const { isAdmin } = await checkIsAdmin((await supabase.auth.getUser()).data.user?.email)
+        const supabase = await createAdminClient()
+        const { isAdmin } = await checkIsAdmin((await getCurrentUser())?.email)
         if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
         const { error } = await supabase.from('projects').delete().eq('id', id)
@@ -249,8 +254,8 @@ export async function deleteAdminProject(id: string) {
 
 export async function deleteAdminBrandbook(id: string) {
     try {
-        const supabase = await createClient()
-        const { isAdmin } = await checkIsAdmin((await supabase.auth.getUser()).data.user?.email)
+        const supabase = await createAdminClient()
+        const { isAdmin } = await checkIsAdmin((await getCurrentUser())?.email)
         if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
         const { error } = await supabase.from('brandbooks').delete().eq('id', id)
@@ -264,8 +269,8 @@ export async function deleteAdminBrandbook(id: string) {
 
 export async function deleteAdminWorkspace(id: string) {
     try {
-        const supabase = await createClient()
-        const { isAdmin } = await checkIsAdmin((await supabase.auth.getUser()).data.user?.email)
+        const supabase = await createAdminClient()
+        const { isAdmin } = await checkIsAdmin((await getCurrentUser())?.email)
         if (!isAdmin) return { success: false, error: 'Unauthorized' }
 
         const { error } = await supabase.from('workspaces').delete().eq('id', id)

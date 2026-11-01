@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import {
     X,
     Folder,
@@ -177,6 +178,9 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
         })
     }
 
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
+
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) return
         const res = await createFolder(brandId, newFolderName, currentFolderId)
@@ -185,7 +189,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             setIsCreateFolderModalOpen(false)
             loadData()
         } else {
-            alert("Failed to create folder")
+            toast.error("Erro ao criar a pasta")
         }
     }
 
@@ -376,13 +380,13 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
         if (type === 'asset') {
             const res = await deleteAsset(id)
             if (res.success) loadData()
-            else alert("Failed to delete asset")
+            else toast.error("Erro ao eliminar o ficheiro")
         } else if (type === 'folder') {
             const res = await deleteFolder(id)
             if (res.success) {
                 if (currentFolderId === id) setCurrentFolderId(undefined)
                 loadData()
-            } else alert("Failed to delete folder")
+            } else toast.error("Erro ao eliminar a pasta")
         }
 
         setDeleteConfirmation({ isOpen: false, type: null, id: null })
@@ -395,7 +399,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             setFolderToRename(null)
             loadData()
         } else {
-            alert("Failed to rename")
+            toast.error("Erro ao mudar o nome")
         }
     }
 
@@ -410,7 +414,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             setDestinationFolderId("root")
             loadData()
         } else {
-            alert("Failed to move")
+            toast.error("Erro ao mover")
         }
     }
 
@@ -432,7 +436,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
         } else {
             // Revert on failure
             setFolderToManageAccess(folderToManageAccess)
-            alert("Failed to update permissions")
+            toast.error("Erro ao atualizar as permissões")
         }
     }
 
@@ -999,7 +1003,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                             </div>
 
                                                             {asset.type === 'image' && (
-                                                                <img src={asset.file_url} alt={asset.name} className="w-full h-auto block" />
+                                                                <img loading="lazy" decoding="async" src={asset.file_url} alt={asset.name} className="w-full h-auto block" />
                                                             )}
                                                             {asset.type !== 'image' && (
                                                                 <div className="w-full h-full flex items-center justify-center bg-[#1a1a1a]">
@@ -1249,7 +1253,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 Cancel
                                             </button>
                                             <button
-                                                onClick={handleConfirmDelete}
+                                                onClick={() => runAction(handleConfirmDelete)} disabled={isActionPending} aria-busy={isActionPending}
                                                 className="min-w-[100px] h-[40px] border border-[#333] rounded-xl text-white hover:bg-white/5 transition-colors text-[14px] font-medium"
                                             >
                                                 Do it!
@@ -1369,7 +1373,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 placeholder="Folder name"
                                                 value={newFolderName}
                                                 onChange={(e) => setNewFolderName(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                                                onKeyDown={(e) => e.key === 'Enter' && runAction(handleCreateFolder)}
                                                 className="w-full bg-transparent border-b border-[#333] text-white text-center pb-2 placeholder:text-[#555] focus:outline-none focus:border-[#ff0054] transition-colors text-[16px]"
                                                 autoFocus
                                             />
@@ -1377,7 +1381,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                                         <div className="flex items-center gap-6">
                                             <button
-                                                onClick={handleCreateFolder}
+                                                onClick={() => runAction(handleCreateFolder)} disabled={isActionPending} aria-busy={isActionPending}
                                                 className="px-8 py-2.5 bg-[#0A0A0B] hover:bg-[#1a1a1a] text-white rounded-lg transition-colors font-medium">
                                                 Salvar
                                             </button>
@@ -1421,7 +1425,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 placeholder="Folder name"
                                                 value={renameValue}
                                                 onChange={(e) => setRenameValue(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleRenameFolder()}
+                                                onKeyDown={(e) => e.key === 'Enter' && runAction(handleRenameFolder)}
                                                 className="w-full bg-transparent border-b border-[#333] text-white text-center pb-2 placeholder:text-[#555] focus:outline-none focus:border-[#ff0054] transition-colors text-[16px]"
                                                 autoFocus
                                             />
@@ -1429,7 +1433,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                                         <div className="flex items-center gap-6">
                                             <button
-                                                onClick={handleRenameFolder}
+                                                onClick={() => runAction(handleRenameFolder)} disabled={isActionPending} aria-busy={isActionPending}
                                                 className="px-8 py-2.5 bg-[#0A0A0B] hover:bg-[#1a1a1a] text-white rounded-lg transition-colors font-medium">
                                                 Salvar
                                             </button>
@@ -1480,7 +1484,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={handleMoveFolder}
+                                    onClick={() => runAction(handleMoveFolder)} disabled={isActionPending} aria-busy={isActionPending}
                                     className="px-4 py-2 bg-[#ff0054] text-white rounded-lg text-sm font-medium hover:bg-[#ff0054]/90"
                                 >
                                     Move
@@ -1812,7 +1816,13 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                     />
                                                                 </div>
                                                                 <button
-                                                                    onClick={() => alert(`Email sent to ${shareSettings.email}`)}
+                                                                    onClick={() => {
+                                                                        // No email service is configured: open the user's mail app with the link instead of claiming it was sent
+                                                                        const to = shareSettings.email?.trim()
+                                                                        if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast.error("Enter a valid email address"); return }
+                                                                        const link = `${window.location.origin}/share/${shareModal.assetId}`
+                                                                        window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent("Shared files")}&body=${encodeURIComponent(link)}`
+                                                                    }}
                                                                     className="h-[36px] px-6 bg-[#ff0054] rounded-lg text-white text-[13px] font-medium hover:bg-[#ff0054]/90 transition-colors"
                                                                 >
                                                                     Send

@@ -5,16 +5,33 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { AddSectionDialog } from "./AddSectionDialog"
 import { AddItemDialog } from "./AddItemDialog"
-import { SectionSettingsPanel, SectionSettings } from "./SectionSettingsPanel"
+import { SectionSettingsPanel, SectionSettings, isFullScreenSection, fullScreenHeight, sectionGradientCss } from "./SectionSettingsPanel"
+import { createMarqueeContent } from "./blocks/marquee"
+import { createFooterContent } from "./blocks/footer"
+import { createLogoShowcaseContent } from "./blocks/logoShowcase"
+import { createLogoSizeContent } from "./blocks/logoSize"
+import { createLogoMisuseContent } from "./blocks/logoMisuse"
+import { createTypeSpecimenContent } from "./blocks/typeSpecimen"
+import { createColorAccordionContent } from "./blocks/colorAccordion"
+import { createIconSpecimenContent } from "./blocks/iconSpecimen"
+import { createPhotoGradeContent } from "./blocks/photoGrade"
+import { createSocialMockupContent } from "./blocks/socialMockup"
 import { Block, BrivioClipboardItem, ClipboardItemType } from "./types"
 import { BlockRenderer } from "./blocks/BlockRenderer"
-import { ArrowUp, ArrowDown, Clipboard, Check, X } from "lucide-react"
+import { ArrowUp, ArrowDown, Clipboard, Check, X, Zap } from "lucide-react"
+import { AnimatedBlock } from "./AnimatedBlock"
+import { getHoverProps, HoverEffect } from "./hoverEffects"
 import { useBrandDesign } from "./BrandDesignContext"
 import { SectionContext } from "./SectionContext"
 import { EditorHistoryProvider, useEditorHistoryOptional } from "./EditorHistoryContext"
 import { EditorToast } from "./EditorToast"
 import { SaveComponentModal } from "./SaveComponentModal"
 import { toast } from "sonner"
+import { FloatingPanel } from "./FloatingPanel"
+import { useHoverIntent } from "./blocks/BlockContextBar"
+import { CoverBackdrop } from "./CoverBackdrop"
+import { CoverBar, CoverPanel } from "./CoverPanel"
+import { isCoverSection, type CoverSettings } from "./cover"
 
 // Helper Component for Section Divider
 const SectionDivider = ({ onClick, onPaste, onClear, hasClipboard }: { onClick: () => void, onPaste?: () => void, onClear?: () => void, hasClipboard?: boolean }) => (
@@ -77,10 +94,19 @@ interface SectionWrapperProps {
     settings?: SectionSettings
     isReadOnly?: boolean
     responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
+    hoverEffect?: HoverEffect
+    /** Covers: their own context bar and settings change the section settings directly */
+    onUpdateSettings?: (patch: Partial<SectionSettings> & { cover?: CoverSettings }) => void
+    onCopy?: () => void
+    onDuplicate?: () => void
+    onDelete?: () => void
+    brandId?: string
+    moduleId?: string
 }
 
 const getSectionHeight = (settingsHeight?: string) => {
-    if (!settingsHeight || settingsHeight === 'auto') return undefined
+    // fit: as tall as the content · fill: grows with the page (flex), no fixed minimum
+    if (!settingsHeight || settingsHeight === 'auto' || settingsHeight === 'fit' || settingsHeight === 'fill') return undefined
     switch (settingsHeight) {
         case 'XS': return '150px'
         case 'S': return '250px'
@@ -97,13 +123,59 @@ const SectionWrapper = ({
     onMoveUp,
     onMoveDown,
     onEdit,
+    onAnimate,
     isFirst,
     isLast,
     settingsPanel,
     settings,
     isReadOnly,
-    responsiveDevice
-}: Omit<SectionWrapperProps, 'onAnimate'>) => {
+    responsiveDevice,
+    hoverEffect,
+    onUpdateSettings,
+    onCopy,
+    onDuplicate,
+    onDelete,
+    brandId,
+    moduleId
+}: SectionWrapperProps) => {
+    const sectionHover = isReadOnly ? getHoverProps(hoverEffect) : { className: '', style: {} }
+    // Covers: animated background + their own context bar and settings
+    const cover = isCoverSection(settings)
+    const coverSettings = (settings as { cover?: CoverSettings } | undefined)?.cover
+    const [coverHovered, coverHover] = useHoverIntent()
+    const [coverPanelOpen, setCoverPanelOpen] = useState(false)
+
+    // Radial gradient shapes are drawn in pixels of the section (so a circle stays a circle): measure it
+    const sectionRef = React.useRef<HTMLDivElement>(null)
+    const [sectionBox, setSectionBox] = useState<{ width: number, height: number }>()
+    const measuresGradient = settings?.backgroundType === 'gradient' && settings?.backgroundGradient?.type === 'radial'
+    useEffect(() => {
+        const el = sectionRef.current
+        if (!el || !measuresGradient) return
+        const ro = new ResizeObserver(() => setSectionBox({ width: el.clientWidth, height: el.clientHeight }))
+        ro.observe(el)
+        return () => ro.disconnect()
+    }, [measuresGradient])
+
+    // Margin and corner rounding. In the editor the margin adds to the room kept for the section toolbar
+    const margin = settings?.sectionMargin
+    const radius = settings?.sectionRadius
+    const marginX = (margin?.left || 0) + (margin?.right || 0)
+    const hasRadius = !!radius && (radius.top || radius.right || radius.bottom || radius.left) > 0
+    const boxStyle: React.CSSProperties = {
+        ...(margin ? {
+            marginTop: (isReadOnly ? 0 : 32) + (margin.top || 0),
+            marginBottom: (isReadOnly ? 0 : 16) + (margin.bottom || 0),
+            marginLeft: margin.left || undefined,
+            marginRight: margin.right || undefined,
+            width: marginX ? `calc(100% - ${marginX}px)` : undefined,
+        } : {}),
+        ...(hasRadius ? {
+            borderRadius: `${radius!.top || 0}px ${radius!.right || 0}px ${radius!.bottom || 0}px ${radius!.left || 0}px`,
+            // Clip the content to the corners on the page; the editor keeps the toolbar (outside the box) visible
+            overflow: isReadOnly ? 'hidden' : undefined,
+        } : {}),
+    }
     const getAlignItems = () => {
         // Horizontal alignment (left/center/right)
         // For flex-col, alignItems controls horizontal alignment
@@ -137,22 +209,28 @@ const SectionWrapper = ({
     return (
         <SectionContext.Provider value={{ sectionId: id, backgroundColor: effectiveSectionBg }}>
             <div
+                ref={sectionRef}
                 id={id ? `section-${id}` : undefined}
                 data-section-id={id}
+                {...(cover && !isReadOnly ? coverHover : {})}
             className={cn(
                 "relative transition-colors w-full scroll-mt-6",
-                isReadOnly ? "border-0 mb-0" : "group border border-dashed border-gray-200 hover:border-[#FF0054] mb-4 mt-[32px]"
+                // Fill container: takes all the height left on the page; the content inside stretches with it
+                settings?.height === 'fill' && "flex-1 flex flex-col",
+                isReadOnly ? "border-0 mb-0" : "group border border-dashed border-gray-200 hover:border-[#FF0054] mb-4 mt-[32px]",
+                sectionHover.className
             )}
             style={{
-                height: settings?.aspectRatio === '16:9' ? '100vh' : undefined,
-                minHeight: settings?.aspectRatio === '16:9' ? '100vh' : getSectionHeight(settings?.height),
+                ...sectionHover.style,
+                ...boxStyle,
+                // Full screen: exactly the screen height (minus the margin); taller content can still grow it
+                minHeight: isFullScreenSection(settings) ? fullScreenHeight(settings) : getSectionHeight(settings?.height),
                 backgroundColor: settings?.backgroundType === 'color' || !settings?.backgroundType ? settings?.backgroundColor : undefined,
+                // Covers draw their image in the backdrop (so it can move)
                 backgroundImage: settings?.backgroundType === 'image' && settings?.backgroundImage
-                    ? `url(${settings.backgroundImage})`
+                    ? (cover ? undefined : `url(${settings.backgroundImage})`)
                     : settings?.backgroundType === 'gradient' && settings?.backgroundGradient
-                        ? settings.backgroundGradient.type === 'linear'
-                            ? `linear-gradient(${settings.backgroundGradient.angle}deg, ${settings.backgroundGradient.stops.map(s => `${s.color} ${s.offset}%`).join(', ')})`
-                            : `radial-gradient(circle, ${settings.backgroundGradient.stops.map(s => `${s.color} ${s.offset}%`).join(', ')})`
+                        ? sectionGradientCss(settings.backgroundGradient, sectionBox)
                         : undefined,
                 backgroundSize: settings?.backgroundType === 'image' ? 'cover' : undefined,
                 backgroundPosition: settings?.backgroundType === 'image' ? 'center' : undefined,
@@ -162,6 +240,46 @@ const SectionWrapper = ({
                 paddingLeft: settings?.isFullWidth ? 0 : (settings?.sectionPadding?.left ?? 40),
             }}
         >
+            {cover && (
+                <CoverBackdrop
+                    cover={coverSettings}
+                    image={settings?.backgroundType === 'image' ? settings?.backgroundImage : undefined}
+                    hostRef={sectionRef}
+                    radius={boxStyle.borderRadius as string | undefined}
+                />
+            )}
+
+            {cover && !isReadOnly && settings && onUpdateSettings && (coverHovered || coverPanelOpen) && (
+                <div className="absolute left-1/2 top-4 -translate-x-1/2 z-[60]" {...coverHover}>
+                    <CoverBar
+                        settings={settings}
+                        settingsOpen={coverPanelOpen}
+                        onSettings={() => setCoverPanelOpen(open => !open)}
+                        onEffect={(effect) => onUpdateSettings({ cover: { ...coverSettings, effect } })}
+                        onEditSection={(e) => { setCoverPanelOpen(false); onEdit(e) }}
+                        onAnimate={onAnimate}
+                        onMoveUp={onMoveUp}
+                        onMoveDown={onMoveDown}
+                        onCopy={onCopy}
+                        onDuplicate={onDuplicate}
+                        onDelete={onDelete}
+                        isFirst={isFirst}
+                        isLast={isLast}
+                    />
+                    {coverPanelOpen && (
+                        <FloatingPanel placement="bottom-center" offset={10}>
+                            <CoverPanel
+                                settings={settings}
+                                onChange={onUpdateSettings}
+                                onClose={() => setCoverPanelOpen(false)}
+                                brandId={brandId}
+                                moduleId={moduleId}
+                            />
+                        </FloatingPanel>
+                    )}
+                </div>
+            )}
+
             {/* Toolbar - Only show if NOT read only */}
             {!isReadOnly && (
                 <div className={cn(
@@ -182,6 +300,13 @@ const SectionWrapper = ({
                             className="bg-[#FF0054] text-white w-[36px] h-[28px] flex items-center justify-center disabled:opacity-50 hover:bg-[#D90046] rounded-t-[4px]"
                         >
                             <ArrowDown className="w-4 h-4" />
+                        </button>
+                        <button
+                            onClick={(e) => { e.stopPropagation(); onAnimate(); }}
+                            title="Animar secção"
+                            className="bg-[#FF0054] text-white w-[36px] h-[28px] flex items-center justify-center hover:bg-[#D90046] rounded-t-[4px]"
+                        >
+                            <Zap className="w-4 h-4" />
                         </button>
                     </div>
                     <div className="relative">
@@ -204,12 +329,14 @@ const SectionWrapper = ({
             <div
                 className={cn(
                     "flex flex-col w-full min-h-0",
-                    (settings?.aspectRatio === '16:9' || (settings?.height && settings.height !== 'auto')) && "flex-1"
+                    cover && "relative z-[1]",
+                    (isFullScreenSection(settings) || (settings?.height && settings.height !== 'auto' && settings.height !== 'fit')) && "flex-1"
                 )}
                 style={{
                     justifyContent: getJustifyContent(),
                     alignItems: getAlignItems(),
-                    minHeight: getSectionHeight(settings?.height)
+                    // Inside the padding, so the section doesn't end up taller than the screen
+                    minHeight: isFullScreenSection(settings) ? fullScreenHeight(settings, true) : getSectionHeight(settings?.height)
                 }}
             >
                 {children}
@@ -222,6 +349,25 @@ const SectionWrapper = ({
 
 // Simple ID generator
 const generateId = () => Math.random().toString(36).substr(2, 9)
+
+/** Blocks that hold columns of blocks: sections / layouts, and footers (their rows of native columns) */
+const isContainer = (b: Block) => (b.type === 'layout' || b.type === 'footer') && Array.isArray(b.content?.columns)
+
+/** Adds a block at the end of a column, wherever that column's layout is (a section, a layout in a column, a footer) */
+const insertIntoColumn = (list: Block[], parentId: string, columnId: string, newBlock: Block): Block[] =>
+    list.map((b: Block) => {
+        if (!isContainer(b)) return b
+        const columns = b.content.columns as Array<{ id: string, blocks?: Block[] }>
+        return {
+            ...b,
+            content: {
+                ...b.content,
+                columns: columns.map(col => b.id === parentId && col.id === columnId
+                    ? { ...col, blocks: [...(col.blocks || []), newBlock] }
+                    : { ...col, blocks: insertIntoColumn(col.blocks || [], parentId, columnId, newBlock) }),
+            },
+        }
+    })
 
 interface ModuleContent {
     blocks: Block[]
@@ -396,13 +542,40 @@ export function MainCanvas({
                     fontSize: '16px',
                     color: '#ffffff',
                     borderRadius: '9999px',
-                    textAlign: 'center',
                     fontWeight: 500
                 }
             }
         } else if (type === 'palette') {
             content = {
                 colors: []
+            }
+        } else if (type === 'social-mockup') {
+            content = { ...createSocialMockupContent() }
+        } else if (type === 'motif-field') {
+            content = { settings: {} }
+        } else if (type === 'photo-grade') {
+            content = { ...createPhotoGradeContent() }
+        } else if (type === 'icon-specimen') {
+            content = { ...createIconSpecimenContent() }
+        } else if (type === 'color-accordion') {
+            content = { ...createColorAccordionContent() }
+        } else if (type === 'type-specimen') {
+            content = { ...createTypeSpecimenContent() }
+        } else if (type === 'logo-misuse') {
+            content = { ...createLogoMisuseContent() }
+        } else if (type === 'logo-size') {
+            content = { ...createLogoSizeContent() }
+        } else if (type === 'logo-showcase') {
+            content = { ...createLogoShowcaseContent() }
+        } else if (type === 'footer') {
+            content = { ...createFooterContent() }
+        } else if (type === 'marquee') {
+            content = { ...createMarqueeContent() }
+        } else if (type === 'index') {
+            // Starts in pages mode: lists the brandbook pages from the side menu and follows its changes
+            content = {
+                items: [],
+                settings: { source: 'pages' }
             }
         } else if (['image', 'video'].includes(type)) {
             content = { url: "", caption: "" }
@@ -447,18 +620,7 @@ export function MainCanvas({
 
         if (addingContext?.parentId) {
             // Add to nested column
-            newBlocks = blocks.map((b: Block) => {
-                if (b.id === addingContext.parentId && b.type === 'layout') {
-                    const newColumns = b.content.columns.map((col: Record<string, unknown>) => {
-                        if (col.id === addingContext.columnId) {
-                            return { ...col, blocks: [...(col.blocks as Block[] || []), newBlock] }
-                        }
-                        return col
-                    })
-                    return { ...b, content: { ...b.content, columns: newColumns } }
-                }
-                return b
-            })
+            newBlocks = insertIntoColumn(blocks, addingContext.parentId, addingContext.columnId || '', newBlock)
         } else if (addingContext?.insertIndex !== undefined) {
             // Insert at specific index (Divider)
             newBlocks.splice(addingContext.insertIndex, 0, newBlock)
@@ -520,7 +682,7 @@ export function MainCanvas({
                         content: content as Block['content']
                     }
                 }
-                if (b.type === 'layout' && b.content?.columns) {
+                if (isContainer(b)) {
                     const newColumns = (b.content.columns as unknown[]).map((col: unknown) => {
                         const c = col as { id: string, blocks: Block[] }
                         return {
@@ -562,7 +724,7 @@ export function MainCanvas({
                         blockToClone.id = generateId()
                         newList.push(blockToClone)
                     }
-                } else if (b.type === 'layout' && b.content?.columns) {
+                } else if (isContainer(b)) {
                     const newColumns = (b.content.columns as unknown[]).map((col: unknown) => {
                         const c = col as { id: string, blocks: Block[] }
                         return {
@@ -617,7 +779,7 @@ export function MainCanvas({
         const findBlock = (list: Block[]): Block | null => {
             for (const b of list) {
                 if (b.id === blockId) return b
-                if (b.type === 'layout' && b.content?.columns) {
+                if (isContainer(b)) {
                     for (const col of b.content.columns) {
                         const found = findBlock(col.blocks || [])
                         if (found) return found
@@ -728,19 +890,7 @@ export function MainCanvas({
         let newBlocks = [...blocks]
 
         if (parentId && columnId) {
-            newBlocks = blocks.map((b: Block) => {
-                if (b.id === parentId && b.type === 'layout') {
-                    const columns = (b.content.columns || []) as Array<{ id: string, blocks: Block[] }>
-                    const newColumns = columns.map(c => {
-                        if (c.id === columnId) {
-                            return { ...c, blocks: [...(c.blocks || []), newBlock] }
-                        }
-                        return c
-                    })
-                    return { ...b, content: { ...b.content, columns: newColumns } }
-                }
-                return b
-            })
+            newBlocks = insertIntoColumn(blocks, parentId, columnId, newBlock)
             setBlocks(newBlocks, 'Paste block')
             if (onUpdateModule && activeModule && !historyContext) {
                 onUpdateModule(activeModule.id, { ...activeModule.content_json, blocks: newBlocks })
@@ -766,7 +916,7 @@ export function MainCanvas({
         const findBlockType = (list: Block[]): string | null => {
             for (const b of list) {
                 if (b.id === blockId) return b.type
-                if (b.type === 'layout' && b.content?.columns) {
+                if (isContainer(b)) {
                     for (const col of b.content.columns) {
                         const found = findBlockType(col.blocks || [])
                         if (found) return found
@@ -779,7 +929,7 @@ export function MainCanvas({
 
         const deleteRecursive = (list: Block[]): Block[] => {
             return list.filter((b: Block) => b.id !== blockId).map((b: Block) => {
-                if (b.type === 'layout' && b.content?.columns) {
+                if (isContainer(b)) {
                     const newColumns = (b.content.columns as unknown[]).map((col: unknown) => {
                         const c = col as { id: string, blocks: Block[] }
                         return {
@@ -918,10 +1068,12 @@ export function MainCanvas({
     return (
         <>
             <div
+                data-page-scroller
                 className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-white p-0 custom-scrollbar relative transition-colors duration-300 flex flex-col"
-                style={{ backgroundColor: settings.main_project_bg }}
+                style={{ backgroundColor: (activeModule.content_json?.pageBackground as string | undefined) || settings.main_project_bg }}
             >
-                <div className={cn(
+                {/* data-bleed-root: page width that edge-to-edge blocks (slider gallery) stretch to */}
+                <div data-bleed-root className={cn(
                     "w-full flex-1 bg-transparent p-0 relative transition-all duration-300 flex flex-col",
                     getResponsiveWidth(),
                     responsiveDevice !== 'widescreen' && "mx-auto",
@@ -958,6 +1110,8 @@ export function MainCanvas({
 
                                     {blocks.map((block, index) => (
                                         <React.Fragment key={block.id}>
+                                            {/* The section's animation plays on the whole section, background included */}
+                                            <AnimatedBlock animation={block.content?.animation} settings={block.content?.animationSettings} isEnabled={isReadOnly} className={block.content?.settings?.height === 'fill' ? "flex-1 flex flex-col" : undefined}>
                                             <SectionWrapper
                                                 id={block.id}
                                                 onMoveUp={() => handleMoveBlock(index, 'up')}
@@ -967,6 +1121,10 @@ export function MainCanvas({
                                                     // Position to the left of the button (280px width + 10px gap)
                                                     setPanelInitialPos({ top: rect.top, left: rect.left - 290 })
                                                     onSelectBlock(activeBlockId === block.id ? null : block.id)
+                                                }}
+                                                onAnimate={() => {
+                                                    onSelectBlock(block.id)
+                                                    onAnimate?.()
                                                 }}
                                                 isFirst={index === 0}
                                                 isLast={index === blocks.length - 1}
@@ -991,6 +1149,13 @@ export function MainCanvas({
                                                 settings={block.content.settings}
                                                 isReadOnly={isReadOnly}
                                                 responsiveDevice={responsiveDevice}
+                                                hoverEffect={block.content?.hoverEffect}
+                                                onUpdateSettings={(patch) => handleUpdateSectionSettings(block.id, { ...block.content.settings, ...patch })}
+                                                onCopy={() => handleCopySection(block.id)}
+                                                onDuplicate={() => handleDuplicateBlock(block.id)}
+                                                onDelete={() => handleDeleteBlock(block.id)}
+                                                brandId={brandId}
+                                                moduleId={activeModule.id}
                                             >
                                                 <BlockRenderer
                                                     block={block}
@@ -1007,8 +1172,10 @@ export function MainCanvas({
                                                     responsiveDevice={responsiveDevice}
                                                     clipboard={clipboard}
                                                     onPasteBlock={handlePasteBlock}
+                                                    disableAnimation
                                                 />
                                             </SectionWrapper>
+                                            </AnimatedBlock>
 
                                             {!isReadOnly && (
                                                 <SectionDivider
@@ -1149,10 +1316,13 @@ export function MainCanvas({
     )
 }
 
+/** A page without blocks: one array, so its history does not see a new page on every render */
+const EMPTY_BLOCKS: Block[] = []
+
 // Wrapper component that provides history context
 export function MainCanvasWithHistory(props: MainCanvasProps) {
-    const { activeModule, onUpdateModule } = props
-    const initialBlocks = (activeModule?.content_json?.blocks || []) as Block[]
+    const { activeModule, onUpdateModule, isReadOnly } = props
+    const initialBlocks = (activeModule?.content_json?.blocks || EMPTY_BLOCKS) as Block[]
 
     const handleBlocksChange = useCallback((newBlocks: Block[]) => {
         if (onUpdateModule && activeModule) {
@@ -1167,6 +1337,8 @@ export function MainCanvasWithHistory(props: MainCanvasProps) {
         <EditorHistoryProvider
             initialBlocks={initialBlocks}
             onBlocksChange={handleBlocksChange}
+            historyKey={activeModule?.id}
+            enabled={!isReadOnly}
         >
             <MainCanvas {...props} />
             <EditorToast />

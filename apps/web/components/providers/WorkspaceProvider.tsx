@@ -37,6 +37,11 @@ export function WorkspaceProvider({
     }, [])
 
     React.useEffect(() => {
+        // PERFORMANCE: the server already sent this workspace; skip the duplicate round-trip
+        if (initialWorkspace && (!initialWorkspaceId || initialWorkspace.id === initialWorkspaceId)) {
+            return
+        }
+
         if (initialWorkspaceId) {
             fetchWorkspace(initialWorkspaceId)
         } else {

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import {
     Dialog,
     DialogContent,
@@ -118,6 +119,9 @@ export function TaskDetailsModal({ task, projectId, isOpen, onClose, stages, onR
         }
     }
 
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
+
     const handleDelete = async () => {
         if (!confirm("Tem certeza que deseja excluir esta tarefa?")) return
         try {
@@ -197,7 +201,7 @@ export function TaskDetailsModal({ task, projectId, isOpen, onClose, stages, onR
                         </div>
                         <div className="flex items-center gap-2">
                             <Button
-                                onClick={handleDelete}
+                                onClick={() => runAction(handleDelete)} disabled={isActionPending} aria-busy={isActionPending}
                                 variant="ghost"
                                 size="sm"
                                 className="text-xs font-bold uppercase tracking-widest text-red-500 hover:bg-red-500/10 gap-2 rounded-full px-4"

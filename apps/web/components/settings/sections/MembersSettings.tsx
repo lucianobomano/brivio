@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import { Users, UserPlus, Mail, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -55,6 +56,9 @@ export function MembersSettings() {
             setIsInviting(false)
         }
     }
+
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
 
     const handleRemoveMember = async (id: string) => {
         if (!confirm("Tem certeza que deseja remover este membro?")) return
@@ -166,7 +170,7 @@ export function MembersSettings() {
                                     <div className="col-span-5 flex items-center gap-3">
                                         <div className="w-10 h-10 rounded-full bg-accent-indigo flex items-center justify-center text-xs text-white font-black border border-bg-1 shadow-sm overflow-hidden">
                                             {m.user?.avatar_url ? (
-                                                <img src={m.user.avatar_url} alt={m.user.name} className="w-full h-full object-cover" />
+                                                <img loading="lazy" decoding="async" src={m.user.avatar_url} alt={m.user.name} className="w-full h-full object-cover" />
                                             ) : (
                                                 (m.user?.name || "U")[0]?.toUpperCase()
                                             )}
@@ -197,7 +201,7 @@ export function MembersSettings() {
                                             variant="ghost"
                                             size="icon"
                                             className="text-text-secondary opacity-40 hover:text-red-500 hover:opacity-100"
-                                            onClick={() => handleRemoveMember(m.id)}
+                                            onClick={() => runAction(() => handleRemoveMember(m.id))}
                                             disabled={m.role === 'owner'}
                                         >
                                             <Trash2 className="w-4 h-4" />

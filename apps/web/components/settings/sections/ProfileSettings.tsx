@@ -50,7 +50,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                 <div className="relative group">
                     <div className="w-24 h-24 rounded-full bg-accent-indigo flex items-center justify-center text-3xl text-white font-black overflow-hidden border-4 border-bg-1 shadow-xl">
                         {formData.avatar_url ? (
-                            <img src={formData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={formData.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
                         ) : (
                             <span>{formData.name.substring(0, 2).toUpperCase()}</span>
                         )}

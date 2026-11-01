@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createAdminClient, createClient } from "@/lib/supabase/server"
+import { canAccessBrand, BRAND_ACCESS_ERROR } from "@/lib/brand-access"
 
 // Route segment config for handling large file uploads
 export const runtime = 'nodejs'
@@ -30,6 +31,11 @@ export async function POST(request: NextRequest) {
                 success: false,
                 error: 'brandId e fileName são obrigatórios'
             }, { status: 400 })
+        }
+
+        // SECURITY: signed URLs are issued with the admin client, so only members of the brand may upload
+        if (!(await canAccessBrand(brandId))) {
+            return NextResponse.json({ success: false, error: BRAND_ACCESS_ERROR }, { status: 403 })
         }
 
         // Check file size (max 50MB for Supabase free tier)

@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { invalidateShareRoadmap } from "@/lib/share-cache"
 
 export type SprintStatus = 'planned' | 'active' | 'completed'
 
@@ -65,6 +66,7 @@ export async function createSprint(data: {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/sprints')
     if (data.projectId) revalidatePath(`/projects/${data.projectId}`)
     return { success: true, sprint }
@@ -110,6 +112,7 @@ export async function updateSprint(sprintId: string, data: Partial<Sprint>) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/sprints')
     if (sprint.project_id) revalidatePath(`/projects/${sprint.project_id}`)
     return { success: true, sprint }
@@ -128,6 +131,7 @@ export async function deleteSprint(sprintId: string) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/sprints')
     return { success: true }
 }
@@ -145,6 +149,7 @@ export async function assignTaskToSprint(taskId: string, sprintId: string | null
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/tasks')
     revalidatePath('/sprints')
     return { success: true }

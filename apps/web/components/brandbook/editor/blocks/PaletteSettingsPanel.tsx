@@ -3,6 +3,7 @@ import { createPortal } from "react-dom"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MarginSettingsControl, BlockMargin } from "./MarginSettingsControl"
+import { SmoothColorInput } from "../SmoothColorInput"
 
 export interface PaletteSettings {
     aspectRatio?: string
@@ -16,7 +17,7 @@ export interface PaletteSettings {
     customWidth?: number
     customHeight?: number
     fullWidth?: boolean
-    layout?: 'grid' | 'list' | 'circles' | 'row' | 'tall' | 'horizontal' | 'mosaic'
+    layout?: 'grid' | 'list' | 'circles' | 'row' | 'tall' | 'horizontal' | 'mosaic' | 'accordion' | 'card'
     hover?: { enabled: boolean }
     showPantone?: boolean
     showCmyk?: boolean
@@ -247,7 +248,9 @@ export function PaletteSettingsPanel({
                             { id: 'row', label: 'Linha' },
                             { id: 'tall', label: 'Tall' },
                             { id: 'horizontal', label: 'Horizontal' },
-                            { id: 'mosaic', label: 'Mosaic' }
+                            { id: 'mosaic', label: 'Mosaic' },
+                            { id: 'accordion', label: 'Acordeão' },
+                            { id: 'card', label: 'Cartão' }
                         ].map((layout) => (
                             <button
                                 key={layout.id}
@@ -271,7 +274,7 @@ export function PaletteSettingsPanel({
                 <div className="flex flex-col gap-3">
                     <span className="text-[#A0A0A0] text-[12px]">Número de colunas</span>
                     <div className="flex justify-between px-2">
-                        {[1, 2, 3, 4].map((c) => (
+                        {[1, 2, 3, 4, 5].map((c) => (
                             <button
                                 key={c}
                                 onClick={() => updateValue('columns', c)}
@@ -379,7 +382,7 @@ export function PaletteSettingsPanel({
                             className="bg-transparent border-none text-white text-[12px] w-[20px] text-right outline-none"
                         />
                         <div className="relative">
-                            <input
+                            <SmoothColorInput
                                 type="color"
                                 value={settings?.borderColor || '#FFFFFF'}
                                 onChange={(e) => updateValue('borderColor', e.target.value)}

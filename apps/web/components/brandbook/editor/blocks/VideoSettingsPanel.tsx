@@ -2,6 +2,7 @@ import React, { useState } from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MarginSettingsControl, BlockMargin } from "./MarginSettingsControl"
+import { SmoothColorInput } from "../SmoothColorInput"
 // Note: Intentionally avoiding shadcn Switch to match exact custom requirements
 
 interface VideoSettings {
@@ -301,7 +302,7 @@ export function VideoSettingsPanel({
                             placeholder="00"
                         />
                         <div className="w-[24px] h-[24px] rounded-full bg-white cursor-pointer relative group">
-                            <input
+                            <SmoothColorInput
                                 type="color"
                                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
                                 value={borderColor}

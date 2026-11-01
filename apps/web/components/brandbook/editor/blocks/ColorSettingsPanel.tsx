@@ -4,6 +4,7 @@ import * as SwitchPrimitives from "@radix-ui/react-switch"
 import { cn } from "@/lib/utils"
 import { PaletteSettings } from "./PaletteSettingsPanel"
 import { InlineColorPicker } from "@/components/ui/inline-color-picker"
+import { SmoothColorInput } from "../SmoothColorInput"
 
 interface ColorSettings {
     showPantone?: boolean
@@ -238,7 +239,7 @@ export function ColorSettingsPanel({ color, settings, onUpdateBlock, onUpdateCol
                     <div className="flex items-center justify-between">
                         <span>Values text color</span>
                         <div className="relative w-8 h-8 rounded-full bg-[#888] cursor-pointer overflow-hidden border border-white/10">
-                            <input type="color" className="opacity-0 w-full h-full absolute inset-0"
+                            <SmoothColorInput type="color" className="opacity-0 w-full h-full absolute inset-0"
                                 onChange={(e) => updateStyle('textColor', e.target.value)}
                                 value={settings?.styles?.textColor || '#888888'}
                             />
@@ -248,7 +249,7 @@ export function ColorSettingsPanel({ color, settings, onUpdateBlock, onUpdateCol
                     <div className="flex items-center justify-between">
                         <span>Values background</span>
                         <div className="relative w-8 h-8 rounded-full bg-white cursor-pointer overflow-hidden border border-white/10">
-                            <input type="color" className="opacity-0 w-full h-full absolute inset-0"
+                            <SmoothColorInput type="color" className="opacity-0 w-full h-full absolute inset-0"
                                 onChange={(e) => updateStyle('overlayBg', e.target.value)}
                                 value={settings?.styles?.overlayBg || '#ffffff'}
                             />
@@ -259,7 +260,7 @@ export function ColorSettingsPanel({ color, settings, onUpdateBlock, onUpdateCol
                         <span>HEX preview color</span>
                         <div className="relative w-8 h-8 rounded-full bg-white cursor-pointer overflow-hidden border border-white/10">
                             {/* This might be the color of the text in the preview? Or something else. Implementing as generic color picker. */}
-                            <input type="color" className="opacity-0 w-full h-full absolute inset-0"
+                            <SmoothColorInput type="color" className="opacity-0 w-full h-full absolute inset-0"
                                 onChange={(e) => updateStyle('previewColor', e.target.value)}
                                 value={settings?.styles?.previewColor || '#ffffff'}
                             />
@@ -281,7 +282,7 @@ export function ColorSettingsPanel({ color, settings, onUpdateBlock, onUpdateCol
                                 </button>
                             )}
                             <div className="relative w-8 h-8 rounded-full bg-white cursor-pointer overflow-hidden border border-white/10">
-                                <input type="color" className="opacity-0 w-full h-full absolute inset-0"
+                                <SmoothColorInput type="color" className="opacity-0 w-full h-full absolute inset-0"
                                     onChange={(e) => updateColorStyle('fontColor', e.target.value)}
                                     value={color.settings?.styles?.fontColor || '#ffffff'}
                                 />

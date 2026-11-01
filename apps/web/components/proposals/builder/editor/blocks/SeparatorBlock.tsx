@@ -3,6 +3,7 @@ import { Block } from "../types"
 import { cn } from "@/lib/utils"
 import { Trash2, Settings, X } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
+import { ColorInput } from "@/components/ui/color-input"
 
 interface SeparatorBlockProps {
     block: Block
@@ -164,8 +165,7 @@ export const SeparatorBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete
                                     className="w-8 h-8 rounded-full border border-white/20 cursor-pointer shadow-sm relative overflow-hidden"
                                     style={{ backgroundColor: color }}
                                 >
-                                    <input
-                                        type="color"
+                                    <ColorInput
                                         value={color}
                                         onChange={(e) => handleUpdate({ backgroundColor: e.target.value })}
                                         className="absolute -top-2 -left-2 w-16 h-16 opacity-0 cursor-pointer"

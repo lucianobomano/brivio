@@ -1,12 +1,14 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { invalidateShareRoadmap } from "@/lib/share-cache"
+import { getUserWorkspaceIds } from "@/lib/brand-access"
 import { ProjectStatus } from "@prisma/client"
 
 export async function createProjectDraft() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Unauthorized" }
 
@@ -84,6 +86,7 @@ export async function createProjectDraft() {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true, project }
 }
@@ -111,6 +114,7 @@ export async function saveProjectContent(projectId: string, data: {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/projects/${projectId}`)
     return { success: true }
 }
@@ -131,6 +135,7 @@ export async function publishProject(projectId: string) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/community')
     revalidatePath(`/projects/${projectId}`)
     return { success: true }
@@ -146,6 +151,18 @@ export async function uploadProjectMedia(formData: FormData) {
 
     const { createAdminClient } = await import("@/lib/supabase/server")
     const adminSupabase = await createAdminClient()
+
+    // SECURITY: storage writes use the admin client, so only the project's creator or a member
+    // of its workspace may upload media to it
+    const user = await getCurrentUser()
+    if (!user) return { success: false, error: "Unauthorized" }
+    const [{ data: project }, workspaceIds] = await Promise.all([
+        adminSupabase.from('projects').select('created_by, workspace_id').eq('id', projectId).maybeSingle(),
+        getUserWorkspaceIds(),
+    ])
+    if (!project || (project.created_by !== user.id && !(project.workspace_id && workspaceIds.includes(project.workspace_id)))) {
+        return { success: false, error: "Sem acesso a este projeto." }
+    }
 
     // 1. Ensure Bucket exists
     const { data: buckets } = await adminSupabase.storage.listBuckets()

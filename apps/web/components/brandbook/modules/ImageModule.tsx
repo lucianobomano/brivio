@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState } from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import { BaseModule } from "./BaseModule"
 import { updateModuleContent, deleteModule } from "@/app/actions/brandbook"
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,9 @@ export function ImageModule({ moduleId, content, isReadOnly, onDelete }: ImageMo
     const [imageUrl, setImageUrl] = useState(content?.url || "")
     const [caption, setCaption] = useState(content?.caption || "")
     const [isEditing, setIsEditing] = useState(!content?.url)
+
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
 
     const handleSave = async () => {
         setIsEditing(false)
@@ -62,7 +66,7 @@ export function ImageModule({ moduleId, content, isReadOnly, onDelete }: ImageMo
                             />
                         </div>
                         <div className="flex justify-end">
-                            <Button size="sm" onClick={handleSave}>Save</Button>
+                            <Button size="sm" onClick={() => runAction(handleSave)} disabled={isActionPending} aria-busy={isActionPending}>Save</Button>
                         </div>
                     </div>
                 ) : (
@@ -70,7 +74,7 @@ export function ImageModule({ moduleId, content, isReadOnly, onDelete }: ImageMo
                         {imageUrl ? (
                             <figure>
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img
+                                <img loading="lazy" decoding="async"
                                     src={imageUrl}
                                     alt={caption || "Brand asset"}
                                     className="w-full h-auto rounded-lg border border-border"

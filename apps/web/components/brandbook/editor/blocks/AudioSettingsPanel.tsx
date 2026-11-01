@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react"
 import { X, Upload, Trash } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { MarginSettingsControl } from "./MarginSettingsControl"
+import { useSwatchColors } from "../colorSwatches"
 
 interface AudioSettingsPanelProps {
     onClose: () => void
@@ -54,10 +55,8 @@ export const AudioSettingsPanel = ({ onClose, settings, onUpdate, onUploadAudio,
     // Default values
     const bgType = settings?.backgroundType || 'color'
     const bgColor = settings?.backgroundColor || '#422600'
-    const colors = [
-        '#55C274', '#F4D42F', '#E0261E', '#4B2A0F', '#E76F00', '#0042DA', '#EF007F', '#9D00E7', // Row 1
-        '#9ca3af', '#2a2a2a', '#9D00E7', '#00B5B5', '#F5DEB3', '#2F4F4F', '#6FFFB0', '#251607'  // Row 2
-    ]
+    // Brand palette first, then the recently used colours
+    const { swatches: colors, brandCount, noteColor } = useSwatchColors(16)
 
     return (
         <div
@@ -145,7 +144,7 @@ export const AudioSettingsPanel = ({ onClose, settings, onUpdate, onUploadAudio,
                             <input
                                 type="text"
                                 value={bgColor}
-                                onChange={(e) => onUpdate({ backgroundColor: e.target.value })}
+                                onChange={(e) => { onUpdate({ backgroundColor: e.target.value }); noteColor(e.target.value) }}
                                 className="w-full bg-[#1A1C23] border border-[#333] rounded-[4px] h-[32px] px-3 text-sm text-[#97A1B3] outline-none focus:border-[#FF0054] text-center"
                             />
                         </div>
@@ -160,7 +159,8 @@ export const AudioSettingsPanel = ({ onClose, settings, onUpdate, onUploadAudio,
                                         bgColor === c && "ring-1 ring-white"
                                     )}
                                     style={{ backgroundColor: c }}
-                                    onClick={() => onUpdate({ backgroundColor: c })}
+                                    title={i < brandCount ? 'Cor da marca' : undefined}
+                                    onClick={() => { onUpdate({ backgroundColor: c }); noteColor(c) }}
                                 />
                             ))}
                         </div>

@@ -5,6 +5,8 @@ import { getBrandSettings, updateBrandSettings, updateBrandFontStyles, updateBra
 import { debounce } from '@/lib/utils'
 import { AudioPlayerProvider, useAudioPlayer } from './AudioPlayerContext'
 import { AudioPlayerBar } from './AudioPlayerBar'
+import type { NavigationSettings } from './navigation/navigationPresets'
+import { PickerBrandColorsContext } from '@/components/ui/color-input'
 
 export { useAudioPlayer }
 
@@ -42,6 +44,8 @@ export interface BrandInfoState {
 }
 
 export interface FooterSettings {
+    /** Navigation style of the shared brandbook (Settings → Navegação) */
+    navigation?: NavigationSettings
     paddingTop: number
     paddingBottom: number
     backgroundColor: string
@@ -85,10 +89,19 @@ interface BrandDesignContextType {
     setIsResizingGlobal: (resizing: boolean) => void
     footerSettings: FooterSettings
     updateFooterSettings: (newSettings: Partial<FooterSettings>) => void
-    modules: Array<{ id: string; title: string }>
+    modules: NavPage[]
     selectedModuleId?: string | null
     onSelectModule?: (id: string) => void
     sections: Array<{ id: string; title: string }>
+}
+
+/** A brandbook page as listed in the side menu (same order), with the menu group it sits under */
+export interface NavPage {
+    id: string
+    title: string
+    /** Label of the side-menu category / subcategory, e.g. "Identidade visual" */
+    group?: string
+    isHidden?: boolean
 }
 
 const DEFAULT_FONT_STYLES: FontStyle[] = [
@@ -131,7 +144,7 @@ export function BrandDesignProvider({
 }: {
     children: React.ReactNode
     brandId: string
-    modules?: Array<{ id: string; title: string }>
+    modules?: NavPage[]
     selectedModuleId?: string | null
     onSelectModule?: (id: string) => void
     sections?: Array<{ id: string; title: string }>
@@ -326,10 +339,13 @@ export function BrandDesignProvider({
             onSelectModule,
             sections
         }}>
-            <AudioPlayerProvider accentColor={settings.play_audio_bg || '#FF0054'}>
-                {children}
-                <AudioPlayerBar />
-            </AudioPlayerProvider>
+            {/* Every colour picker opened on this brand shows its colours first (Settings → Colors) */}
+            <PickerBrandColorsContext.Provider value={settings.color_palette || []}>
+                <AudioPlayerProvider accentColor={settings.play_audio_bg || '#FF0054'}>
+                    {children}
+                    <AudioPlayerBar />
+                </AudioPlayerProvider>
+            </PickerBrandColorsContext.Provider>
         </BrandDesignContext.Provider>
     )
 }

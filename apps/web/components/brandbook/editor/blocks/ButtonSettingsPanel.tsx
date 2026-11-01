@@ -6,6 +6,8 @@ import * as SwitchPrimitives from "@radix-ui/react-switch"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
 import { MarginSettingsControl } from "./MarginSettingsControl"
+import { ButtonStylesTab, ButtonAnimationsTab, ButtonIconTab } from "./ButtonPresetTabs"
+import { SmoothColorInput } from "../SmoothColorInput"
 
 interface ButtonSettingsPanelProps {
     settings: any // block.content.settings or merged style
@@ -17,8 +19,15 @@ interface ButtonSettingsPanelProps {
     onAnimate?: () => void
 }
 
+/** Number shown in a size field; styles may hold "12px", "50%" or a plain number (templates / presets) */
+const cssNumber = (value: unknown) => {
+    if (value === undefined || value === null || value === '') return ''
+    return String(value).replace('px', '').replace('%', '')
+}
+
 export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onDuplicate, onCopy, onAnimate }: ButtonSettingsPanelProps) {
     const [isCopied, setIsCopied] = useState(false)
+    const [tab, setTab] = useState<'settings' | 'styles' | 'icon' | 'animations'>('settings')
 
     const handleCopy = (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -28,6 +37,10 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
     }
 
     // Helper to update style directly
+    // Explicit button placement (legacy: textAlign 'flex-start' / 'flex-end'); none = follows the column
+    const explicitAlign: string | undefined = settings.style?.buttonAlign
+        ?? (settings.style?.textAlign === 'flex-start' || settings.style?.textAlign === 'flex-end' ? settings.style.textAlign : undefined)
+
     const updateStyle = (key: string, value: any) => {
         onUpdate({
             style: { ...settings.style, [key]: value }
@@ -111,6 +124,29 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                 </button>
             </div>
 
+            {/* Tabs */}
+            <div className="flex gap-1 px-3 pt-3 shrink-0">
+                {([['settings', 'Configurar'], ['styles', 'Estilos'], ['icon', 'Ícone'], ['animations', 'Animações']] as const).map(([id, label]) => (
+                    <button
+                        key={id}
+                        onClick={() => setTab(id)}
+                        className={cn(
+                            "flex-1 h-8 rounded-md text-[12px] font-semibold transition-colors",
+                            tab === id ? "bg-[#1f1f26] text-white" : "text-[#666] hover:text-white"
+                        )}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
+
+            {tab === 'styles' ? (
+                <ButtonStylesTab settings={settings} onUpdate={onUpdate} />
+            ) : tab === 'icon' ? (
+                <ButtonIconTab settings={settings} onUpdate={onUpdate} />
+            ) : tab === 'animations' ? (
+                <ButtonAnimationsTab settings={settings} onUpdate={onUpdate} />
+            ) : (
             <div className="p-5 space-y-6 text-[#888] overflow-y-auto custom-scrollbar">
                 {/* URL */}
                 <div className="space-y-2">
@@ -136,7 +172,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                     <div className="flex items-center justify-between">
                         <span>Background</span>
                         <div className="relative">
-                            <input
+                            <SmoothColorInput
                                 type="color"
                                 value={settings.style?.backgroundColor || '#FF0054'}
                                 onChange={(e) => updateStyle('backgroundColor', e.target.value)}
@@ -178,7 +214,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                         <div className="flex items-center justify-between">
                             <span>Background hover</span>
                             <div className="relative">
-                                <input
+                                <SmoothColorInput
                                     type="color"
                                     value={settings.hover?.backgroundColor || '#00FF94'}
                                     onChange={(e) => updateHoverIdx('backgroundColor', e.target.value)}
@@ -193,7 +229,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                         <div className="flex items-center justify-between">
                             <span>Text hover</span>
                             <div className="relative">
-                                <input
+                                <SmoothColorInput
                                     type="color"
                                     value={settings.hover?.color || '#ffffff'}
                                     onChange={(e) => updateHoverIdx('color', e.target.value)}
@@ -208,7 +244,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                         <div className="flex items-center justify-between">
                             <span>Border hover</span>
                             <div className="relative">
-                                <input
+                                <SmoothColorInput
                                     type="color"
                                     value={settings.hover?.borderColor || '#3333FF'}
                                     onChange={(e) => updateHoverIdx('borderColor', e.target.value)}
@@ -231,7 +267,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                         <div className="flex items-center gap-2">
                             <span className="text-[#555]">w</span>
                             <Input
-                                value={settings.style?.width?.replace('px', '')?.replace('%', '') || ''}
+                                value={cssNumber(settings.style?.width)}
                                 onChange={(e) => {
                                     const val = e.target.value;
                                     const unit = val.includes('%') ? '%' : 'px';
@@ -244,7 +280,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                         <div className="flex items-center gap-2">
                             <span className="text-[#555]">h</span>
                             <Input
-                                value={settings.style?.height?.replace('px', '') || ''}
+                                value={cssNumber(settings.style?.height)}
                                 onChange={(e) => updateStyle('height', `${e.target.value.replace(/\D/g, '')}px`)}
                                 className="w-16 h-8 bg-transparent border-b border-[#333] px-0 rounded-none focus-visible:ring-0 text-white"
                                 placeholder="00"
@@ -273,7 +309,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
 
                 {/* Alignment */}
                 <div className="space-y-4">
-                    <span className="block text-[#888]">Alinhamento</span>
+                    <span className="block text-[#888]">Alinhamento <span className="text-[#555] text-[11px]">{explicitAlign ? '' : '· segue a coluna'}</span></span>
                     <div className="flex items-center gap-2">
                         {[
                             { value: 'flex-start', icon: AlignLeft },
@@ -282,10 +318,14 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                         ].map((item) => (
                             <button
                                 key={item.value}
-                                onClick={() => updateStyle('textAlign', item.value)}
+                                // Explicit placement; clicking the active one again goes back to following the column
+                                onClick={() => onUpdate({
+                                    style: { ...settings.style, buttonAlign: explicitAlign === item.value ? undefined : item.value, textAlign: undefined }
+                                })}
+                                title={explicitAlign === item.value ? 'Voltar a seguir o alinhamento da coluna' : undefined}
                                 className={cn(
                                     "w-10 h-10 flex items-center justify-center rounded-lg border transition-all",
-                                    (settings.style?.textAlign === item.value || (!settings.style?.textAlign && item.value === 'flex-start'))
+                                    explicitAlign === item.value
                                         ? "bg-[#FF0054]/10 border-[#FF0054] text-[#FF0054]"
                                         : "bg-transparent border-[#222] text-[#888] hover:border-[#444] hover:text-white"
                                 )}
@@ -302,7 +342,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                 <div className="flex items-center justify-between">
                     <span>Radius</span>
                     <Input
-                        value={settings.style?.borderRadius?.replace('px', '') || ''}
+                        value={cssNumber(settings.style?.borderRadius)}
                         onChange={(e) => updateStyle('borderRadius', `${e.target.value}px`)}
                         className="w-12 h-8 bg-transparent border-b border-[#333] px-0 rounded-none focus-visible:ring-0 text-right text-white"
                         placeholder="00"
@@ -313,7 +353,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                 <div className="flex items-center justify-between">
                     <span>Border</span>
                     <Input
-                        value={settings.style?.borderWidth?.replace('px', '') || ''}
+                        value={cssNumber(settings.style?.borderWidth)}
                         onChange={(e) => updateStyle('borderWidth', `${e.target.value}px`)}
                         className="w-12 h-8 bg-transparent border-b border-[#333] px-0 rounded-none focus-visible:ring-0 text-right text-white"
                         placeholder="00"
@@ -369,6 +409,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete, onD
                     <Trash2 className="w-4 h-4" />
                 </button>
             </div>
+            )}
         </div>
     )
 }

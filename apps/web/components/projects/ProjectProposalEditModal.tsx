@@ -725,7 +725,7 @@ export function ProjectProposalEditModal({ isOpen, onClose, project, proposal }:
                                         >
                                             {/* Background Image */}
                                             <div className="absolute inset-0">
-                                                <img
+                                                <img loading="lazy" decoding="async"
                                                     src={template.preview_image}
                                                     alt={template.name}
                                                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"

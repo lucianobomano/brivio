@@ -96,7 +96,7 @@ export const DownloadPreviewTooltip = ({ file, headerColor }: DownloadPreviewToo
                 <div className="w-full h-[140px] bg-[#EEF2F6] rounded-lg flex items-center justify-center border border-gray-200/50">
                     {/* Preview Image or Placeholder */}
                     {url ? (
-                        <img src={url} alt="Preview" className="h-full w-full object-contain p-2" />
+                        <img loading="lazy" decoding="async" src={url} alt="Preview" className="h-full w-full object-contain p-2" />
                     ) : (
                         <span className="text-gray-500 font-normal">File preview</span>
                     )}
@@ -121,7 +121,7 @@ export const DownloadPreviewTooltip = ({ file, headerColor }: DownloadPreviewToo
             </div>
 
             {/* Triangle Pointer / Arrow at bottom center - Tooltip style */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#F9FAFB] rotate-45 border-r border-b border-gray-100 z-50"></div>
+            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-[#F9FAFB] rotate-45 border-r border-b border-gray-100 z-50 [[data-side=bottom]_&]:bottom-auto [[data-side=bottom]_&]:-top-2 [[data-side=bottom]_&]:rotate-[225deg]"></div>
             {/* Wait, if it's ABOVE the block, the arrow should be at the BOTTOM. If it's BELOW, arrow at TOP.
              Usually "tooltip" implies logic.
              The request says: "aparece quando... o bloco Download sofre hover".

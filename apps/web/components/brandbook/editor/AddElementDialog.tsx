@@ -18,6 +18,17 @@ import {
     Figma,
     Minus,
     ArrowUpDown, // For Snippet (as per image)
+    MoveHorizontal,
+    PanelBottom,
+    Shapes,
+    Ruler,
+    Ban,
+    CaseSensitive,
+    Columns4,
+    Shapes as ShapesIcon,
+    SlidersVertical,
+    Flower2,
+    Smartphone,
     ListChecks,
     SeparatorVertical,
     List,
@@ -50,7 +61,18 @@ const BLOCK_ITEMS = [
     { label: 'Fazer e Não fazer', icon: ListChecks, type: 'list', variant: 'do-dont' },
     { label: 'Separador Vertical', icon: SeparatorVertical, type: 'separator', variant: 'vertical' },
     { label: 'Lista de texto', icon: List, type: 'list' },
-    { label: 'Story Slider', icon: SlidersHorizontal, type: 'story' }
+    { label: 'Story Slider', icon: SlidersHorizontal, type: 'story' },
+    { label: 'Texto em loop', icon: MoveHorizontal, type: 'marquee' },
+    { label: 'Rodapé', icon: PanelBottom, type: 'footer' },
+    { label: 'Logótipo', icon: Shapes, type: 'logo-showcase' },
+    { label: 'Tamanho mínimo', icon: Ruler, type: 'logo-size' },
+    { label: 'Usos incorretos', icon: Ban, type: 'logo-misuse' },
+    { label: 'Espécime tipográfico', icon: CaseSensitive, type: 'type-specimen' },
+    { label: 'Paleta em acordeão', icon: Columns4, type: 'color-accordion' },
+    { label: 'Iconografia', icon: ShapesIcon, type: 'icon-specimen' },
+    { label: 'Tratamento fotográfico', icon: SlidersVertical, type: 'photo-grade' },
+    { label: 'Formas da marca', icon: Flower2, type: 'motif-field' },
+    { label: 'Rede social', icon: Smartphone, type: 'social-mockup' }
 ]
 
 export function AddSectionDialog({ isOpen, onOpenChange, onSelectBlock }: AddSectionDialogProps) {

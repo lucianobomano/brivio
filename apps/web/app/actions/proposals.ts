@@ -1,6 +1,7 @@
 "use server"
 
 import { createClient, createAdminClient } from "@/lib/supabase/server"
+import { assertProposalAccess, assertBrandAccess, getUserWorkspaceIds, denyUnlessAllowed } from "@/lib/brand-access"
 import { revalidatePath } from "next/cache"
 
 export type ProposalItem = {
@@ -41,6 +42,15 @@ export async function createProposal(data: ProposalData) {
     // Sanitize optional UUID fields
     const brand_id = data.brand_id === "" ? null : data.brand_id
     const template_id = data.template_id === "" ? null : data.template_id
+
+    // SECURITY: the admin client bypasses RLS, so the project (and brand, if set) must be the user's
+    const deniedCreate = await denyUnlessAllowed(async () => {
+        const { data: project } = await adminSupabase.from('projects').select('workspace_id').eq('id', data.project_id).maybeSingle()
+        const workspaceIds = await getUserWorkspaceIds()
+        if (!project?.workspace_id || !workspaceIds.includes(project.workspace_id)) throw new Error()
+        if (brand_id) await assertBrandAccess(brand_id)
+    })
+    if (deniedCreate) return deniedCreate
 
     // 1. Insert the main proposal
     const { data: proposal, error: proposalError } = await adminSupabase
@@ -103,9 +113,19 @@ export async function updateProposal(data: ProposalData) {
 
     if (!user) return { success: false, error: "Unauthorized" }
 
+    // SECURITY: the admin client bypasses RLS, so verify the user may edit this proposal
+    const denied = await denyUnlessAllowed(() => assertProposalAccess(data.id))
+    if (denied) return denied
+
     // Sanitize optional UUID fields
     const brand_id = data.brand_id === "" ? null : data.brand_id
     const template_id = data.template_id === "" ? null : data.template_id
+
+    // SECURITY: and that a re-assigned brand is one of theirs too
+    if (brand_id) {
+        const deniedBrand = await denyUnlessAllowed(() => assertBrandAccess(brand_id))
+        if (deniedBrand) return deniedBrand
+    }
 
     // 1. Update the main proposal
     const { data: previousProposal } = await adminSupabase
@@ -233,6 +253,9 @@ export async function getProposalTemplates() {
 }
 
 export async function deleteProposal(proposalId: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalAccess(proposalId))
+    if (denied) return denied
     const adminSupabase = await createAdminClient()
     const { error } = await adminSupabase
         .from('proposals')
@@ -249,6 +272,9 @@ export async function deleteProposal(proposalId: string) {
 }
 
 export async function saveProposalTemplate(proposalId: string, templateId: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertProposalAccess(proposalId))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     // 1. Fetch template details to get the name/slug

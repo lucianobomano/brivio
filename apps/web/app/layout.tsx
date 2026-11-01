@@ -27,6 +27,7 @@ export const metadata: Metadata = {
 
 import NextTopLoader from "nextjs-toploader";
 import { SpaNavigationProvider } from "@/components/providers/SpaNavigationProvider";
+import { ActionFeedbackProvider } from "@/components/providers/ActionFeedbackProvider";
 
 export default function RootLayout({
   children,
@@ -34,7 +35,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="pt" suppressHydrationWarning>
       <body
         suppressHydrationWarning
         className={`${inter.variable} ${interTight.variable} font-sans antialiased bg-bg-0 text-text-primary`}
@@ -56,9 +57,11 @@ export default function RootLayout({
             speed={200}
             shadow="0 0 10px #ff0054,0 0 5px #ff0054"
           />
-          <SpaNavigationProvider>
-            {children}
-          </SpaNavigationProvider>
+          <ActionFeedbackProvider>
+            <SpaNavigationProvider>
+              {children}
+            </SpaNavigationProvider>
+          </ActionFeedbackProvider>
           <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>

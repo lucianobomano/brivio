@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { Navbar } from "@/components/layout/Navbar"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { ProjectDetailClient } from "@/components/ProjectDetailClient"
 import { getProjectById } from "@/app/actions/projects"
@@ -9,7 +9,7 @@ export default async function ProjectDetailPage(props: { params: Promise<{ id: s
     const params = await props.params
     const { id } = params
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
         redirect('/login')

@@ -153,7 +153,7 @@ export function CreateTeamModal({ open, onOpenChange, workspaceId }: CreateTeamM
                                             >
                                                 <div className="w-6 h-6 rounded-full bg-gray-600 overflow-hidden">
                                                     {user.avatar_url ? (
-                                                        <img src={user.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                        <img loading="lazy" decoding="async" src={user.avatar_url} alt="" className="w-full h-full object-cover" />
                                                     ) : (
                                                         <div className="w-full h-full flex items-center justify-center text-[10px] text-white bg-gradient-to-br from-indigo-500 to-purple-500">
                                                             {user.name.charAt(0)}

@@ -1,9 +1,13 @@
 'use server'
 
 import { createAdminClient } from "@/lib/supabase/server"
+import { BRAND_ACCESS_ERROR, assertBrandAccess, canAccessBrand, canViewBrand, denyUnlessAllowed } from "@/lib/brand-access"
 import { revalidatePath } from "next/cache"
 
 export async function getBrandSettings(brandId: string) {
+    // SECURITY: design settings (colours, fonts) are readable by members and, for brands with a
+    // published brandbook, by its viewers; only members may create the default row or change anything.
+    if (!(await canViewBrand(brandId))) return { error: BRAND_ACCESS_ERROR }
     const supabase = await createAdminClient()
 
     // First try to get existing settings
@@ -30,6 +34,9 @@ export async function getBrandSettings(brandId: string) {
     }
 
     // If no settings exist, create default ones
+    if (!settings && !(await canAccessBrand(brandId))) {
+        return { settings: null, brand }
+    }
     if (!settings) {
         const { data: newSettings, error: createError } = await supabase
             .from('brand_settings')
@@ -57,6 +64,11 @@ export async function getBrandSettings(brandId: string) {
 }
 
 export async function updateBrandSettings(brandId: string, field: string, value: any) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this brand
+    const denied = await denyUnlessAllowed(() => assertBrandAccess(brandId))
+    if (denied) return denied
+    // `field` comes from the client: never let it rewrite the row's identity
+    if (field === 'id' || field === 'brand_id') return { success: false, error: 'Field not allowed' }
     const supabase = await createAdminClient()
 
     const { error } = await supabase
@@ -74,6 +86,9 @@ export async function updateBrandSettings(brandId: string, field: string, value:
 }
 
 export async function updateBrandInfo(brandId: string, field: string, value: any) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this brand
+    const denied = await denyUnlessAllowed(() => assertBrandAccess(brandId))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     // Fields allowed to be updated in brands table from settings
@@ -113,6 +128,10 @@ export async function uploadBrandAsset(formData: FormData) {
     if (!file || !brandId || !type) {
         return { success: false, error: 'Missing required fields' }
     }
+
+    // SECURITY: the admin client bypasses storage policies, so only members may upload
+    const denied = await denyUnlessAllowed(() => assertBrandAccess(brandId))
+    if (denied) return denied
 
     try {
         const fileExt = file.name.split('.').pop()

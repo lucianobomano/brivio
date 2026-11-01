@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from 'react'
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import { StandupHeader } from '@/components/standups/StandupHeader'
 import { useTheme } from 'next-themes'
 import {
@@ -25,14 +26,23 @@ import { toast } from 'sonner'
 import { AnimatePresence, motion } from 'framer-motion'
 import { format } from 'date-fns'
 
-export function AssetsClient() {
+interface AssetsInitialData {
+    workspaceId: string
+    folders: AssetFolder[]
+    assets: Asset[]
+}
+
+export function AssetsClient({ initialData }: { initialData?: AssetsInitialData | null } = {}) {
     const { theme } = useTheme()
     const { workspace } = useWorkspace()
     const workspaceId = workspace?.id
 
     // State
-    const [folders, setFolders] = useState<AssetFolder[]>([])
-    const [assets, setAssets] = useState<Asset[]>([])
+    // PERFORMANCE: root folder contents arrive with the page (server-rendered) instead of
+    // being fetched after hydration, which was a second round-trip before anything showed
+    const [folders, setFolders] = useState<AssetFolder[]>(initialData?.folders || [])
+    const [assets, setAssets] = useState<Asset[]>(initialData?.assets || [])
+    const usedInitialDataRef = React.useRef(false)
     const [breadcrumbs, setBreadcrumbs] = useState<AssetFolder[]>([])
     const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined)
 
@@ -69,6 +79,12 @@ export function AssetsClient() {
     }, [workspaceId, currentFolderId])
 
     useEffect(() => {
+        // Skip the first load when the server already sent this workspace's root folder
+        if (!usedInitialDataRef.current && initialData && initialData.workspaceId === workspaceId && !currentFolderId) {
+            usedInitialDataRef.current = true
+            return
+        }
+        usedInitialDataRef.current = true
         loadData()
     }, [loadData])
 
@@ -124,6 +140,9 @@ export function AssetsClient() {
         })
     }
 
+
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
 
     const handleCreateFolder = async () => {
         if (!newFolderName.trim() || !workspaceId) return
@@ -369,7 +388,7 @@ export function AssetsClient() {
                                         placeholder="Folder name"
                                         value={newFolderName}
                                         onChange={(e) => setNewFolderName(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                                        onKeyDown={(e) => e.key === 'Enter' && runAction(handleCreateFolder)}
                                         className={cn(
                                             "w-full bg-transparent border-b text-center pb-2 placeholder:text-[#555] focus:outline-none focus:border-[#ff0054] transition-colors text-[16px]",
                                             theme === 'light'
@@ -382,7 +401,7 @@ export function AssetsClient() {
 
                                 <div className="flex items-center gap-6">
                                     <button
-                                        onClick={handleCreateFolder}
+                                        onClick={() => runAction(handleCreateFolder)} disabled={isActionPending} aria-busy={isActionPending}
                                         className={cn(
                                             "px-8 py-2.5 text-white rounded-lg transition-colors font-medium",
                                             theme === 'light' ? "bg-black hover:bg-black/90" : "bg-[#0A0A0B] hover:bg-[#1a1a1a]"
@@ -413,7 +432,7 @@ export function AssetsClient() {
                                     onDeselectAll={handleDeselectAll}
                                     onSelectAll={handleSelectAll}
                                     onInvertSelection={handleInvertSelection}
-                                    onDelete={handleDeleteSelected}
+                                    onDelete={(...args: any[]) => runAction(() => (handleDeleteSelected as any)(...args))}
                                     onMove={() => toast.info("Move not implemented yet")} // Placeholder
                                 />
                             </div>
@@ -561,7 +580,7 @@ export function AssetsClient() {
 
                                     {/* Folder Icon */}
                                     <div className="mt-4 filter drop-shadow-2xl transition-transform group-hover:-translate-y-2 relative w-full max-w-[315px] aspect-[315/251]">
-                                        <img
+                                        <img loading="lazy" decoding="async"
                                             src="/images/custom-folder-icon.png"
                                             alt="Folder"
                                             className="w-full h-full object-contain"
@@ -638,7 +657,7 @@ export function AssetsClient() {
                                     {/* Asset Preview */}
                                     <div className="mt-4 filter drop-shadow-2xl transition-transform group-hover:-translate-y-2 relative w-full max-w-[315px] aspect-[315/251] flex items-center justify-center bg-black/5 dark:bg-white/5 rounded-lg overflow-hidden">
                                         {asset.type === 'image' && asset.file_url ? (
-                                            <img
+                                            <img loading="lazy" decoding="async"
                                                 src={asset.file_url}
                                                 alt={asset.name}
                                                 className="w-full h-full object-cover"

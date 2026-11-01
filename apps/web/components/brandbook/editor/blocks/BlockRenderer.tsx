@@ -8,15 +8,30 @@ import { cn } from "@/lib/utils"
 import { LayoutBlock } from "./LayoutBlock"
 import { MediaBlock } from "./MediaBlock"
 import { EmbedBlock } from "./EmbedBlock"
+import { Magnetic, MaskReveal, lightTextStyle, useLightProgress } from "../scrollFx"
 import { ListBlock } from "./ListBlock"
 import { CompositeBlock } from "./CompositeBlock"
 import { ButtonBlock } from "./ButtonBlock"
 import { PaletteBlock } from "./PaletteBlock"
 import { SeparatorBlock } from "./SeparatorBlock"
+import { MarqueeBlock } from "./MarqueeBlock"
+import { FooterBlock } from "./FooterBlock"
+import { LogoShowcaseBlock } from "./LogoShowcaseBlock"
+import { LogoSizeBlock } from "./LogoSizeBlock"
+import { LogoMisuseBlock } from "./LogoMisuseBlock"
+import { TypeSpecimenBlock } from "./TypeSpecimenBlock"
+import { ColorAccordionBlock } from "./ColorAccordionBlock"
+import { IconSpecimenBlock } from "./IconSpecimenBlock"
+import { PhotoGradeBlock } from "./PhotoGradeBlock"
+import { MotifFieldBlock } from "./MotifFieldBlock"
+import { SocialMockupBlock } from "./SocialMockupBlock"
 import { StoryBlock } from "./StoryBlock"
+import { IndexBlock } from "./IndexBlock"
+import { getHoverProps } from "../hoverEffects"
 import { TextToolbar } from "../TextToolbar"
 import { useBrandDesign } from "../BrandDesignContext"
 import { AnimatedBlock } from "../AnimatedBlock"
+import { EDITOR_COLLISION_PADDING } from "../editorLayout"
 import { DraggableBlockWrapper } from "./DraggableBlockWrapper"
 import * as PopoverPrimitive from "@radix-ui/react-popover"
 import { DialogClose, DialogTitle } from "@radix-ui/react-dialog"
@@ -34,6 +49,8 @@ interface BlockProps {
     onDuplicate?: (id: string) => void
     onCopy?: (id: string) => void
     onAnimate?: () => void
+    /** Set when a parent (the section wrapper) already plays this block's animation */
+    disableAnimation?: boolean
     align?: 'left' | 'center' | 'right'
     isFreeFlow?: boolean
     responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
@@ -53,8 +70,23 @@ import {
     detectOutline,
     detectFontSize,
     detectWeight,
-    detectBackgroundColor
+    detectBackgroundColor,
+    scrollPageToTop,
+    useGoogleFont
 } from "./BlockUtils"
+
+/** Which text block currently owns the (single) text toolbar, shared by all text blocks on the page */
+const textToolbarOwner = { id: null as string | null, listeners: new Set<() => void>() }
+const setTextToolbarOwner = (id: string | null) => {
+    if (textToolbarOwner.id === id) return
+    textToolbarOwner.id = id
+    textToolbarOwner.listeners.forEach(listener => listener())
+}
+const useTextToolbarOwner = () => React.useSyncExternalStore(
+    (onChange) => { textToolbarOwner.listeners.add(onChange); return () => { textToolbarOwner.listeners.delete(onChange) } },
+    () => textToolbarOwner.id,
+    () => null
+)
 
 const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, responsiveDevice, type }: BlockProps & { type: 'heading' | 'body' }) => {
     const { getStyleById, onSelectModule } = useBrandDesign()
@@ -69,8 +101,45 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
         : 'body'
     const globalStyle = getStyleById(styleId)
     const isHeading = type === 'heading'
+    useGoogleFont(block.content.style?.fontFamily)
+    // "Acender com scroll": the text lights up from top to bottom as it scrolls in (Preview / shared link)
+    const lightsUp = !!isReadOnly && block.content?.animation === 'acender'
+    const lightRef = useLightProgress(lightsUp)
+    // Letter spacing in % of the font size: the block's own value (em or px), else the global text style
+    const [letterSpacingPreview, setLetterSpacingPreview] = React.useState<number | null>(null)
+    const currentLetterSpacing = (() => {
+        const raw = block.content.style?.letterSpacing
+        if (typeof raw === 'string' && raw.trim().endsWith('em')) return Math.round(parseFloat(raw) * 1000) / 10
+        if (typeof raw === 'string' && raw.trim().endsWith('px')) {
+            const size = parseFloat(block.content.style?.fontSize || globalStyle?.size || '16') || 16
+            return Math.round((parseFloat(raw) / size) * 1000) / 10
+        }
+        return globalStyle?.spacing ? Math.round(parseFloat(String(globalStyle.spacing)) * 1000) / 10 : 0
+    })()
+    const [lineHeightPreview, setLineHeightPreview] = React.useState<number | null>(null)
+    const letterSpacingOverride = {
+        ...(letterSpacingPreview !== null ? { letterSpacing: `${letterSpacingPreview / 100}em` } : {}),
+        ...(lineHeightPreview !== null ? { lineHeight: lineHeightPreview } : {}),
+    }
 
-    const isToolbarVisible = !isReadOnly && (isHovered || isSettingsOpen || isLinkOpen || (activeBlockId === block.id && isFocused))
+    // Two separate things: the column alignment places the text BOX; the text alignment (toolbar) aligns the
+    // LINES inside it. Without its own width, a box in a centered / right column hugs its text so it can move.
+    const textAlign = block.content.style?.textAlign || 'left'
+    const hugText = !block.content.style?.width && (align === 'center' || align === 'right')
+    const hugTextareaStyle: React.CSSProperties = hugText
+        ? ({ width: 'auto', minWidth: '2ch', maxWidth: '100%', fieldSizing: 'content' } as React.CSSProperties)
+        : {}
+
+    // Only one text toolbar at a time: the text being edited (or with a panel of its own open) owns it;
+    // hovering another text shows that one's toolbar only while no text owns it
+    const toolbarOwner = useTextToolbarOwner()
+    const claimsToolbar = !isReadOnly && ((activeBlockId === block.id && isFocused) || isSettingsOpen || isLinkOpen)
+    React.useEffect(() => {
+        if (claimsToolbar) setTextToolbarOwner(block.id)
+        else if (textToolbarOwner.id === block.id) setTextToolbarOwner(null)
+    }, [claimsToolbar, block.id])
+    React.useEffect(() => () => { if (textToolbarOwner.id === block.id) setTextToolbarOwner(null) }, [block.id])
+    const isToolbarVisible = !isReadOnly && (claimsToolbar || (isHovered && (toolbarOwner === null || toolbarOwner === block.id)))
     const hasCustomBottomMargin = block.content?.style?.margin?.bottom !== undefined && block.content?.style?.margin?.bottom !== ''
 
     const blockLink = block.content?.link as BlockLink | undefined
@@ -79,7 +148,9 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
         if (!blockLink) return
         e.stopPropagation()
 
-        if (blockLink.type === 'url' && blockLink.url) {
+        if (blockLink.type === 'url' && blockLink.url === '#top') {
+            scrollPageToTop(e.currentTarget as HTMLElement)
+        } else if (blockLink.type === 'url' && blockLink.url) {
             let targetUrl = blockLink.url.trim()
             if (!/^https?:\/\//i.test(targetUrl) && !targetUrl.startsWith('/') && !targetUrl.startsWith('#') && !targetUrl.startsWith('mailto:')) {
                 targetUrl = 'https://' + targetUrl
@@ -100,7 +171,7 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     return (
         <div
             className={cn(
-                !hasCustomBottomMargin && "mb-4",
+                // No default bottom margin: the column's "Espaçamento" sets the space between items
                 "group/block relative w-full overflow-visible hover:z-50",
                 activeBlockId === block.id && "z-50"
             )}
@@ -119,7 +190,7 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             side="top"
                             align="center"
                             sideOffset={12}
-                            collisionPadding={10}
+                            collisionPadding={EDITOR_COLLISION_PADDING}
                             className="z-[2000] outline-none"
                             onOpenAutoFocus={(e) => e.preventDefault()}
                         >
@@ -145,6 +216,12 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                     currentLineHeight={block.content.style?.lineHeight || globalStyle?.height || (isHeading ? '1.1' : '1.5')}
                                     onLineHeightChange={(h) => {
                                         onUpdate(block.id, { ...block.content, style: { ...block.content.style, lineHeight: h } })
+                                    }}
+                                    currentLetterSpacing={currentLetterSpacing}
+                                    onLetterSpacingPreview={setLetterSpacingPreview}
+                                    onLineHeightPreview={setLineHeightPreview}
+                                    onLetterSpacingChange={(percent) => {
+                                        onUpdate(block.id, { ...block.content, style: { ...block.content.style, letterSpacing: `${percent / 100}em` } })
                                     }}
                                     currentFontSize={detectFontSize(block.content.style)}
                                     onFontSizeChange={(size) => {
@@ -258,10 +335,13 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                 isFocused={isFocused || activeBlockId === block.id}
                 isReadOnly={isReadOnly}
                 align={align}
+                hug={hugText}
                 responsiveDevice={responsiveDevice}
             >
                 {isReadOnly ? (
                     <div
+                        ref={lightsUp ? (el) => { lightRef.current = el } : undefined}
+                        data-text-role={isHeading ? 'heading' : 'body'}
                         onClick={blockLink ? handleLinkClick : undefined}
                         className={cn(
                             "w-full max-w-full min-h-0 bg-transparent border border-transparent rounded-none shadow-none focus:ring-0 outline-none focus:outline-none transition-colors whitespace-pre-wrap break-words",
@@ -283,16 +363,18 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             color: globalStyle?.color,
                             textTransform: (globalStyle?.casing === 'none' ? undefined : globalStyle?.casing) as React.CSSProperties['textTransform'],
                             ...block.content.style,
-                            textAlign: block.content.style?.textAlign || align || 'left',
+                            ...letterSpacingOverride,
+                            textAlign,
                             maxWidth: '100%',
                             height: block.content.style?.height || 'auto',
-                            minHeight: '0px'
+                            minHeight: '0px',
+                            ...(lightsUp ? lightTextStyle(String(block.content.style?.color || globalStyle?.color || '#141414')) : {}),
                         }}
                     >
                         {block.content.text || ""}
                     </div>
                 ) : (
-                    <div className={cn("relative w-full", block.content.style?.height && "h-full min-h-[inherit]")}>
+                    <div className={cn("relative", hugText ? "w-fit max-w-full" : "w-full", block.content.style?.height && "h-full min-h-[inherit]")}>
                         <AutoResizeTextarea
                             value={block.content.text || ""}
                             readOnly={isReadOnly}
@@ -320,7 +402,9 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 color: globalStyle?.color,
                                 textTransform: (globalStyle?.casing === 'none' ? undefined : globalStyle?.casing) as React.CSSProperties['textTransform'],
                                 ...block.content.style,
-                                textAlign: block.content.style?.textAlign || align || 'left'
+                                ...letterSpacingOverride,
+                                ...hugTextareaStyle,
+                                textAlign
                             }}
                         />
                         {blockLink && (
@@ -349,7 +433,16 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     )
 }
 
-export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice, clipboard, onPasteBlock }: BlockProps) {
+/** Interaction effects chosen in Animar (Preview / shared link): mask reveals and magnetic elements */
+const withScrollEffect = (node: React.ReactNode, effect?: string | null) => {
+    if (effect === 'magnetico') return <Magnetic>{node}</Magnetic>
+    if (effect === 'mascara' || effect === 'mascara_circulo' || effect === 'mascara_arco') {
+        return <MaskReveal shape={effect === 'mascara_circulo' ? 'circle' : effect === 'mascara_arco' ? 'arch' : 'petal'}>{node}</MaskReveal>
+    }
+    return node
+}
+
+export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice, clipboard, onPasteBlock, disableAnimation }: BlockProps) {
     if (!block) return null
 
     const commonProps = { block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy, onAnimate, align, isFreeFlow, responsiveDevice, clipboard, onPasteBlock }
@@ -391,6 +484,30 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
                 return <PaletteBlock {...commonProps} />
             case 'story':
                 return <StoryBlock {...commonProps} />
+            case 'index':
+                return <IndexBlock {...commonProps} />
+            case 'marquee':
+                return <MarqueeBlock {...commonProps} />
+            case 'footer':
+                return <FooterBlock {...commonProps} onAddBlock={onAddBlock} />
+            case 'logo-showcase':
+                return <LogoShowcaseBlock {...commonProps} />
+            case 'logo-size':
+                return <LogoSizeBlock {...commonProps} />
+            case 'logo-misuse':
+                return <LogoMisuseBlock {...commonProps} />
+            case 'type-specimen':
+                return <TypeSpecimenBlock {...commonProps} />
+            case 'color-accordion':
+                return <ColorAccordionBlock {...commonProps} />
+            case 'icon-specimen':
+                return <IconSpecimenBlock {...commonProps} />
+            case 'photo-grade':
+                return <PhotoGradeBlock {...commonProps} />
+            case 'motif-field':
+                return <MotifFieldBlock {...commonProps} />
+            case 'social-mockup':
+                return <SocialMockupBlock {...commonProps} />
             default:
                 return <EditableTextBlock {...commonProps} type="body" />
         }
@@ -409,11 +526,16 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
         marginLeft: margin.left !== undefined && margin.left !== '' ? `${margin.left}px` : undefined,
         marginRight: margin.right !== undefined && margin.right !== '' ? `${margin.right}px` : undefined,
     } : {}
+    const horizontalMargin = (hasMargin ? (Number(margin.left) || 0) + (Number(margin.right) || 0) : 0)
+    // Hover state plays in preview / public view only, like animations
+    const blockHover = isReadOnly ? getHoverProps(block.content?.hoverEffect) : { className: '', style: {} }
+    if (horizontalMargin) marginStyle.width = `calc(100% - ${horizontalMargin}px)`
 
     return (
         <AnimatedBlock
             animation={block.content?.animation}
-            isEnabled={isReadOnly}
+            settings={block.content?.animationSettings}
+            isEnabled={isReadOnly && !disableAnimation}
         >
             <DraggableBlockWrapper
                 block={block}
@@ -421,10 +543,14 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
                 isFreeFlow={isFreeFlow}
                 onUpdate={onUpdate}
                 onSelect={() => onSelect?.(block.id)}
+                activeBlockId={activeBlockId}
                 responsiveDevice={responsiveDevice}
             >
-                <div className="w-full transition-all duration-200 overflow-visible" style={marginStyle}>
-                    {renderBlock()}
+                <div
+                    className={cn("w-full min-w-0 max-w-full transition-all duration-200 overflow-visible", blockHover.className)}
+                    style={{ ...marginStyle, ...blockHover.style }}
+                >
+                    {withScrollEffect(renderBlock(), isReadOnly ? block.content?.animation : null)}
                 </div>
             </DraggableBlockWrapper>
         </AnimatedBlock>

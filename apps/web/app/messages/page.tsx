@@ -1,12 +1,12 @@
 import { Navbar } from "@/components/layout/Navbar"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Input } from "@/components/ui/input"
 import { Search } from "lucide-react"
 
 export default async function MessagesPage() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
         redirect('/login')

@@ -2,6 +2,7 @@ import React from "react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Check, Upload } from "lucide-react"
+import { ColorInput } from "@/components/ui/color-input"
 
 interface ColumnSettingsPanelProps {
     isOpen: boolean
@@ -139,8 +140,7 @@ export function ColumnSettingsPanel({
                     <div className="h-[50px] flex items-center justify-between border-b border-[#333]">
                         <span className="font-light text-gray-400">Background color</span>
                         <div className="relative w-6 h-6 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10" style={{ backgroundColor }}>
-                            <input
-                                type="color"
+                            <ColorInput
                                 value={backgroundColor}
                                 onChange={(e) => onBackgroundColorChange(e.target.value)}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
@@ -188,8 +188,7 @@ export function ColumnSettingsPanel({
                                 <option value="dotted">Dotted</option>
                             </select>
                             <div className="relative w-6 h-6 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10" style={{ backgroundColor: borderColor }}>
-                                <input
-                                    type="color"
+                                <ColorInput
                                     value={borderColor}
                                     onChange={(e) => onBorderColorChange(e.target.value)}
                                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"

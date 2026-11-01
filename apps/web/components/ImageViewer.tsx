@@ -57,7 +57,7 @@ export function ImageViewer({ isOpen, onClose, images, currentIndex, onNavigate 
                 className="relative max-w-[90vw] max-h-[85vh] flex items-center justify-center group"
                 onClick={(e) => e.stopPropagation()}
             >
-                <img
+                <img loading="lazy" decoding="async"
                     src={images[currentIndex]}
                     alt={`Image ${currentIndex + 1}`}
                     className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.5)] border border-white/10 animate-in zoom-in-95 duration-300"

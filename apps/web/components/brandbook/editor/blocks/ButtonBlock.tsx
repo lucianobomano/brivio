@@ -4,6 +4,9 @@ import { Block } from "../types"
 import { cn } from "@/lib/utils"
 // import { TextToolbar } from "../TextToolbar" // Replaced by ButtonSettingsPanel
 import { ButtonSettingsPanel } from "./ButtonSettingsPanel"
+import { getButtonAnimationClass } from "./buttonPresets"
+import { FloatingPanel } from "../FloatingPanel"
+import { BUTTON_ICONS, ButtonIconSettings } from "./buttonIcons"
 import {
     detectFontSize
 } from "./BlockUtils"
@@ -42,22 +45,54 @@ export const ButtonBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlock
     }
 
     const isSelected = activeBlockId === block.id
+    // Ready-made animation chosen in the Animações tab (CSS classes in globals.css)
+    const animationClass = getButtonAnimationClass(block.content.buttonAnimation)
+    // Optional icon (left / right / icon only), drawn in the button text color unless it has its own
+    const iconSettings = block.content.icon as ButtonIconSettings | undefined
+    const Icon = iconSettings?.name ? BUTTON_ICONS[iconSettings.name] : undefined
+    const iconPosition = iconSettings?.position || 'right'
+    const iconOnly = !!Icon && iconPosition === 'only'
+    const renderIcon = () => Icon && (
+        <Icon
+            aria-hidden
+            className={cn(
+                "shrink-0 transition-transform duration-200",
+                iconSettings?.hoverShift && (iconPosition === 'left' ? "group-hover/btn:-translate-x-1" : iconPosition === 'right' ? "group-hover/btn:translate-x-1" : "group-hover/btn:scale-110")
+            )}
+            style={{ width: iconSettings?.size || 18, height: iconSettings?.size || 18, color: iconSettings?.color || 'currentColor' }}
+            strokeWidth={2}
+        />
+    )
+    const labelStyle: React.CSSProperties = {
+        fontSize: baseStyle.fontSize || '16px',
+        fontWeight: baseStyle.fontWeight || '500',
+        textAlign: 'center',
+        color: 'inherit',
+    }
 
-    const effectiveJustify = block.content.style?.textAlign
-        ? (block.content.style.textAlign === 'center' ? 'center' : block.content.style.textAlign === 'right' ? 'flex-end' : 'flex-start')
+    // The button follows the column alignment unless it was placed explicitly in its own panel (buttonAlign).
+    // textAlign used to hold that choice too, and new buttons were created with 'center' (meant for the label),
+    // so only the panel-only values 'flex-start' / 'flex-end' still count as an explicit choice
+    const legacyAlign = block.content.style?.textAlign
+    const explicitAlign: string | undefined = block.content.style?.buttonAlign
+        ?? (legacyAlign === 'flex-start' || legacyAlign === 'flex-end' ? legacyAlign : undefined)
+    const effectiveJustify = explicitAlign
+        ? explicitAlign
         : (align === 'center' ? 'center' : align === 'right' ? 'flex-end' : 'flex-start')
 
     const hasCustomBottomMargin = baseStyle.margin?.bottom !== undefined && baseStyle.margin?.bottom !== ''
 
     return (
-        <div className={cn(!hasCustomBottomMargin && "mb-4", "w-full flex")}
+        // No default bottom margin: the column's "Espaçamento" sets the space between items
+        <div className={cn("w-full flex")}
             style={{ justifyContent: effectiveJustify }}
             onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}
         >
             <div className="relative group/button-wrapper">
                 {/* Settings Panel - Replaces TextToolbar */}
                 {!isReadOnly && isSelected && (
-                    <div className="absolute left-[calc(100%+12px)] top-1/2 -translate-y-1/2 z-50 animate-in fade-in zoom-in-95 duration-200">
+                    <FloatingPanel placement="right-center">
+                    <div className="animate-in fade-in zoom-in-95 duration-200">
                         <ButtonSettingsPanel
                             settings={block.content}
                             onUpdate={(updates) => onUpdate(block.id, { ...block.content, ...updates })}
@@ -68,17 +103,20 @@ export const ButtonBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlock
                             onAnimate={onAnimate}
                         />
                     </div>
+                    </FloatingPanel>
                 )}
 
                 <div
                     className={cn(
-                        "flex items-center justify-center transition-all duration-200",
+                        "flex items-center justify-center gap-2 transition-all duration-200 group/btn",
                         isReadOnly ? "cursor-pointer" : "cursor-text",
-                        // Default hover effect if not overridden by custom hover settings
-                        (!hoverSettings.enabled) && "hover:opacity-90 active:scale-95"
+                        // Default hover effect if not overridden by custom hover settings or a ready-made animation
+                        (!hoverSettings.enabled && !animationClass) && "hover:opacity-90 active:scale-95",
+                        animationClass
                     )}
                     style={{
                         ...currentStyle,
+                        ...(animationClass ? { '--ba-s': block.content.buttonAnimationSpeed ?? 1 } as React.CSSProperties : {}),
                         // Dimensions override from style object, need to ensure units
                         width: baseStyle.width || '150px',
                         height: baseStyle.height || '40px',
@@ -92,6 +130,16 @@ export const ButtonBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlock
                     onMouseEnter={() => setIsHovered(true)}
                     onMouseLeave={() => setIsHovered(false)}
                 >
+                    {iconPosition === 'left' && renderIcon()}
+                    {iconOnly ? (
+                        <>
+                            {renderIcon()}
+                            <span className="sr-only">{block.content.text}</span>
+                        </>
+                    ) : isReadOnly && Icon ? (
+                        // Published: the label is plain text, exactly as wide as its words, next to the icon
+                        <span className="whitespace-nowrap" style={labelStyle}>{block.content.text}</span>
+                    ) : (
                     <input
                         type="text"
                         value={block.content.text || ""}
@@ -100,18 +148,17 @@ export const ButtonBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlock
                         onFocus={() => onSelect?.(block.id)}
                         placeholder="Button"
                         className={cn(
-                            "bg-transparent border-none shadow-none outline-none p-0 m-0 text-center w-full h-full cursor-inherit",
+                            "bg-transparent border-none shadow-none outline-none p-0 m-0 text-center h-full cursor-inherit",
+                            // With an icon the label hugs its text so both sit together in the middle
+                            Icon ? "min-w-[2ch] max-w-full" : "w-full",
                             "focus:ring-0 focus:outline-none focus:border-none",
                             // Inherit text color from parent currentStyle
                             "text-inherit"
                         )}
-                        style={{
-                            fontSize: baseStyle.fontSize || '16px',
-                            fontWeight: baseStyle.fontWeight || '500',
-                            textAlign: 'center',
-                            color: 'inherit'
-                        }}
+                        style={{ ...labelStyle, ...(Icon ? { fieldSizing: 'content' } as React.CSSProperties : {}) }}
                     />
+                    )}
+                    {iconPosition === 'right' && renderIcon()}
                 </div>
             </div>
         </div>

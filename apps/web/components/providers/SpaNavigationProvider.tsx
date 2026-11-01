@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 
 export type ViewType = 
     | "dashboard" 
@@ -28,7 +29,7 @@ interface SpaNavigationContextProps {
 
 const SpaNavigationContext = React.createContext<SpaNavigationContextProps | undefined>(undefined)
 
-const getViewFromPath = (path: string): ViewType => {
+export const getViewFromPath = (path: string): ViewType => {
     if (path === "/dashboard") return "dashboard"
     if (path === "/projects") return "projects"
     if (path === "/tasks") return "tasks"
@@ -37,37 +38,32 @@ const getViewFromPath = (path: string): ViewType => {
     if (path === "/sprints" || path.startsWith("/sprints/")) return "sprints"
     if (path === "/standups" || path.startsWith("/standups/")) return "standups"
     if (path === "/assets") return "assets"
-    if (path === "/brandops") return "brandops"
+    if (path === "/brandops" || path.startsWith("/brandops/")) return "brandops"
     return "other"
 }
 
 export function SpaNavigationProvider({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
+    const router = useRouter()
 
-    const [activeView, setActiveView] = React.useState<ViewType>(getViewFromPath(pathname))
+    // PERFORMANCE: navigation goes through the Next.js router (prefetch, loading.tsx, no full reload).
+    // The view is derived from the pathname so it can never lag behind the URL during a transition;
+    // pendingView only gives instant active-state feedback until the new route commits.
+    const [pendingView, setPendingView] = React.useState<ViewType | null>(null)
     const [initialPathname] = React.useState(pathname)
 
     React.useEffect(() => {
-        setActiveView(getViewFromPath(pathname))
+        setPendingView(null)
     }, [pathname])
 
-    const navigateTo = React.useCallback((href: string) => {
-        const path = href.split("?")[0]
-        const view = getViewFromPath(path)
-        setActiveView(view)
-        window.history.pushState(null, "", href)
-        // Dispatch a custom event to notify listeners of url changes without full reload
-        window.dispatchEvent(new Event("popstate"))
-    }, [])
+    const activeView = pendingView ?? getViewFromPath(pathname)
 
-    React.useEffect(() => {
-        const handlePopState = () => {
-            const view = getViewFromPath(window.location.pathname)
-            setActiveView(view)
-        }
-        window.addEventListener("popstate", handlePopState)
-        return () => window.removeEventListener("popstate", handlePopState)
-    }, [])
+    const setActiveView = React.useCallback((view: ViewType) => setPendingView(view), [])
+
+    const navigateTo = React.useCallback((href: string) => {
+        setPendingView(getViewFromPath(href.split("?")[0]))
+        router.push(href)
+    }, [router])
 
     return (
         <SpaNavigationContext.Provider value={{ activeView, setActiveView, navigateTo, initialPathname }}>

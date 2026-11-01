@@ -53,6 +53,7 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { saveProjectContent, publishProject, uploadProjectMedia } from "@/app/actions/project-editor"
+import { ColorInput } from "@/components/ui/color-input"
 
 interface BlockSettings {
     backgroundColor?: string
@@ -533,7 +534,7 @@ export function ProjectEditorModal({ isOpen, onClose, initialProject }: ProjectE
                                 >
                                     {coverImageUrl ? (
                                         <>
-                                            <img src={coverImageUrl} className="absolute inset-0 w-full h-full object-cover" alt="Cover" />
+                                            <img loading="lazy" decoding="async" src={coverImageUrl} className="absolute inset-0 w-full h-full object-cover" alt="Cover" />
                                             <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white gap-2">
                                                 <Upload className="w-6 h-6" />
                                                 <span className="text-[14px] font-bold">Change Cover</span>
@@ -818,9 +819,8 @@ function BlockStyleControls({
                             >
                                 <Plus className="w-4 h-4 text-white drop-shadow-md" />
                             </button>
-                            <input
+                            <ColorInput
                                 ref={bgColorInputRef}
-                                type="color"
                                 value={customColor}
                                 onChange={(e) => {
                                     setCustomColor(e.target.value)
@@ -951,9 +951,8 @@ function BlockStyleControls({
                                         >
                                             <Plus className="w-3 h-3 text-white drop-shadow-md" />
                                         </button>
-                                        <input
+                                        <ColorInput
                                             ref={textColorInputRef}
-                                            type="color"
                                             value={customTextColor}
                                             onChange={(e) => {
                                                 setCustomTextColor(e.target.value)
@@ -1362,7 +1361,7 @@ function SortableBlock({ block, projectId, onUpdate, onUpdateSettings, onDelete,
                             className="relative group/img rounded-sm overflow-hidden cursor-zoom-in"
                             onClick={() => onOpenViewer([block.content.url], 0)}
                         >
-                            <img src={block.content.url} alt={block.content.name || 'Uploaded image'} className="w-full h-auto" />
+                            <img loading="lazy" decoding="async" src={block.content.url} alt={block.content.name || 'Uploaded image'} className="w-full h-auto" />
                             {!previewMode && (
                                 <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover/img:opacity-100 transition-opacity">
                                     <button
@@ -1925,7 +1924,7 @@ function GridImageItem({
                 }
             }}
         >
-            <img
+            <img loading="lazy" decoding="async"
                 src={image.url}
                 alt={image.name}
                 className={`w-full transition-transform duration-500 ${isMasonry ? 'h-auto' : 'h-full object-cover'} ${previewMode ? 'group-hover/img:scale-105' : ''}`}
@@ -1983,7 +1982,7 @@ function SortableGridItem({ image, onDelete, onReplace }: { image: GridImage, on
             style={style}
             className={`aspect-square relative group/thumb rounded-lg overflow-hidden border border-bg-3 ${isDragging ? 'shadow-2xl opacity-50' : ''}`}
         >
-            <img src={image.url} alt={image.name} className="w-full h-full object-cover" />
+            <img loading="lazy" decoding="async" src={image.url} alt={image.name} className="w-full h-full object-cover" />
 
             <div className="absolute inset-0 bg-black/50 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2">
                 <div {...attributes} {...listeners} className="p-1.5 bg-white rounded-md text-text-primary cursor-grab active:cursor-grabbing hover:bg-accent-indigo hover:text-white transition-colors">

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import { Project } from "./ProjectsClient"
 import {
     Plus,
@@ -18,7 +19,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Image from "next/image"
-import { getProjectFiles, deleteProjectFile, ProjectFile } from "@/app/actions/project-files"
+import { getProjectFiles, deleteProjectFile, uploadProjectFile, ProjectFile } from "@/app/actions/project-files"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { pt } from "date-fns/locale"
@@ -58,6 +59,9 @@ export function ProjectFilesView({ project }: ProjectFilesViewProps) {
     React.useEffect(() => {
         fetchFiles()
     }, [fetchFiles])
+
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
 
     const handleDelete = async (id: string) => {
         const result = await deleteProjectFile(id)
@@ -263,7 +267,7 @@ export function ProjectFilesView({ project }: ProjectFilesViewProps) {
                                             variant="ghost"
                                             size="icon"
                                             className="h-8 w-8 bg-black/60 backdrop-blur-md rounded-full hover:text-red-500"
-                                            onClick={() => handleDelete(file.id)}
+                                            onClick={() => runAction(() => handleDelete(file.id))}
                                         >
                                             <Trash2 className="w-3 h-3" />
                                         </Button>
@@ -305,7 +309,7 @@ export function ProjectFilesView({ project }: ProjectFilesViewProps) {
                                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-[#97A1B3] hover:text-[#EF0050]">
                                                         <Download className="w-4 h-4" />
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-[#97A1B3] hover:text-red-500" onClick={() => handleDelete(file.id)}>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-[#97A1B3] hover:text-red-500" onClick={() => runAction(() => handleDelete(file.id))}>
                                                         <Trash2 className="w-4 h-4" />
                                                     </Button>
                                                 </div>

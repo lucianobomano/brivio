@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export interface ProjectFile {
@@ -31,7 +31,7 @@ export async function getProjectFiles(projectId: string) {
 
 export async function uploadProjectFile(projectId: string, file: File, name: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Unauthorized" }
 

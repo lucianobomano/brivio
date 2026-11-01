@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getCurrentUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function processSubscription(formData: FormData) {
@@ -72,7 +72,7 @@ import { checkIsAdmin } from './admin'
 export async function getPendingSubscriptions() {
     try {
         const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getCurrentUser()
 
         const { isAdmin } = await checkIsAdmin(user?.email)
         if (!user || !isAdmin) {
@@ -96,7 +96,7 @@ export async function getPendingSubscriptions() {
 export async function approveSubscription(id: string) {
     try {
         const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getCurrentUser()
 
         const { isAdmin } = await checkIsAdmin(user?.email)
         if (!user || !isAdmin) {
@@ -120,7 +120,7 @@ export async function approveSubscription(id: string) {
 export async function rejectSubscription(id: string, reason?: string) {
     try {
         const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getCurrentUser()
 
         const { isAdmin } = await checkIsAdmin(user?.email)
         if (!user || !isAdmin) {

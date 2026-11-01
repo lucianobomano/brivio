@@ -66,7 +66,7 @@ export function JobDetailClient({ initialJob }: { initialJob: Job }) {
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-bg-2 border border-bg-3 flex items-center justify-center text-sm font-bold text-text-secondary overflow-hidden">
                             {job.companyLogo.startsWith('http') ? (
-                                <img src={job.companyLogo} alt={job.company} className="w-full h-full object-cover" />
+                                <img loading="lazy" decoding="async" src={job.companyLogo} alt={job.company} className="w-full h-full object-cover" />
                             ) : (
                                 job.companyLogo
                             )}

@@ -29,6 +29,18 @@ export type BlockType =
     | 'interactive'
     | 'file'
     | 'story'
+    | 'index'
+    | 'marquee'
+    | 'footer'
+    | 'logo-showcase'
+    | 'logo-size'
+    | 'logo-misuse'
+    | 'type-specimen'
+    | 'color-accordion'
+    | 'icon-specimen'
+    | 'photo-grade'
+    | 'motif-field'
+    | 'social-mockup'
 
 export interface EditorContent {
     blocks: Block[]

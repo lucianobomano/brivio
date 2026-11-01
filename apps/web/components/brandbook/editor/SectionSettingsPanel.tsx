@@ -13,11 +13,15 @@ import {
     Upload,
     Loader2,
     Plus,
-    Minus
+    Minus,
+    Columns3,
+    Rows3
 } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { uploadBrandbookMedia } from "@/app/actions/brandbook"
+import { SmoothColorInput } from "./SmoothColorInput"
+import { TOP_BAR_CLEARANCE } from "./editorLayout"
 
 export interface GradientStop {
     color: string
@@ -28,6 +32,333 @@ export interface SectionGradient {
     type: 'linear' | 'radial'
     angle: number
     stops: GradientStop[]
+    /** Radial: center position in % of the section (default 50 / 50) */
+    center?: { x: number, y: number }
+    /** Radial: width in % of the section width; none = reaches the farthest corner */
+    size?: number
+    /** Radial: height of the shape relative to its width (1 = perfect circle, <1 flattened, >1 stretched) */
+    ratio?: number
+    /** Radial: edge softness in %; the color stops are squeezed towards the edge (100 = as set, default) */
+    feather?: number
+    /** Radial: extra color spots blended over the gradient (mesh-like) */
+    spots?: GradientSpot[]
+}
+
+export interface GradientSpot {
+    id: string
+    /** Position in % of the section */
+    x: number
+    y: number
+    color: string
+    /** Width in % of the section width */
+    size: number
+    /** Height relative to the width (1 = perfect circle) */
+    ratio?: number
+    /** Edge softness in %: 0 = solid color with a sharp edge, 100 = fades from the center (default) */
+    feather?: number
+}
+
+/** Same color with full transparency, so a spot fades out without darkening ('transparent' can) */
+const fadeOf = (color: string) => /^#[0-9a-f]{6}$/i.test(color) ? `${color}00` : 'transparent'
+
+/**
+ * Ellipse of a given width (% of the box width) and height/width ratio. With the box size it is drawn
+ * in pixels, so ratio 1 is a true circle on any section shape; without it (first paint) it falls back to %.
+ */
+const ellipseShape = (size: number, ratio: number | undefined, box?: { width: number, height: number }) => {
+    const r = ratio ?? 1
+    if (box && box.width > 0) {
+        const rx = (size / 100) * box.width / 2
+        return `ellipse ${Math.round(rx)}px ${Math.round(rx * r)}px`
+    }
+    return `ellipse ${size / 2}% ${(size / 2) * r}%`
+}
+
+/** CSS for a section gradient (the panel preview and the section use the same); pass the box size for exact shapes */
+export const sectionGradientCss = (g: SectionGradient, box?: { width: number, height: number }) => {
+    const stops = g.stops.map(s => `${s.color} ${s.offset}%`).join(', ')
+    if (g.type === 'linear') return `linear-gradient(${g.angle}deg, ${stops})`
+    const at = `at ${g.center?.x ?? 50}% ${g.center?.y ?? 50}%`
+    const shape = g.size ? ellipseShape(g.size, g.ratio, box) : 'circle'
+    // Feather of the main circle: the first color stays solid longer and the transition happens near the edge
+    const feather = Math.max(0.5, g.feather ?? 100)
+    const radialStops = g.feather === undefined
+        ? stops
+        : g.stops.map(s => `${s.color} ${(100 - feather) + (s.offset * feather) / 100}%`).join(', ')
+    // Spots are layers on top of the main gradient (first layer = topmost)
+    // Feather: the color stays solid up to (100 - feather)% of the radius, then fades out to the edge
+    // (a tiny fade is kept at 0 so the edge isn't jagged)
+    const spots = (g.spots || []).map(s => {
+        const solidUntil = Math.min(99.5, 100 - (s.feather ?? 100))
+        return `radial-gradient(${ellipseShape(s.size, s.ratio, box)} at ${s.x}% ${s.y}%, ${s.color} 0%, ${s.color} ${solidUntil}%, ${fadeOf(s.color)} 100%)`
+    })
+    return [...spots, `radial-gradient(${shape} ${at}, ${radialStops})`].join(', ')
+}
+
+/** Edge softness shared by the main circle and the spots (100 = softest, default) */
+const FeatherControl = ({ value, onChange }: { value?: number, onChange: (feather: number) => void }) => (
+    <div className="flex flex-col gap-1.5">
+        <div className="flex items-center justify-between">
+            <span className="text-[#97A1B3] text-[10px] uppercase font-bold tracking-wider">Feather</span>
+            <span className="text-[10px] text-white">{value ?? 100}%</span>
+        </div>
+        <input
+            type="range"
+            min={0}
+            max={100}
+            value={value ?? 100}
+            onChange={(e) => onChange(Number(e.target.value))}
+            className="w-full accent-[#FF0054] cursor-pointer"
+            aria-label="Suavidade da borda (feather)"
+        />
+    </div>
+)
+
+/** Shape control shared by the main circle and the spots: perfect circle, or flatten / stretch it */
+const ShapeControl = ({ ratio, onChange }: { ratio?: number, onChange: (ratio: number) => void }) => {
+    const r = ratio ?? 1
+    return (
+        <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+                <span className="text-[#97A1B3] text-[10px] uppercase font-bold tracking-wider">Forma</span>
+                <div className="flex items-center gap-1">
+                    <button
+                        onClick={() => onChange(1)}
+                        className={cn("px-2 h-5 rounded text-[10px]", r === 1 ? "bg-[#333] text-white" : "text-[#97A1B3] hover:text-white")}
+                        title="Círculo perfeito"
+                    >
+                        Círculo
+                    </button>
+                    <span className="text-[10px] text-white w-14 text-right">{r === 1 ? 'perfeito' : r < 1 ? `achatado ${Math.round(r * 100)}%` : `esticado ${Math.round(r * 100)}%`}</span>
+                </div>
+            </div>
+            <input
+                type="range"
+                min={20}
+                max={300}
+                step={5}
+                value={Math.round(r * 100)}
+                onChange={(e) => onChange(Number(e.target.value) / 100)}
+                className="w-full accent-[#FF0054] cursor-pointer"
+                aria-label="Altura em relação à largura (100% = círculo)"
+            />
+        </div>
+    )
+}
+
+const SPOT_COLORS = ['#06D6A0', '#390099', '#9E0059', '#FF0054', '#FFFFFF']
+const newSpotId = () => Math.random().toString(36).slice(2, 9)
+
+/**
+ * Radial gradient preview: drag the main handle to move the center, add color spots with "+",
+ * click a handle to select it and edit its color / size. Dashed rings show sizes.
+ */
+const RadialGradientEditor = ({ gradient, onChange }: { gradient: SectionGradient, onChange: (updates: Partial<SectionGradient>) => void }) => {
+    const boxRef = React.useRef<HTMLDivElement>(null)
+    const [selected, setSelected] = React.useState<string>('main')
+    const [dragging, setDragging] = React.useState<string | null>(null)
+    const spots = gradient.spots || []
+    const selectedSpot = spots.find(s => s.id === selected)
+    const cx = gradient.center?.x ?? 50
+    const cy = gradient.center?.y ?? 50
+
+    // Preview size in px: shapes are drawn in pixels like on the section, so a circle stays a circle
+    const [box, setBox] = React.useState<{ width: number, height: number }>()
+    React.useEffect(() => {
+        const el = boxRef.current
+        if (!el) return
+        const ro = new ResizeObserver(() => setBox({ width: el.clientWidth, height: el.clientHeight }))
+        ro.observe(el)
+        return () => ro.disconnect()
+    }, [])
+    /** Dashed ring of a shape: width = size% of the box width, height = width × ratio */
+    const ring = (x: number, y: number, size: number, ratio = 1) => {
+        if (!box) return null
+        const w = (size / 100) * box.width
+        const h = w * ratio
+        return (
+            <div
+                className="absolute border border-dashed border-white/70 rounded-[50%] pointer-events-none"
+                style={{ left: `calc(${x}% - ${w / 2}px)`, top: `calc(${y}% - ${h / 2}px)`, width: w, height: h }}
+            />
+        )
+    }
+
+    const pointToPercent =(clientX: number, clientY: number) => {
+        const rect = boxRef.current?.getBoundingClientRect()
+        if (!rect) return null
+        const clamp = (n: number) => Math.round(Math.max(0, Math.min(100, n)))
+        return { x: clamp(((clientX - rect.left) / rect.width) * 100), y: clamp(((clientY - rect.top) / rect.height) * 100) }
+    }
+    const updateSpot = (id: string, patch: Partial<GradientSpot>) =>
+        onChange({ spots: spots.map(s => s.id === id ? { ...s, ...patch } : s) })
+    const moveTarget = (target: string, clientX: number, clientY: number) => {
+        const p = pointToPercent(clientX, clientY)
+        if (!p) return
+        if (target === 'main') onChange({ center: p })
+        else updateSpot(target, p)
+    }
+    const addSpot = () => {
+        const spot: GradientSpot = { id: newSpotId(), x: 30, y: 30, color: SPOT_COLORS[spots.length % SPOT_COLORS.length], size: 80 }
+        onChange({ spots: [...spots, spot] })
+        setSelected(spot.id)
+    }
+    const removeSpot = (id: string) => {
+        onChange({ spots: spots.filter(s => s.id !== id) })
+        setSelected('main')
+    }
+
+    const handle = (id: string, x: number, y: number, color: string | undefined) => (
+        <div
+            key={id}
+            onPointerDown={(e) => {
+                e.stopPropagation()
+                boxRef.current?.setPointerCapture(e.pointerId)
+                setSelected(id)
+                setDragging(id)
+            }}
+            className={cn(
+                "absolute w-4 h-4 -ml-2 -mt-2 rounded-full border-2 cursor-grab active:cursor-grabbing transition-transform",
+                "shadow-[0_0_0_1px_rgba(0,0,0,0.35),0_2px_6px_rgba(0,0,0,0.4)]",
+                selected === id ? "border-white scale-125 z-10" : "border-white/70",
+                dragging === id && "scale-150"
+            )}
+            style={{ left: `${x}%`, top: `${y}%`, backgroundColor: color }}
+            title={id === 'main' ? 'Centro do gradiente' : 'Foco de cor'}
+        />
+    )
+
+    return (
+        <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between -mb-1">
+                <span className="text-[#97A1B3] text-[10px] uppercase font-bold tracking-wider">Focos de cor</span>
+                <button onClick={addSpot} className="flex items-center gap-1 text-[10px] text-[#FF0054] hover:opacity-80" title="Adicionar um foco de cor arrastável">
+                    <Plus className="w-3.5 h-3.5" /> Adicionar
+                </button>
+            </div>
+
+            <div
+                ref={boxRef}
+                className="relative h-[120px] rounded-md border border-[#333] overflow-hidden cursor-crosshair touch-none select-none"
+                style={{ background: sectionGradientCss(gradient, box) }}
+                // Clicking the background moves the selected handle there
+                onPointerDown={(e) => { e.currentTarget.setPointerCapture(e.pointerId); setDragging(selected); moveTarget(selected, e.clientX, e.clientY) }}
+                onPointerMove={(e) => { if (dragging) moveTarget(dragging, e.clientX, e.clientY) }}
+                onPointerUp={() => setDragging(null)}
+                onPointerCancel={() => setDragging(null)}
+                title="Arraste os círculos para mover o centro e os focos de cor"
+            >
+                {/* Size rings of the main gradient and of the selected spot */}
+                {gradient.size && selected === 'main' ? ring(cx, cy, gradient.size, gradient.ratio) : null}
+                {selectedSpot && ring(selectedSpot.x, selectedSpot.y, selectedSpot.size, selectedSpot.ratio)}
+                {handle('main', cx, cy, gradient.stops[0]?.color)}
+                {spots.map(s => handle(s.id, s.x, s.y, s.color))}
+            </div>
+
+            {selectedSpot ? (
+                /* Selected spot: color, size, remove */
+                <div className="flex flex-col gap-2 rounded-md border border-[#333] p-2.5">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[#97A1B3] text-[10px] uppercase font-bold tracking-wider">Foco selecionado</span>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setSelected('main')} className="text-[10px] text-[#97A1B3] hover:text-white">Centro</button>
+                            <button onClick={() => removeSpot(selectedSpot.id)} className="text-[#97A1B3] hover:text-[#FF0054]" title="Remover foco">
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <label className="relative w-6 h-6 rounded-full border border-white/20 overflow-hidden cursor-pointer shrink-0" style={{ backgroundColor: selectedSpot.color }}>
+                            <SmoothColorInput
+                                type="color"
+                                value={selectedSpot.color || '#ffffff'}
+                                onChange={(e) => updateSpot(selectedSpot.id, { color: e.target.value })}
+                                className="absolute inset-0 opacity-0 cursor-pointer"
+                            />
+                        </label>
+                        <input
+                            type="text"
+                            value={selectedSpot.color.toUpperCase()}
+                            onChange={(e) => { const v = e.target.value.trim(); if (/^#[0-9a-f]{0,6}$/i.test(v)) updateSpot(selectedSpot.id, { color: v }) }}
+                            className="flex-1 min-w-0 bg-[#15161B] border border-[#333] rounded px-2 h-6 text-[11px] text-white font-mono outline-none focus:border-[#666]"
+                        />
+                        <span className="text-[10px] text-[#97A1B3] whitespace-nowrap">X {selectedSpot.x}% · Y {selectedSpot.y}%</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[#97A1B3] text-[10px] uppercase font-bold tracking-wider">Tamanho</span>
+                        <span className="text-[10px] text-white">{selectedSpot.size}%</span>
+                    </div>
+                    <input
+                        type="range"
+                        min={10}
+                        max={300}
+                        value={selectedSpot.size}
+                        onChange={(e) => updateSpot(selectedSpot.id, { size: Number(e.target.value) })}
+                        className="w-full accent-[#FF0054] cursor-pointer"
+                        aria-label="Diâmetro do foco de cor"
+                    />
+                    <ShapeControl ratio={selectedSpot.ratio} onChange={(ratio) => updateSpot(selectedSpot.id, { ratio })} />
+                    <FeatherControl value={selectedSpot.feather} onChange={(feather) => updateSpot(selectedSpot.id, { feather })} />
+                </div>
+            ) : (
+                <>
+                    <div className="flex items-center justify-between">
+                        <span className="text-[#97A1B3] text-[10px] uppercase font-bold tracking-wider">Centro</span>
+                        <div className="flex items-center gap-1.5 text-[10px] text-[#97A1B3]">
+                            X <span className="text-white w-7 text-right">{cx}%</span>
+                            Y <span className="text-white w-7 text-right">{cy}%</span>
+                            <button
+                                onClick={() => onChange({ center: undefined })}
+                                className="ml-1 text-[#97A1B3] hover:text-white"
+                                title="Centrar"
+                            >
+                                <RotateCcw className="w-3 h-3" />
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                        <div className="flex items-center justify-between">
+                            <span className="text-[#97A1B3] text-[10px] uppercase font-bold tracking-wider">Tamanho</span>
+                            <div className="flex items-center gap-1">
+                                <button
+                                    onClick={() => onChange({ size: undefined })}
+                                    className={cn("px-2 h-5 rounded text-[10px]", !gradient.size ? "bg-[#333] text-white" : "text-[#97A1B3] hover:text-white")}
+                                    title="Até ao canto mais distante"
+                                >
+                                    Auto
+                                </button>
+                                <div className="flex items-center bg-[#15161B] border border-[#333] rounded px-1.5 h-5">
+                                    <input
+                                        type="number"
+                                        min={10}
+                                        max={300}
+                                        value={gradient.size ?? ''}
+                                        placeholder="—"
+                                        onChange={(e) => onChange({ size: Math.max(10, Math.min(300, Number(e.target.value) || 0)) || undefined })}
+                                        className="bg-transparent border-none text-white text-[10px] w-8 text-right outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <span className="text-[#97A1B3] text-[10px]">%</span>
+                                </div>
+                            </div>
+                        </div>
+                        <input
+                            type="range"
+                            min={10}
+                            max={300}
+                            value={gradient.size ?? 150}
+                            onChange={(e) => onChange({ size: Number(e.target.value) })}
+                            className="w-full accent-[#FF0054] cursor-pointer"
+                            aria-label="Diâmetro do gradiente radial"
+                        />
+                    </div>
+                    {/* Shape only applies once the circle has a size ("Auto" reaches the corners) */}
+                    {gradient.size ? <ShapeControl ratio={gradient.ratio} onChange={(ratio) => onChange({ ratio })} /> : null}
+                    <FeatherControl value={gradient.feather} onChange={(feather) => onChange({ feather })} />
+                </>
+            )}
+        </div>
+    )
 }
 
 // Define the settings shape matching our UI controls
@@ -62,11 +393,158 @@ export interface SectionSettings {
     rowPadding?: string
     columnWidths?: number[]
     isFullWidth?: boolean
+    /** 'fluid': the content takes the whole width minus the section padding (no device content box) */
+    contentWidth?: 'boxed' | 'fluid'
+    /** Scroll effect (Preview / shared link): 'rail' = columns slide sideways as cards in a pinned screen,
+     *  'stages' = pinned screen that steps through the blocks of the first column */
+    scrollEffect?: 'none' | 'rail' | 'stages'
+    /** Card width in the rail, % of the screen width */
+    railCardWidth?: number
     isFullHeight?: boolean
     alignHorizontal?: 'left' | 'center' | 'right'
     alignVertical?: 'top' | 'middle' | 'bottom'
     noColumnGap?: boolean
     columnGap?: number
+    /** 'horizontal': columns side by side (default) · 'vertical': columns stacked as full-width rows */
+    columnDirection?: 'horizontal' | 'vertical'
+    /** How the columns use the room along the direction (default: 'fill' horizontal, 'packed' vertical) */
+    columnDistribution?: 'fill' | 'packed' | 'between' | 'around' | 'evenly'
+    /** Space around the section (px) */
+    sectionMargin?: SectionSides
+    /** Corner rounding (px): top = top-left, right = top-right, bottom = bottom-right, left = bottom-left */
+    sectionRadius?: SectionSides
+}
+
+export interface SectionSides {
+    isLocked: boolean
+    top: number
+    right: number
+    bottom: number
+    left: number
+}
+
+/** Height modes of a section besides the sizes: as tall as its content, or all the height left on the page */
+export const SECTION_HEIGHT_MODES = ['fit', 'fill'] as const
+
+/** Section set to the full screen height ("100vh"; legacy 16:9 sections too) */
+export const isFullScreenSection = (settings?: Partial<SectionSettings>) =>
+    settings?.height === '100vh' || settings?.aspectRatio === '16:9'
+
+/**
+ * Height that makes a full-screen section exactly fill the screen: 100vh minus its vertical margin.
+ * With `inner`, also minus the section padding: the room left for the columns inside.
+ */
+export const fullScreenHeight = (settings?: Partial<SectionSettings>, inner = false) => {
+    const marginY = (settings?.sectionMargin?.top || 0) + (settings?.sectionMargin?.bottom || 0)
+    const paddingY = settings?.isFullHeight ? 0 : (settings?.sectionPadding?.top ?? 40) + (settings?.sectionPadding?.bottom ?? 40)
+    const minus = marginY + (inner ? paddingY : 0)
+    return minus ? `calc(100vh - ${minus}px)` : '100vh'
+}
+
+/**
+ * Distribution icons: two columns (bars) between the section edges (lines), drawn left to right.
+ * x / width of each column inside a 16-wide box whose inner room runs from 2 to 14.
+ */
+const DISTRIBUTION_ICONS: Record<'fill' | 'packed' | 'between' | 'around' | 'evenly', [number, number][]> = {
+    fill: [[2, 5.5], [8.5, 5.5]],
+    packed: [[4.75, 3], [8.25, 3]],
+    between: [[2, 3], [11, 3]],
+    around: [[3.5, 3], [9.5, 3]],
+    evenly: [[4, 3], [9, 3]],
+}
+
+export const DistributionIcon = ({ type, vertical }: { type: keyof typeof DISTRIBUTION_ICONS, vertical?: boolean }) => (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={cn("transition-transform", vertical && "rotate-90")} aria-hidden>
+        <rect x="0.5" y="2" width="1" height="12" fill="currentColor" opacity="0.5" />
+        <rect x="14.5" y="2" width="1" height="12" fill="currentColor" opacity="0.5" />
+        {DISTRIBUTION_ICONS[type].map(([x, w], i) => (
+            <rect key={i} x={x} y="4" width={w} height="8" rx="0.75" fill="currentColor" />
+        ))}
+    </svg>
+)
+
+const NO_SIDES: SectionSides = { isLocked: true, top: 0, right: 0, bottom: 0, left: 0 }
+
+/**
+ * Corner icon for the rounding inputs: a faint square with the one corner it edits drawn rounded and bright
+ * (top-left by default, rotated for the others)
+ */
+const CornerIcon = ({ corner }: { corner: 'tl' | 'tr' | 'br' | 'bl' }) => {
+    const rotation = { tl: 0, tr: 90, br: 180, bl: 270 }[corner]
+    const label = { tl: 'Canto superior esquerdo', tr: 'Canto superior direito', br: 'Canto inferior direito', bl: 'Canto inferior esquerdo' }[corner]
+    return (
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-label={label} role="img" style={{ transform: `rotate(${rotation}deg)` }}>
+            <title>{label}</title>
+            {/* The rest of the square, faint */}
+            <path d="M7 1.5H10.5V10.5H1.5V7" stroke="currentColor" strokeOpacity="0.3" strokeWidth="1" />
+            {/* The edited corner, rounded */}
+            <path d="M1.5 7V5A3.5 3.5 0 0 1 5 1.5H7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        </svg>
+    )
+}
+
+/** Four values with a lock: locked edits all at once, unlocked edits each one */
+const SidesControl = ({ label, labels, value, onChange }: {
+    label: string
+    labels: [React.ReactNode, React.ReactNode, React.ReactNode, React.ReactNode]
+    value?: SectionSides
+    onChange: (value: SectionSides) => void
+}) => {
+    const v = { ...NO_SIDES, ...(value || {}) }
+    const parse = (text: string) => Math.max(0, parseInt(text.replace(/\D/g, '')) || 0)
+    const keys = ['top', 'right', 'bottom', 'left'] as const
+    const set = (key: typeof keys[number] | 'all', text: string) => {
+        const n = parse(text)
+        onChange(key === 'all' ? { ...v, top: n, right: n, bottom: n, left: n } : { ...v, [key]: n })
+    }
+    const toggleLock = () => onChange(v.isLocked
+        ? { ...v, isLocked: false }
+        // Locking evens every side out to the first one
+        : { isLocked: true, top: v.top, right: v.top, bottom: v.top, left: v.top })
+
+    return (
+        <div className="flex flex-col gap-2 border-b border-[#333] pb-4">
+            <div className="flex items-center justify-between">
+                <Label className="mb-0 text-[#97A1B3]">{label}</Label>
+                <button
+                    onClick={toggleLock}
+                    className="text-[#97A1B3] hover:text-white transition-colors"
+                    title={v.isLocked ? "Definir cada lado" : "Igual em todos os lados"}
+                >
+                    {v.isLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
+                </button>
+            </div>
+
+            {v.isLocked ? (
+                <div className="flex items-center justify-between w-full mt-2">
+                    <span className="text-[#97A1B3] text-[10px] font-medium">ALL</span>
+                    <div className="flex items-center bg-[#1A1A20] border border-[#333] rounded-[2px] px-2 h-[26px] w-[60px]">
+                        <input
+                            type="text"
+                            value={v.top}
+                            onChange={(e) => set('all', e.target.value)}
+                            className="bg-transparent border-none text-white text-xs w-full text-right outline-none px-1"
+                        />
+                        <span className="text-[#97A1B3] text-[10px] select-none">px</span>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid grid-cols-4 gap-1">
+                    {keys.map((key, i) => (
+                        <div key={key} className="flex flex-col items-center gap-1">
+                            <span className="text-[#97A1B3] text-[9px] h-3 flex items-center">{labels[i]}</span>
+                            <input
+                                type="text"
+                                value={v[key]}
+                                onChange={(e) => set(key, e.target.value)}
+                                className="bg-[#1A1A20] border border-[#333] text-white w-full text-center text-[12px] rounded-[2px] py-1 outline-none focus:border-[#666] transition-colors"
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
 }
 
 interface SectionSettingsPanelProps {
@@ -130,6 +608,9 @@ export function SectionSettingsPanel({
     const [backgroundColor, setBackgroundColor] = useState(settings?.backgroundColor || 'transparent')
     const [isFullWidth, setIsFullWidth] = useState(settings?.isFullWidth || false)
     const [isFullHeight, setIsFullHeight] = useState(settings?.isFullHeight || false)
+    const [isFluid, setIsFluid] = useState(settings?.contentWidth === 'fluid')
+    const [scrollEffect, setScrollEffect] = useState<'none' | 'rail' | 'stages'>(settings?.scrollEffect || 'none')
+    const [railCardWidth, setRailCardWidth] = useState<number>(settings?.railCardWidth || 36)
     const [alignHorizontal, setAlignHorizontal] = useState<'left' | 'center' | 'right'>(settings?.alignHorizontal || 'center')
     const [alignVertical, setAlignVertical] = useState<'top' | 'middle' | 'bottom'>(settings?.alignVertical || 'top')
     const [noColumnGap, setNoColumnGap] = useState(settings?.noColumnGap || false)
@@ -166,7 +647,8 @@ export function SectionSettingsPanel({
             const panelHeight = Math.min(760, windowHeight - 40) // 20px padding top/bottom
             const maxTop = windowHeight - panelHeight - 20
             setSafeHeight(panelHeight)
-            setSafeTop(Math.max(20, Math.min(initialTop, maxTop)))
+            // Never above the editor's top bar
+            setSafeTop(Math.max(TOP_BAR_CLEARANCE, Math.min(initialTop, maxTop)))
         }
     }, [initialTop])
 
@@ -246,6 +728,8 @@ export function SectionSettingsPanel({
 
     // Effect to sync separate states if needed? 
     // Ideally we just call emitUpdate on every change.
+
+    const isVerticalColumns = settings?.columnDirection === 'vertical'
 
     const handleColChange = (col: number) => {
         setSelectedCol(col)
@@ -592,6 +1076,7 @@ export function SectionSettingsPanel({
                             onClick={() => handleColChange(2)}
                             className={cn(
                                 "flex-1 h-[35px] border rounded-[2px] transition-all relative flex gap-[1px] p-[3px]",
+                                isVerticalColumns && "flex-col",
                                 selectedCol === 2
                                     ? "border-[#FF0054] shadow-[0_0_0_1px_rgba(255,0,80,0.1)]"
                                     : "border-[#333] hover:border-[#666]"
@@ -606,6 +1091,7 @@ export function SectionSettingsPanel({
                             onClick={() => handleColChange(3)}
                             className={cn(
                                 "flex-1 h-[35px] border rounded-[2px] transition-all relative flex gap-[1px] p-[3px]",
+                                isVerticalColumns && "flex-col",
                                 selectedCol === 3
                                     ? "border-[#FF0054] shadow-[0_0_0_1px_rgba(255,0,80,0.1)]"
                                     : "border-[#333] hover:border-[#666]"
@@ -621,6 +1107,7 @@ export function SectionSettingsPanel({
                             onClick={() => handleColChange(4)}
                             className={cn(
                                 "flex-1 h-[35px] border rounded-[2px] transition-all relative flex gap-[1px] p-[3px]",
+                                isVerticalColumns && "flex-col",
                                 selectedCol === 4
                                     ? "border-[#FF0054] shadow-[0_0_0_1px_rgba(255,0,80,0.1)]"
                                     : "border-[#333] hover:border-[#666]"
@@ -631,6 +1118,63 @@ export function SectionSettingsPanel({
                             <div className="flex-1 border border-[#444] rounded-[1px]" />
                             <div className="flex-1 border border-[#444] rounded-[1px]" />
                         </button>
+                    </div>
+                </div>
+
+                {/* 1.1 Direção das colunas */}
+                <div className="flex flex-col gap-2 -mt-3">
+                    <span className="text-[#97A1B3] text-[0.75rem] font-medium">Direção</span>
+                    <div className="flex gap-1 w-full bg-[#15161B] rounded-[4px] p-1">
+                        {([
+                            { id: 'horizontal', label: 'Horizontal', icon: Columns3, title: 'Colunas lado a lado' },
+                            { id: 'vertical', label: 'Vertical', icon: Rows3, title: 'Colunas empilhadas, uma por baixo da outra' },
+                        ] as const).map(option => {
+                            const active = (settings?.columnDirection || 'horizontal') === option.id
+                            return (
+                                <button
+                                    key={option.id}
+                                    title={option.title}
+                                    onClick={() => emitUpdate({ columnDirection: option.id })}
+                                    className={cn(
+                                        "flex-1 h-[30px] flex items-center justify-center gap-1.5 rounded-[2px] text-[11px] font-medium transition-colors",
+                                        active ? "bg-[#FF0054] text-white" : "text-[#97A1B3] hover:text-white hover:bg-[#2A2B35]"
+                                    )}
+                                >
+                                    <option.icon className="w-3.5 h-3.5" />
+                                    {option.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
+
+                {/* 1.2 Distribuição das colunas */}
+                <div className="flex flex-col gap-2 -mt-3">
+                    <span className="text-[#97A1B3] text-[0.75rem] font-medium">Distribuição</span>
+                    <div className="grid grid-cols-5 gap-1 w-full bg-[#15161B] rounded-[4px] p-1">
+                        {([
+                            { id: 'fill', title: 'Preencher — as colunas ocupam todo o espaço' },
+                            { id: 'packed', title: 'Agrupar — as colunas ficam juntas, onde o alinhamento indicar' },
+                            { id: 'between', title: 'Espaço entre — o espaço livre fica entre as colunas' },
+                            { id: 'around', title: 'Espaço à volta — o espaço livre fica à volta de cada coluna' },
+                            { id: 'evenly', title: 'Distribuído — espaços iguais entre as colunas e nas pontas' },
+                        ] as const).map(option => {
+                            const current = settings?.columnDistribution || (isVerticalColumns ? 'packed' : 'fill')
+                            return (
+                                <button
+                                    key={option.id}
+                                    title={option.title}
+                                    aria-label={option.title}
+                                    onClick={() => emitUpdate({ columnDistribution: option.id })}
+                                    className={cn(
+                                        "h-[30px] flex items-center justify-center rounded-[2px] transition-colors",
+                                        current === option.id ? "bg-[#FF0054] text-white" : "text-[#97A1B3] hover:text-white hover:bg-[#2A2B35]"
+                                    )}
+                                >
+                                    <DistributionIcon type={option.id} vertical={isVerticalColumns} />
+                                </button>
+                            )
+                        })}
                     </div>
                 </div>
 
@@ -748,6 +1292,57 @@ export function SectionSettingsPanel({
                     </div>
                 </div>
 
+                {/* 2.55 Content width: the padding sets the margins (no fixed content box) */}
+                <div className="flex items-center justify-between mt-4 gap-3">
+                    <div className="flex flex-col">
+                        <Label className="mb-0 text-[#97A1B3]">Conteúdo segue o padding</Label>
+                        <span className="text-[10px] text-[#666] leading-snug mt-0.5">Sem largura fixa: o conteúdo ocupa tudo menos o padding.</span>
+                    </div>
+                    <div
+                        className={cn(
+                            "w-[36px] h-[20px] rounded-[999px] relative cursor-pointer transition-colors shrink-0",
+                            isFluid ? "bg-[#FF0054]" : "bg-[#3F3F46]"
+                        )}
+                        onClick={() => { const next = !isFluid; setIsFluid(next); emitUpdate({ contentWidth: next ? 'fluid' : 'boxed' }) }}
+                    >
+                        <div className={cn(
+                            "w-[16px] h-[16px] bg-white rounded-full absolute top-[2px] shadow-sm transition-all",
+                            isFluid ? "right-[2px]" : "left-[2px]"
+                        )} />
+                    </div>
+                </div>
+
+                {/* 2.58 Scroll effect */}
+                <div className="flex flex-col gap-2 mt-5">
+                    <Label className="mb-0 text-[#97A1B3]">Efeito de scroll</Label>
+                    <div className="grid grid-cols-3 gap-1 bg-[#15161B] p-1 rounded-md">
+                        {([['none', 'Nenhum'], ['rail', 'Faixa horizontal'], ['stages', 'Etapas fixas']] as const).map(([id, label]) => (
+                            <button
+                                key={id}
+                                type="button"
+                                onClick={() => { setScrollEffect(id); emitUpdate({ scrollEffect: id }) }}
+                                className={cn("h-8 rounded text-[11px] font-semibold transition-colors", scrollEffect === id ? "bg-[#FF0054] text-white" : "text-[#97A1B3] hover:text-white")}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                    {scrollEffect === 'rail' && (
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-[#97A1B3]">Largura de cada cartão</span>
+                                <span className="text-[11px] text-white">{railCardWidth}% do ecrã</span>
+                            </div>
+                            <input type="range" min={20} max={80} value={railCardWidth} onChange={(e) => { const v = Number(e.target.value); setRailCardWidth(v); emitUpdate({ railCardWidth: v }) }} className="w-full accent-[#FF0054]" />
+                        </div>
+                    )}
+                    <span className="text-[10px] text-[#666] leading-snug">
+                        {scrollEffect === 'rail' ? 'A secção fica fixa no ecrã e as colunas passam na horizontal enquanto se desce, a dobrar com a velocidade. Veja em Preview.'
+                            : scrollEffect === 'stages' ? 'A secção fica fixa e percorre os blocos da primeira coluna, um por ecrã. As outras colunas mostram o bloco da etapa atual (ex.: um texto por etapa à esquerda, uma imagem por etapa à direita). Veja em Preview.'
+                                : 'A secção desce normalmente.'}
+                    </span>
+                </div>
+
                 {/* 2.6 Altura Total */}
                 <div className="flex items-center justify-between mt-4">
                     <Label className="mb-0 text-[#97A1B3]">Altura total da coluna</Label>
@@ -763,78 +1358,6 @@ export function SectionSettingsPanel({
                             isFullHeight ? "right-[2px]" : "left-[2px]"
                         )} />
                     </div>
-                </div>
-
-                {/* 3. Padding Column */}
-                <div className="flex flex-col gap-2 border-b border-[#333] pb-4">
-                    <div className="flex items-center justify-between">
-                        <Label className="mb-0 text-[#97A1B3]">Padding column</Label>
-                        <button
-                            onClick={handlePaddingLockChange}
-                            className="text-[#97A1B3] hover:text-white transition-colors"
-                            title={isPaddingLocked ? "Unlock individual padding" : "Lock uniform padding"}
-                        >
-                            {isPaddingLocked ? <Lock className="w-3 h-3" /> : <Unlock className="w-3 h-3" />}
-                        </button>
-                    </div>
-
-                    {isPaddingLocked ? (
-                        /* Locked - Single Value */
-                        <div className="flex items-center justify-between w-full mt-2">
-                            <span className="text-[#97A1B3] text-[10px] font-medium">ALL</span>
-                            <div className="flex items-center bg-[#1A1A20] border border-[#333] rounded-[2px] px-2 h-[26px] w-[60px]">
-                                <input
-                                    type="text"
-                                    value={paddingTop}
-                                    onChange={(e) => handlePaddingChange('all', e.target.value)}
-                                    className="bg-transparent border-none text-white text-xs w-full text-right outline-none px-1"
-                                />
-                                <span className="text-[#97A1B3] text-[10px] select-none">px</span>
-                            </div>
-                        </div>
-                    ) : (
-                        /* Unlocked - 4 Inputs */
-                        <div className="grid grid-cols-4 gap-1">
-                            <div className="flex flex-col items-center gap-1">
-                                <span className="text-[#97A1B3] text-[9px]">T</span>
-                                <input
-                                    type="text"
-                                    value={paddingTop}
-                                    onChange={(e) => handlePaddingChange('top', e.target.value)}
-                                    className="bg-[#1A1A20] border border-[#333] text-white w-full text-center text-[12px] rounded-[2px] py-1 outline-none focus:border-[#666] transition-colors"
-                                />
-                            </div>
-                            <div className={cn("flex flex-col items-center gap-1", isFullWidth && "opacity-30")}>
-                                <span className="text-[#97A1B3] text-[9px]">R</span>
-                                <input
-                                    type="text"
-                                    value={isFullWidth ? 0 : paddingRight}
-                                    onChange={(e) => handlePaddingChange('right', e.target.value)}
-                                    disabled={isFullWidth}
-                                    className="bg-[#1A1A20] border border-[#333] text-white w-full text-center text-[12px] rounded-[2px] py-1 outline-none focus:border-[#666] transition-colors disabled:cursor-not-allowed"
-                                />
-                            </div>
-                            <div className="flex flex-col items-center gap-1">
-                                <span className="text-[#97A1B3] text-[9px]">B</span>
-                                <input
-                                    type="text"
-                                    value={paddingBottom}
-                                    onChange={(e) => handlePaddingChange('bottom', e.target.value)}
-                                    className="bg-[#1A1A20] border border-[#333] text-white w-full text-center text-[12px] rounded-[2px] py-1 outline-none focus:border-[#666] transition-colors"
-                                />
-                            </div>
-                            <div className={cn("flex flex-col items-center gap-1", isFullWidth && "opacity-30")}>
-                                <span className="text-[#97A1B3] text-[9px]">L</span>
-                                <input
-                                    type="text"
-                                    value={isFullWidth ? 0 : paddingLeft}
-                                    onChange={(e) => handlePaddingChange('left', e.target.value)}
-                                    disabled={isFullWidth}
-                                    className="bg-[#1A1A20] border border-[#333] text-white w-full text-center text-[12px] rounded-[2px] py-1 outline-none focus:border-[#666] transition-colors disabled:cursor-not-allowed"
-                                />
-                            </div>
-                        </div>
-                    )}
                 </div>
 
                 {/* 3.5. Padding section (Moved Here) */}
@@ -909,6 +1432,20 @@ export function SectionSettingsPanel({
                     )}
                 </div>
 
+                {/* 3.55 Margem e arredondamento da secção */}
+                <SidesControl
+                    label="Margem section"
+                    labels={['T', 'R', 'B', 'L']}
+                    value={settings?.sectionMargin}
+                    onChange={(sectionMargin) => emitUpdate({ sectionMargin })}
+                />
+                <SidesControl
+                    label="Arredondamento"
+                    labels={[<CornerIcon key="tl" corner="tl" />, <CornerIcon key="tr" corner="tr" />, <CornerIcon key="br" corner="br" />, <CornerIcon key="bl" corner="bl" />]}
+                    value={settings?.sectionRadius}
+                    onChange={(sectionRadius) => emitUpdate({ sectionRadius })}
+                />
+
                 {/* 3.6 Espaçamento entre colunas */}
                 <div className="flex flex-col gap-3 py-4 border-b border-[#333]">
                     <div className="flex items-center justify-between">
@@ -961,10 +1498,34 @@ export function SectionSettingsPanel({
                             onClick={() => handleHeightChange('')} // Reset to auto
                         />
                     </div>
+                    {/* Fit to content / Fill container */}
+                    <div className="grid grid-cols-2 gap-1 bg-[#15161B] rounded-[4px] p-1 mb-[6px]">
+                        {([
+                            { id: 'fit', label: 'Ajustar ao conteúdo', title: 'Fit to content — a secção tem só a altura do seu conteúdo' },
+                            { id: 'fill', label: 'Preencher', title: 'Fill container — a secção ocupa toda a altura que sobra na página' },
+                        ] as const).map(option => {
+                            const active = selectedHeight === option.id
+                            return (
+                                <button
+                                    key={option.id}
+                                    title={option.title}
+                                    // Clicking the active mode again goes back to the default (auto)
+                                    onClick={() => handleHeightChange(active ? '' : option.id)}
+                                    className={cn(
+                                        "h-[28px] rounded-[2px] text-[11px] font-medium transition-colors",
+                                        active ? "bg-[#FF0054] text-white" : "text-[#97A1B3] hover:text-white hover:bg-[#2A2B35]"
+                                    )}
+                                >
+                                    {option.label}
+                                </button>
+                            )
+                        })}
+                    </div>
                     <div className="flex gap-[6px] w-full">
                         {['XS', 'S', 'M', 'L', 'XL', '100vh'].map((size) => (
                             <button
                                 key={size}
+                                title={size === '100vh' ? "Altura total do ecrã" : undefined}
                                 onClick={() => handleHeightChange(size)}
                                 className={cn(
                                     "flex-1 h-[35px] flex items-center justify-center border rounded-[2px] cursor-pointer text-[10px] font-medium transition-colors uppercase",
@@ -973,7 +1534,7 @@ export function SectionSettingsPanel({
                                         : "border-[#15161B] text-[#97A1B3] hover:border-[#FF0054] hover:text-[#FF0054]"
                                 )}
                             >
-                                {size}
+                                {size === '100vh' ? <span className="normal-case">100vh</span> : size}
                             </button>
                         ))}
                     </div>
@@ -984,7 +1545,7 @@ export function SectionSettingsPanel({
                         <div className="flex items-center">
                             <input
                                 type="text"
-                                value={!['XS', 'S', 'M', 'L', 'XL', '100vh', ''].includes(selectedHeight) ? selectedHeight.replace('px', '') : ''}
+                                value={!['XS', 'S', 'M', 'L', 'XL', '100vh', 'fit', 'fill', ''].includes(selectedHeight) ? selectedHeight.replace('px', '') : ''}
                                 onChange={(e) => {
                                     const val = e.target.value
                                     if (val === '') {
@@ -1127,55 +1688,6 @@ export function SectionSettingsPanel({
                     </div>
                 </div>
 
-                {/* 7. Distribuição */}
-                <div>
-                    <Label className="text-[#97A1B3]">Distribuição</Label>
-                    <div className="grid grid-cols-4 gap-2 w-full">
-                        {/* Button 1: Space Between, Full Height */}
-                        <div
-                            onClick={() => handleDistributionChange('between-full')}
-                            className={cn(
-                                "h-[35px] flex items-center justify-between border rounded-[2px] transition-colors cursor-pointer overflow-hidden",
-                                distribution === 'between-full' ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]"
-                            )}
-                        >
-                            <div className="w-3 h-full bg-[#27282D]" />
-                            <div className="w-3 h-full bg-[#27282D]" />
-                        </div>
-                        {/* Button 2: 75% width, 70% height */}
-                        <div
-                            onClick={() => handleDistributionChange('center-narrow')}
-                            className={cn(
-                                "h-[35px] flex items-center justify-center border rounded-[2px] transition-colors cursor-pointer",
-                                distribution === 'center-narrow' ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]"
-                            )}
-                        >
-                            <div className="w-[75%] h-[70%] bg-[#27282D]" />
-                        </div>
-                        {/* Button 3: 100% width, 70% height */}
-                        <div
-                            onClick={() => handleDistributionChange('center-wide')}
-                            className={cn(
-                                "h-[35px] flex items-center justify-center border rounded-[2px] transition-colors cursor-pointer",
-                                distribution === 'center-wide' ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]"
-                            )}
-                        >
-                            <div className="w-full h-[70%] bg-[#27282D]" />
-                        </div>
-                        {/* Button 4: Space Between, 80% Height, Padding 5px */}
-                        <div
-                            onClick={() => handleDistributionChange('between-narrow')}
-                            className={cn(
-                                "h-[35px] flex items-center justify-between border rounded-[2px] transition-colors cursor-pointer overflow-hidden px-[5px]",
-                                distribution === 'between-narrow' ? "border-[#FF0054]" : "border-[#333] hover:border-[#FF0054]"
-                            )}
-                        >
-                            <div className="w-3 h-[80%] bg-[#27282D]" />
-                            <div className="w-3 h-[80%] bg-[#27282D]" />
-                        </div>
-                    </div>
-                </div>
-
                 {/* 8. Row Padding */}
                 <div>
                     <Label className="text-[#97A1B3]">Row padding</Label>
@@ -1283,7 +1795,7 @@ export function SectionSettingsPanel({
                                 />
                                 {backgroundImage && (
                                     <div className="absolute inset-0 rounded-lg overflow-hidden pointer-events-none">
-                                        <img src={backgroundImage} alt="Background" className="w-full h-full object-cover opacity-30" />
+                                        <img loading="lazy" decoding="async" src={backgroundImage} alt="Background" className="w-full h-full object-cover opacity-30" />
                                     </div>
                                 )}
                             </>
@@ -1294,7 +1806,7 @@ export function SectionSettingsPanel({
                 {selectedTab === 'color' && (
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full border border-[#333] overflow-hidden relative">
-                            <input
+                            <SmoothColorInput
                                 type="color"
                                 value={backgroundColor}
                                 onChange={handleColorChange}
@@ -1341,15 +1853,15 @@ export function SectionSettingsPanel({
                             )}
                         </div>
 
-                        {/* Gradient Preview Area */}
-                        <div
-                            className="h-10 rounded-md border border-[#333]"
-                            style={{
-                                background: backgroundGradient.type === 'linear'
-                                    ? `linear-gradient(${backgroundGradient.angle}deg, ${backgroundGradient.stops.map(s => `${s.color} ${s.offset}%`).join(', ')})`
-                                    : `radial-gradient(circle, ${backgroundGradient.stops.map(s => `${s.color} ${s.offset}%`).join(', ')})`
-                            }}
-                        />
+                        {/* Gradient Preview Area (radial: center handle + size) */}
+                        {backgroundGradient.type === 'radial' ? (
+                            <RadialGradientEditor gradient={backgroundGradient} onChange={handleGradientChange} />
+                        ) : (
+                            <div
+                                className="h-10 rounded-md border border-[#333]"
+                                style={{ background: sectionGradientCss(backgroundGradient) }}
+                            />
+                        )}
 
                         {/* Gradient Stops */}
                         <div className="flex flex-col gap-2">
@@ -1363,7 +1875,7 @@ export function SectionSettingsPanel({
                                 {backgroundGradient.stops.map((stop, idx) => (
                                     <div key={idx} className="flex items-center gap-2 bg-[#15161B] p-1.5 rounded-md border border-[#333]">
                                         <div className="w-5 h-5 rounded-full border border-[#444] overflow-hidden relative shrink-0">
-                                            <input
+                                            <SmoothColorInput
                                                 type="color"
                                                 value={stop.color}
                                                 onChange={(e) => handleUpdateGradientStop(idx, { color: e.target.value })}

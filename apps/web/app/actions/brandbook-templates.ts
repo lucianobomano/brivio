@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache"
 import { BUILTIN_BRANDBOOK_TEMPLATES, BuiltinBrandbookTemplate } from "@/lib/brandbook-templates"
 import { mapPageToCategory } from "@/lib/brandbook-utils"
 import { checkIsAdmin } from "@/app/actions/admin"
+import { BUILTIN_OVERRIDE_PREFIX, getBuiltinOverrides, isBuiltinOverrideRow, resolveTemplateModules } from "@/lib/brandbook-template-store"
+import { createBrand } from "@/app/actions/brands"
 
 interface SaveTemplateParams {
     name: string
@@ -32,6 +34,8 @@ export interface UnifiedTemplate {
     created_by?: string | null
     modules_json: any[]
     created_at?: string
+    /** Built-in template whose pages a superadmin has edited */
+    is_edited?: boolean
 }
 
 const CATEGORY_STYLES: Record<string, { label: string; gradient: string; accentColor: string; tags: string[] }> = {
@@ -109,7 +113,7 @@ export async function saveBrandbookAsTemplate(params: SaveTemplateParams) {
 
         // 2. Check if user is Super Admin
         const { isAdmin, role } = await checkIsAdmin(user.email)
-        const isSuperAdmin = (isAdmin && role === 'superadmin') || user.user_metadata?.is_superadmin === true
+        const isSuperAdmin = (isAdmin && role === 'superadmin') || user.app_metadata?.is_superadmin === true
         console.log('[Templates] User saving template:', { email: user.email, isSuperAdmin, role })
 
         const adminSupabase = await createAdminClient()
@@ -249,7 +253,9 @@ export async function getBrandbookTemplates(category?: string): Promise<{
             currentUserId = user?.id || null
         } catch {}
 
-        // 1. Built-in templates
+        // 1. Built-in templates (with a superadmin's edits, when there are any)
+        let overrides: Record<string, { modules: any[] }> = {}
+        try { overrides = await getBuiltinOverrides(await createAdminClient()) } catch {}
         const builtinTemplates: UnifiedTemplate[] = BUILTIN_BRANDBOOK_TEMPLATES.map(t => ({
             id: t.id,
             name: t.name,
@@ -264,7 +270,8 @@ export async function getBrandbookTemplates(category?: string): Promise<{
             is_builtin: true,
             is_mine: false,
             created_by: null,
-            modules_json: t.modules_json
+            modules_json: overrides[t.id]?.modules || t.modules_json,
+            is_edited: !!overrides[t.id],
         }))
 
         // 2. Fetch from Supabase database
@@ -279,7 +286,8 @@ export async function getBrandbookTemplates(category?: string): Promise<{
             const { data, error } = await query
 
             if (!error && data) {
-                dbTemplates = data.map((t: any) => {
+                // Edited built-in pages are stored as hidden rows: not templates of their own
+                dbTemplates = data.filter((t: any) => !isBuiltinOverrideRow(t)).map((t: any) => {
                     const catStyle = CATEGORY_STYLES[t.category] || CATEGORY_STYLES.custom
                     return {
                         id: t.id,
@@ -377,7 +385,7 @@ export async function getTemplateById(templateId: string): Promise<{
                 thumbnail_url: null,
                 is_public: true,
                 is_builtin: true,
-                modules_json: builtin.modules_json
+                modules_json: (await resolveTemplateModules(await createAdminClient(), builtin.id)) || builtin.modules_json
             }
         }
     }
@@ -456,21 +464,7 @@ export async function applyTemplateToExistingBrand(params: {
         }
 
         // 2. Resolve template modules
-        let templateModules: any[] = []
-        const builtin = BUILTIN_BRANDBOOK_TEMPLATES.find(t => t.id === templateId)
-        if (builtin) {
-            templateModules = builtin.modules_json
-        } else {
-            const { data: dbTemplate } = await adminSupabase
-                .from('brandbook_templates')
-                .select('modules_json')
-                .eq('id', templateId)
-                .single()
-
-            if (dbTemplate && Array.isArray(dbTemplate.modules_json)) {
-                templateModules = dbTemplate.modules_json
-            }
-        }
+        const templateModules: any[] = (await resolveTemplateModules(adminSupabase, templateId)) || []
 
         if (!templateModules || templateModules.length === 0) {
             return { success: false, error: 'O template selecionado não contém seções válidas' }
@@ -601,7 +595,7 @@ export async function deleteTemplate(templateId: string) {
         }
 
         const { isAdmin, role } = await checkIsAdmin(user.email)
-        const isSuperAdmin = (isAdmin && role === 'superadmin') || user.user_metadata?.is_superadmin === true
+        const isSuperAdmin = (isAdmin && role === 'superadmin') || user.app_metadata?.is_superadmin === true
 
         const supabase = await createAdminClient()
 
@@ -638,4 +632,107 @@ export async function deleteTemplate(templateId: string) {
         console.error('[Templates] Unexpected error:', error)
         return { success: false, error: error?.message || 'Erro ao apagar template' }
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Editing a template in place (superadmins only)
+// ---------------------------------------------------------------------------------------------
+
+/** The signed-in user when they are a superadmin */
+async function superAdminUser() {
+    const client = await createClient()
+    const { data: { user } } = await client.auth.getUser()
+    if (!user) return null
+    if (user.app_metadata?.is_superadmin === true) return user
+    const { isAdmin, role } = await checkIsAdmin(user.email)
+    return isAdmin && role === 'superadmin' ? user : null
+}
+
+/** Whether the signed-in user can edit brandbook templates */
+export async function canEditBrandbookTemplates(): Promise<boolean> {
+    try { return !!(await superAdminUser()) } catch { return false }
+}
+
+/**
+ * Opens a template for editing: a draft brand gets the template's pages, edited in the normal editor
+ * (opened with ?editTemplate=<id>); saving writes the pages back into the same template.
+ */
+export async function startTemplateEdit(templateId: string): Promise<{ success: boolean, brandId?: string, error?: string }> {
+    const user = await superAdminUser()
+    if (!user) return { success: false, error: 'Apenas superadministradores podem editar templates' }
+    const found = await getTemplateById(templateId)
+    if (!found.success || !found.template) return { success: false, error: found.error || 'Template não encontrado' }
+
+    const formData = new FormData()
+    formData.append('name', `Template · ${found.template.name}`)
+    formData.append('templateId', templateId)
+    formData.append('description', `Rascunho de edição do template «${found.template.name}». Pode ser eliminado depois de guardar.`)
+    const created = await createBrand(formData)
+    if (!created.success || !created.brandId) return { success: false, error: created.error || 'Não foi possível abrir o template para edição' }
+    return { success: true, brandId: created.brandId }
+}
+
+/** Writes the edited pages into the same template (built-in templates keep them as their edited version) */
+export async function saveTemplateEdits(params: { templateId: string, modules: any[] }): Promise<{ success: boolean, error?: string }> {
+    const user = await superAdminUser()
+    if (!user) return { success: false, error: 'Apenas superadministradores podem editar templates' }
+    const { templateId, modules } = params
+    if (!Array.isArray(modules) || modules.length === 0) return { success: false, error: 'O template tem de ter pelo menos uma página' }
+
+    const cleanModules = modules.map((module: any, index: number) => {
+        let content = module.content_json || {}
+        if (typeof content === 'string') {
+            try { content = JSON.parse(content) } catch { content = {} }
+        }
+        return {
+            type: module.type || 'custom',
+            title: module.title || `Página ${index + 1}`,
+            content_json: JSON.parse(JSON.stringify(content)),
+            order: index,
+            category: module.category || mapPageToCategory(module.title),
+        }
+    })
+
+    try {
+        const admin = await createAdminClient()
+        const builtin = BUILTIN_BRANDBOOK_TEMPLATES.find(t => t.id === templateId)
+        if (builtin) {
+            const name = `${BUILTIN_OVERRIDE_PREFIX}${templateId}`
+            const { data: existing } = await admin.from('brandbook_templates').select('id').eq('name', name).limit(1).maybeSingle()
+            const { error } = existing
+                ? await admin.from('brandbook_templates').update({ modules_json: cleanModules }).eq('id', existing.id)
+                : await admin.from('brandbook_templates').insert({
+                    name,
+                    description: `Versão editada do template «${builtin.name}»`,
+                    category: builtin.category,
+                    modules_json: cleanModules,
+                    is_public: false,
+                    created_by: user.id,
+                    brand_id: null,
+                })
+            if (error) return { success: false, error: error.message }
+        } else {
+            const { data: row } = await admin.from('brandbook_templates').select('id').eq('id', templateId).maybeSingle()
+            if (!row) return { success: false, error: 'Template não encontrado' }
+            const { error } = await admin.from('brandbook_templates').update({ modules_json: cleanModules }).eq('id', templateId)
+            if (error) return { success: false, error: error.message }
+        }
+        revalidatePath('/brand')
+        revalidatePath('/brands')
+        return { success: true }
+    } catch (error: any) {
+        return { success: false, error: error?.message || 'Erro ao guardar o template' }
+    }
+}
+
+/** Brings a built-in template back to its original pages */
+export async function resetBuiltinTemplate(templateId: string): Promise<{ success: boolean, error?: string }> {
+    const user = await superAdminUser()
+    if (!user) return { success: false, error: 'Apenas superadministradores podem editar templates' }
+    if (!BUILTIN_BRANDBOOK_TEMPLATES.some(t => t.id === templateId)) return { success: false, error: 'Só os templates da Brivio têm versão original' }
+    const admin = await createAdminClient()
+    const { error } = await admin.from('brandbook_templates').delete().eq('name', `${BUILTIN_OVERRIDE_PREFIX}${templateId}`)
+    if (error) return { success: false, error: error.message }
+    revalidatePath('/brands')
+    return { success: true }
 }

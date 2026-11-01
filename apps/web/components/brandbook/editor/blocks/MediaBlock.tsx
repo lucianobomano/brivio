@@ -8,8 +8,13 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { ImageToolbar } from "./ImageToolbar"
 import { EmptyBlockActions } from "./EmptyBlockActions"
 import { UploadAssetDialog } from "../UploadAssetDialog"
+import { FloatingPanel } from "../FloatingPanel"
+import { EDITOR_COLLISION_PADDING } from "../editorLayout"
 import { MediaToolbar } from "../MediaToolbar"
 import { MediaSettingsPanel } from "../MediaSettingsPanel"
+import { GallerySliderFrame } from "./GallerySliderFrame"
+import { GalleryArrangedCarousel } from "./GalleryArrangedCarousel"
+import { GalleryLoop } from "./GalleryLoop"
 import { VideoFocalGroup } from "./VideoFocalGroup"
 import { VideoSettingsPanel } from "./VideoSettingsPanel"
 import { AudioToolbar } from "./AudioToolbar"
@@ -67,12 +72,36 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
         }
     }, [])
 
+    // Clicking outside a selected image / video / gallery deselects it, so its context bar only stays while
+    // hovered or selected. The block's own popovers, panels and dialogs (settings, upload…) don't count as outside
+    const blockRootRef = React.useRef<HTMLDivElement>(null)
+    React.useEffect(() => {
+        if (isReadOnly || !isActive) return
+        const onPointerDown = (e: PointerEvent) => {
+            const root = blockRootRef.current
+            const target = e.target as Element | null
+            if (!root || !target || root.contains(target)) return
+            if (target.closest('[data-radix-popper-content-wrapper], [role="dialog"], [data-floating-panel]')) return
+            setIsSettingsOpen(false)
+            setIsHovered(false)
+            onSelect?.(null)
+        }
+        document.addEventListener('pointerdown', onPointerDown, true)
+        return () => document.removeEventListener('pointerdown', onPointerDown, true)
+    }, [isActive, isReadOnly, onSelect])
+
     // Audio specific state
     const [activeItemIndex, setActiveItemIndex] = React.useState<number | null>(null) // -1 for new, index for existing
     const [activeSettingsIndex, setActiveSettingsIndex] = React.useState<number | null>(null)
 
     const [activeGalleryIndex, setActiveGalleryIndex] = React.useState<number | null>(null)
     const [hoverIndex, setHoverIndex] = React.useState<number | null>(null)
+    // Gallery image whose tools are shown (editor). The tools float in the top layer, so the image's
+    // rounded, clipped box never cuts them; a short delay lets the pointer move from the image onto them.
+    const [toolsIndex, setToolsIndex] = React.useState<number | null>(null)
+    const toolsHideRef = React.useRef<number | undefined>(undefined)
+    const showTools = (i: number) => { window.clearTimeout(toolsHideRef.current); setToolsIndex(i) }
+    const hideTools = () => { window.clearTimeout(toolsHideRef.current); toolsHideRef.current = window.setTimeout(() => setToolsIndex(null), 220) }
     const [carouselIndex, setCarouselIndex] = React.useState(0) // Local state for carousel slide
 
     // Lightbox State
@@ -88,6 +117,9 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     // Media resize state (unified for image and video)
     const [isResizing, setIsResizing] = React.useState(false)
     const mediaContainerRef = React.useRef<HTMLDivElement>(null)
+    // The settings panel is anchored to the block toolbar so it opens at the toolbar's level
+    const toolbarRef = React.useRef<HTMLDivElement>(null)
+    const sliderScrollerRef = React.useRef<HTMLDivElement>(null)
     const resizeStartPosRef = React.useRef({ x: 0, y: 0 })
     const resizeStartSizeRef = React.useRef({ width: 0, height: 0 })
 
@@ -232,7 +264,6 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                     console.error('Error in gallery item upload:', err)
                 } finally {
                     setActiveGalleryIndex(null)
-                    setIsUploadOpen(false)
                     setIsUploading(false)
                 }
                 return
@@ -306,7 +337,6 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
 
                     // Save to block.content.items, clear legacy url
                     onUpdate(block.id, { ...block.content, items: currentItems, url: undefined })
-                    setIsUploadOpen(false)
 
                 } else {
                     // Standard image/video update - update the block URL while preserving style (dimensions)
@@ -322,7 +352,6 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             url: urlResult,
                             style: style // Explicitly preserve style including width/height
                         })
-                        setIsUploadOpen(false)
                     }
                 }
             } else {
@@ -473,8 +502,9 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                 )}
 
                 {/* Settings Panel */}
-                {isThisSettingsOpen && (
-                    <div className="absolute top-0 left-[105%] z-[200]">
+                {!isReadOnly && isThisSettingsOpen && (
+                    <FloatingPanel placement="right-start">
+                    <div>
                         <AudioSettingsPanel
                             onClose={() => setActiveSettingsIndex(null)}
                             settings={itemStyle}
@@ -484,6 +514,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             onDelete={() => deleteAudioItem(index)}
                         />
                     </div>
+                    </FloatingPanel>
                 )}
 
                 {/* Inner Content */}
@@ -658,8 +689,9 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
 
     // Gallery / Carousel Preparations
     const actualGalleryType = style?.galleryType || (block.type === 'carousel' ? 'carousel' : 'masonry')
-    const isMasonry = actualGalleryType === 'masonry'
-    const globalAspectRatio = isMasonry ? undefined : style?.aspectRatio
+    // Masonry, mosaic and justified layouts size images themselves, so the global ratio does not apply
+    const isFreeformLayout = ['masonry', 'mosaic', 'justified'].includes(actualGalleryType)
+    const globalAspectRatio = isFreeformLayout ? undefined : style?.aspectRatio
     const numCols = style?.columns || 4
     const has2xItem = items?.some((i: any) => i.is2x)
 
@@ -706,6 +738,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
     return (
         <>
             <div
+                ref={blockRootRef}
                 className={cn(
                     "relative group/media-filled transition-all",
                     !isReadOnly && isActive && (
@@ -729,7 +762,13 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             ? 'flex-end'
                             : 'flex-start',
                     width: (block.type === 'image' || block.type === 'video') && style?.width ? `${style.width}px` : ((style?.align || align) ? 'auto' : '100%'),
-                    maxWidth: '100%'
+                    // A box with its own width is placed by margins (centering inside a box of the same width does nothing):
+                    // the block's own alignment wins, otherwise the column alignment
+                    marginLeft: (style?.align || align) === 'center' || (style?.align || align) === 'right' ? 'auto' : undefined,
+                    marginRight: (style?.align || align) === 'center' ? 'auto' : undefined,
+                    maxWidth: '100%',
+                    // Lets the block shrink inside flex/grid columns instead of growing with its content
+                    minWidth: 0
                 }}
             >
                 {/* Standard Image / Video Rendering */}
@@ -856,7 +895,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             }}
                         >
                             {block.type === 'image' ? (
-                                <img
+                                <img loading="lazy" decoding="async"
                                     src={url || ""}
                                     alt={caption || "Block Image"}
                                     className={cn(
@@ -920,7 +959,10 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 className="group/carousel relative w-full bg-black/5"
                                 style={{ aspectRatio: globalAspectRatio || '16/9' }}
                             >
-                                <div className="w-full h-full overflow-hidden relative">
+                                <div
+                                    className="w-full h-full overflow-hidden relative"
+                                    style={style?.imageRadius !== undefined ? { borderRadius: `${style.imageRadius}px` } : undefined}
+                                >
                                     <AnimatePresence mode="wait">
                                         {currentItem && (
                                             <motion.div
@@ -931,7 +973,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                                 transition={{ duration: 0.5, ease: "easeInOut" }}
                                                 className="absolute inset-0 w-full h-full"
                                             >
-                                                <img
+                                                <img loading="lazy" decoding="async"
                                                     src={currentItem.url}
                                                     alt={currentItem.caption || "Carousel Slide"}
                                                     className="w-full h-full object-cover"
@@ -996,18 +1038,84 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                         )
                     }
 
-                    return (
+                    const isSlider = actualGalleryType === 'slider'
+                    const isMosaic = actualGalleryType === 'mosaic'
+                    const isJustified = actualGalleryType === 'justified'
+                    // Slider: `numCols` images visible at once, the rest scroll horizontally
+                    // The column count always sets the width; the image size (L × A) only sets the shape:
+                    // both sides → their ratio, height alone → fixed height, neither → global ratio
+                    const sliderItemWidth = `calc((100% - ${(numCols - 1) * 10}px) / ${numCols})`
+                    const sliderItemStyle: React.CSSProperties = style?.sliderImageWidth && style?.sliderImageHeight
+                        ? { width: sliderItemWidth, aspectRatio: `${style.sliderImageWidth}/${style.sliderImageHeight}` }
+                        : style?.sliderImageHeight
+                            ? { width: sliderItemWidth, height: `${style.sliderImageHeight}px` }
+                            : { width: sliderItemWidth, aspectRatio: globalAspectRatio || '4/3' }
+                    // Mosaic: every sixth image (starting with the first) is a 2×2 feature tile
+                    const isMosaicFeature = (i: number) => isMosaic && numCols > 1 && i % 6 === 0
+
+                    // Tools over one gallery image (editor only)
+                    const renderItemToolbar = (i: number, item: any) => isReadOnly || toolsIndex !== i || !item ? null : (
+                        // Inside the top of the image: never over the gallery bar, which sits above the block
+                        <FloatingPanel
+                            placement="inside-top"
+                            offset={8}
+                            panelProps={{ onMouseEnter: () => showTools(i), onMouseLeave: hideTools, onClick: (e) => e.stopPropagation() }}
+                        >
+                            <div className="shadow-sm">
+                                <ImageToolbar
+                                    onUpload={() => { setActiveGalleryIndex(i); setUploadMode('gallery-replace'); setIsUploadOpen(true) }}
+                                    onAttach={() => { setActiveGalleryIndex(i); setUploadMode('gallery-attach'); setIsUploadOpen(true) }}
+                                    onLink={(url) => {
+                                        const newItems = [...items]
+                                        newItems[i] = { ...newItems[i], link: url }
+                                        onUpdate(block.id, { ...block.content, items: newItems })
+                                    }}
+                                    onHoverImage={() => { setActiveGalleryIndex(i); setUploadMode('gallery-hover'); setIsUploadOpen(true) }}
+                                    onToggle2x={() => {
+                                        const newItems = [...items]
+                                        newItems[i] = { ...newItems[i], is2x: !newItems[i].is2x }
+                                        onUpdate(block.id, { ...block.content, items: newItems })
+                                    }}
+                                    onDelete={() => {
+                                        const newItems = [...items]
+                                        newItems.splice(i, 1)
+                                        onUpdate(block.id, { ...block.content, items: newItems })
+                                    }}
+                                    onSettings={() => { }}
+                                    onAnimate={onAnimate}
+                                    activeSettings={{ is2x: item.is2x, link: item.link, hasAttachment: !!item.attachment }}
+                                />
+                            </div>
+                        </FloatingPanel>
+                    )
+
+                    const galleryContent = (
                         <div
+                            ref={isSlider ? sliderScrollerRef : undefined}
                             className={cn(
                                 "gap-[10px] transition-all duration-500 ease-in-out w-full",
-                                actualGalleryType === 'grid' || globalAspectRatio
-                                    ? `grid ${gridColsClass} auto-rows-fr`
-                                    : (has2xItem
-                                        ? `grid ${gridColsClass} auto-rows-[minmax(200px,auto)] grid-flow-dense`
-                                        : `${masonryColsClass} gap-[10px] space-y-[10px]`)
+                                isSlider
+                                    ? cn(
+                                        // contain: inline-size keeps the tiles from widening the block past the section
+                                        "flex overflow-x-auto snap-x snap-mandatory min-w-0 [contain:inline-size]",
+                                        style?.sliderScrollbar === false
+                                            ? "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                                            : "pb-2 custom-scrollbar"
+                                    )
+                                    : isMosaic
+                                        ? `grid ${gridColsClass} auto-rows-[200px] grid-flow-dense`
+                                        : isJustified
+                                            // The trailing spacer keeps the last row from stretching
+                                            ? "flex flex-wrap after:content-[''] after:grow-[999]"
+                                            : actualGalleryType === 'grid' || globalAspectRatio
+                                                ? `grid ${gridColsClass} auto-rows-fr`
+                                                : (has2xItem
+                                                    ? `grid ${gridColsClass} auto-rows-[minmax(200px,auto)] grid-flow-dense`
+                                                    : `${masonryColsClass} gap-[10px] space-y-[10px]`)
                             )}
                             style={{
-                                width: formatDim(style?.width) || (style?.align ? 'auto' : '100%'),
+                                // The slider's tiles are sized as a share of the strip, so it always takes the frame's width
+                                width: isSlider ? '100%' : (formatDim(style?.width) || (style?.align ? 'auto' : '100%')),
                                 height: 'auto'
                             }}
                         >
@@ -1021,13 +1129,25 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         className={cn(
                                             "relative bg-gray-100 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-500 ease-in-out group/item",
                                             is2x && !isReadOnly && actualGalleryType === 'masonry' ? "ring-2 ring-blue-400" : "",
-                                            (actualGalleryType === 'grid' || globalAspectRatio)
-                                                ? "col-span-1 aspect-auto w-full h-full"
-                                                : (has2xItem
-                                                    ? (is2x ? "col-span-2 row-span-2 w-full h-full" : "col-span-1 row-span-1 w-full h-full aspect-square md:aspect-auto object-cover")
-                                                    : "break-inside-avoid")
+                                            isSlider
+                                                ? "flex-none snap-start"
+                                                : isMosaic
+                                                    ? (isMosaicFeature(i) ? "col-span-2 row-span-2 w-full h-full" : "w-full h-full")
+                                                    : isJustified
+                                                        ? "h-[240px] grow"
+                                                        : (actualGalleryType === 'grid' || globalAspectRatio)
+                                                            ? "col-span-1 aspect-auto w-full h-full"
+                                                            : (has2xItem
+                                                                ? (is2x ? "col-span-2 row-span-2 w-full h-full" : "col-span-1 row-span-1 w-full h-full aspect-square md:aspect-auto object-cover")
+                                                                : "break-inside-avoid")
                                         )}
-                                        style={globalAspectRatio ? { aspectRatio: globalAspectRatio } : {}}
+                                        style={{
+                                            ...(isSlider
+                                                ? sliderItemStyle
+                                                : (globalAspectRatio ? { aspectRatio: globalAspectRatio } : {})),
+                                            // "Arredondar imagens" in the gallery settings
+                                            ...(style?.imageRadius !== undefined ? { borderRadius: `${style.imageRadius}px` } : {}),
+                                        }}
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             if (!isReadOnly) {
@@ -1039,48 +1159,26 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         }}
                                         onMouseEnter={() => {
                                             setHoverIndex(i)
+                                            if (!isReadOnly) showTools(i)
                                             if (isReadOnly && item.attachment) setShowDownloadCursor(true)
                                         }}
                                         onMouseLeave={() => {
                                             setHoverIndex(null)
+                                            if (!isReadOnly) hideTools()
                                             setShowDownloadCursor(false)
                                         }}
                                     >
-                                        <img
+                                        <img loading="lazy" decoding="async"
                                             src={showHoverImage ? item.hoverImage : item.url}
                                             alt={item.caption || `Gallery Item ${i + 1}`}
-                                            className="w-full h-full object-cover transition-transform duration-700 group-hover/item:scale-105"
+                                            className={cn(
+                                                "object-cover transition-transform duration-700 group-hover/item:scale-105",
+                                                // Justified: the image's natural width at row height sets the tile's base width
+                                                isJustified ? "h-full w-auto min-w-full" : "w-full h-full"
+                                            )}
                                             draggable={false}
                                         />
-                                        {!isReadOnly && (
-                                            <div className="absolute z-50 top-2 left-2 right-2 opacity-0 group-hover/item:opacity-100 group-focus-within/item:opacity-100 transition-opacity flex justify-center pointer-events-none">
-                                                <div className="pointer-events-auto shadow-sm">
-                                                    <ImageToolbar
-                                                        onUpload={() => { setActiveGalleryIndex(i); setUploadMode('gallery-replace'); setIsUploadOpen(true) }}
-                                                        onAttach={() => { setActiveGalleryIndex(i); setUploadMode('gallery-attach'); setIsUploadOpen(true) }}
-                                                        onLink={(url) => {
-                                                            const newItems = [...items]
-                                                            newItems[i] = { ...newItems[i], link: url }
-                                                            onUpdate(block.id, { ...block.content, items: newItems })
-                                                        }}
-                                                        onHoverImage={() => { setActiveGalleryIndex(i); setUploadMode('gallery-hover'); setIsUploadOpen(true) }}
-                                                        onToggle2x={() => {
-                                                            const newItems = [...items]
-                                                            newItems[i] = { ...newItems[i], is2x: !newItems[i].is2x }
-                                                            onUpdate(block.id, { ...block.content, items: newItems })
-                                                        }}
-                                                        onDelete={() => {
-                                                            const newItems = [...items]
-                                                            newItems.splice(i, 1)
-                                                            onUpdate(block.id, { ...block.content, items: newItems })
-                                                        }}
-                                                        onSettings={() => { }}
-                                                        onAnimate={onAnimate}
-                                                        activeSettings={{ is2x: item.is2x, link: item.link, hasAttachment: !!item.attachment }}
-                                                    />
-                                                </div>
-                                            </div>
-                                        )}
+                                        {renderItemToolbar(i, item)}
                                     </div>
                                 )
                             })}
@@ -1088,7 +1186,12 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             {!isReadOnly && items && items.length < 24 && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); onSelect?.(block.id); setUploadMode('gallery-add'); setIsUploadOpen(true); }}
-                                    className="flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 rounded-lg hover:border-[#FF0054] hover:bg-pink-50/30 transition-all group/add-item h-full min-h-[200px]"
+                                    className={cn(
+                                        "flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-200 rounded-lg hover:border-[#FF0054] hover:bg-pink-50/30 transition-all group/add-item h-full min-h-[200px]",
+                                        isSlider && "flex-none snap-start",
+                                        isJustified && "h-[240px] min-w-[200px] grow"
+                                    )}
+                                    style={isSlider ? { ...sliderItemStyle, aspectRatio: undefined } : undefined}
                                 >
                                     <div className="w-12 h-12 rounded-full bg-gray-50 flex items-center justify-center mb-3 group-hover/add-item:bg-pink-100 transition-colors">
                                         <Plus className="w-6 h-6 text-gray-400 group-hover/add-item:text-[#FF0054]" />
@@ -1097,6 +1200,74 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 </button>
                             )}
                         </div>
+                    )
+
+                    // Loop: lanes of images scrolling forever (columns up / down, or rows left / right)
+                    if (actualGalleryType === 'loop') {
+                        return (
+                            <GalleryLoop
+                                items={items || []}
+                                settings={style || {}}
+                                aspectRatio={globalAspectRatio}
+                                isReadOnly={isReadOnly}
+                                renderOverlay={(i) => renderItemToolbar(i, items[i])}
+                                onHoverItem={(i) => { if (isReadOnly) return; if (i === null) hideTools(); else showTools(i) }}
+                                onOpenItem={(i) => {
+                                    if (!isReadOnly) { onSelect?.(block.id); return }
+                                    if (items[i]?.attachment) setAttachmentPopupItem(items[i])
+                                    else setLightboxIndex(i)
+                                }}
+                                addButton={!isReadOnly && items && items.length < 24 ? (
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); onSelect?.(block.id); setUploadMode('gallery-add'); setIsUploadOpen(true) }}
+                                        className="h-10 w-full rounded-lg border border-dashed border-gray-300 text-gray-400 text-[12px] font-medium flex items-center justify-center gap-1.5 hover:border-[#FF0054] hover:text-[#FF0054] transition-colors"
+                                    >
+                                        <Plus className="w-4 h-4" /> Adicionar imagem
+                                    </button>
+                                ) : undefined}
+                            />
+                        )
+                    }
+
+                    if (!isSlider) return galleryContent
+                    // Faixa arranged around a focused image (fan, arc, focus…)
+                    if (style?.sliderArrangement && style.sliderArrangement !== 'strip') {
+                        return (
+                            <GalleryArrangedCarousel
+                                items={items || []}
+                                settings={style}
+                                aspectRatio={globalAspectRatio}
+                                isReadOnly={isReadOnly}
+                                onOpenItem={(i) => {
+                                    if (!isReadOnly) { onSelect?.(block.id); return }
+                                    if (items[i]?.attachment) setAttachmentPopupItem(items[i])
+                                    else setLightboxIndex(i)
+                                }}
+                                renderOverlay={(i) => renderItemToolbar(i, items[i])}
+                                onHoverItem={(i) => { if (isReadOnly) return; if (i === null) hideTools(); else showTools(i) }}
+                                onUpdateItem={(i, patch) => {
+                                    const newItems = [...items]
+                                    newItems[i] = { ...newItems[i], ...patch }
+                                    onUpdate(block.id, { ...block.content, items: newItems })
+                                }}
+                                addButton={!isReadOnly && items && items.length < 24 ? (
+                                    <button
+                                        type="button"
+                                        title="Adicionar imagem"
+                                        onClick={(e) => { e.stopPropagation(); onSelect?.(block.id); setUploadMode('gallery-add'); setIsUploadOpen(true) }}
+                                        className="w-9 h-9 shrink-0 rounded-full border-2 border-dashed border-gray-300 text-gray-400 flex items-center justify-center hover:border-[#FF0054] hover:text-[#FF0054] transition-colors"
+                                    >
+                                        <Plus className="w-4 h-4" />
+                                    </button>
+                                ) : undefined}
+                            />
+                        )
+                    }
+                    return (
+                        <GallerySliderFrame settings={style || {}} scrollerRef={sliderScrollerRef} itemCount={items?.length || 0}>
+                            {galleryContent}
+                        </GallerySliderFrame>
                     )
                 })() : null}
 
@@ -1108,10 +1279,11 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                         </PopoverPrimitive.Anchor>
                         <PopoverPrimitive.Portal>
                             <PopoverPrimitive.Content
+                                ref={toolbarRef}
                                 side="top"
                                 align="center"
                                 sideOffset={8}
-                                collisionPadding={10}
+                                collisionPadding={EDITOR_COLLISION_PADDING}
                                 className="z-[2000] outline-none animate-in fade-in zoom-in-95 duration-200 before:absolute before:-bottom-3 before:left-0 before:right-0 before:h-3 before:content-['']"
                                 onOpenAutoFocus={(e) => e.preventDefault()}
                                 onMouseEnter={handleMouseEnter}
@@ -1163,17 +1335,15 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                     </PopoverPrimitive.Root>
                 )}
 
-                {isSettingsOpen && (
+                {!isReadOnly && isSettingsOpen && (
                     <PopoverPrimitive.Root open={isSettingsOpen} modal={false}>
-                        <PopoverPrimitive.Anchor asChild>
-                            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-0 h-0" />
-                        </PopoverPrimitive.Anchor>
+                        <PopoverPrimitive.Anchor virtualRef={toolbarRef as React.RefObject<HTMLDivElement>} />
                         <PopoverPrimitive.Portal>
                             <PopoverPrimitive.Content
-                                side="bottom"
-                                align="center"
-                                sideOffset={12}
-                                collisionPadding={10}
+                                side="right"
+                                align="start"
+                                sideOffset={8}
+                                collisionPadding={EDITOR_COLLISION_PADDING}
                                 className="z-[2000] outline-none animate-in fade-in zoom-in-95 duration-200"
                                 onOpenAutoFocus={(e) => e.preventDefault()}
                                 onMouseEnter={handleMouseEnter}
@@ -1215,7 +1385,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 exit={{ opacity: 0, scale: 0.9 }}
                                 className="relative max-w-full max-h-full flex flex-col items-center"
                             >
-                                <img src={items[lightboxIndex].url} alt={items[lightboxIndex].caption || "Lightbox View"} className="max-w-full max-h-[80vh] object-contain shadow-2xl" />
+                                <img loading="lazy" decoding="async" src={items[lightboxIndex].url} alt={items[lightboxIndex].caption || "Lightbox View"} className="max-w-full max-h-[80vh] object-contain shadow-2xl" />
                                 {items[lightboxIndex].caption && <p className="text-white mt-8 text-lg font-medium bg-black/50 px-6 py-3 rounded-full break-words max-w-[90vw]">{items[lightboxIndex].caption}</p>}
                             </motion.div>
                         </AnimatePresence>

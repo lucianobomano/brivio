@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import { ThumbsUp, MessageCircle, Trash2, CornerDownRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 import {
@@ -136,6 +137,9 @@ export function CommentsSection({ projectId, currentUserAvatar, currentUserId, o
         }
     }
 
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
+
     const handleDelete = async (commentId: string, isReply: boolean = false, parentId?: string) => {
         try {
             const result = await deleteProjectComment(commentId)
@@ -181,7 +185,7 @@ export function CommentsSection({ projectId, currentUserAvatar, currentUserId, o
                 <div className="flex items-start gap-4">
                     <div className="w-11 h-11 rounded-full bg-bg-3 overflow-hidden flex-shrink-0">
                         {currentUserAvatar ? (
-                            <img src={currentUserAvatar} alt="You" className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={currentUserAvatar} alt="You" className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full bg-gradient-to-tr from-accent-indigo/30 to-accent-blue/30" />
                         )}
@@ -227,7 +231,7 @@ export function CommentsSection({ projectId, currentUserAvatar, currentUserId, o
                             comment={comment}
                             currentUserId={currentUserId}
                             onLike={handleLike}
-                            onDelete={handleDelete}
+                            onDelete={(...args: any[]) => runAction(() => (handleDelete as any)(...args))}
                             onReply={(id) => setReplyingTo(id)}
                             replyingTo={replyingTo}
                             replyContent={replyContent}
@@ -282,7 +286,7 @@ function CommentItem({
             <div className="flex items-start gap-4">
                 <div className="w-10 h-10 rounded-full bg-bg-3 overflow-hidden flex-shrink-0">
                     {comment.author.avatar_url ? (
-                        <img src={comment.author.avatar_url} alt={comment.author.name} className="w-full h-full object-cover" />
+                        <img loading="lazy" decoding="async" src={comment.author.avatar_url} alt={comment.author.name} className="w-full h-full object-cover" />
                     ) : (
                         <div className="w-full h-full bg-gradient-to-tr from-accent-indigo/30 to-accent-blue/30 flex items-center justify-center text-xs font-bold text-white">
                             {comment.author.name.charAt(0)}

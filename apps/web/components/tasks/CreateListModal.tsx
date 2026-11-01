@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input"
 import { ImageIcon, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { createTaskList } from "@/app/actions/tasks"
+import { ColorInput } from "@/components/ui/color-input"
 
 interface CreateListModalProps {
     children: React.ReactNode
@@ -164,9 +165,8 @@ export function CreateListModal({ children, userId, onListCreated }: CreateListM
                                 <div className="space-y-3">
                                     <p className="text-sm font-medium text-zinc-900 dark:text-white">Choose a custom color</p>
                                     <div className="flex items-center gap-3">
-                                        <input
+                                        <ColorInput
                                             ref={colorInputRef}
-                                            type="color"
                                             value={customColor}
                                             onChange={handleCustomColorChange}
                                             className="w-12 h-12 rounded-lg cursor-pointer border-2 border-zinc-200 dark:border-bg-3 bg-transparent"

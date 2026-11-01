@@ -1,11 +1,12 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { invalidateShareRoadmap } from "@/lib/share-cache"
 import { redirect } from "next/navigation"
 import { createAdminClient } from "@/lib/supabase/server"
 import { mapPageToCategory } from "@/lib/brandbook-utils"
-import { BUILTIN_BRANDBOOK_TEMPLATES } from "@/lib/brandbook-templates"
+import { resolveTemplateModules } from "@/lib/brandbook-template-store"
 
 function slugify(text: string) {
     return text
@@ -38,7 +39,7 @@ export async function createBrand(formData: FormData) {
         return { success: false, error: "Brand name is required" }
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     // Check if Service Role Key is available BEFORE trying to use it
@@ -174,21 +175,8 @@ export async function createBrand(formData: FormData) {
             if (templateId) {
                 // Option A: Use Template (Built-in or Database)
                 console.log("[createBrand Action] Using template ID:", templateId);
-                let templateModules: any[] | null = null
-
-                const builtin = BUILTIN_BRANDBOOK_TEMPLATES.find(t => t.id === templateId)
-                if (builtin) {
-                    templateModules = builtin.modules_json
-                } else {
-                    const { data: template } = await adminSupabase
-                        .from('brandbook_templates')
-                        .select('modules_json')
-                        .eq('id', templateId)
-                        .single()
-                    if (template && Array.isArray(template.modules_json)) {
-                        templateModules = template.modules_json
-                    }
-                }
+                // Built-in or database template, with a superadmin's edits when there are any
+                const templateModules: any[] | null = await resolveTemplateModules(adminSupabase, templateId)
 
                 if (templateModules && Array.isArray(templateModules)) {
                     const modulesData = templateModules.map((mod: any, index: number) => ({
@@ -262,6 +250,7 @@ export async function createBrand(formData: FormData) {
         }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/brands')
     return { success: true, brandId: brand.id }
 }
@@ -309,7 +298,7 @@ export async function updateBrand(formData: FormData) {
         throw new Error("Brand ID and name are required")
     }
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error("Unauthorized")
 
     // Use Admin Client
@@ -352,6 +341,7 @@ export async function updateBrand(formData: FormData) {
         throw new Error("Failed to update brand")
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/brand/${brandId}`)
     revalidatePath('/brands')
     return { success: true }
@@ -359,7 +349,7 @@ export async function updateBrand(formData: FormData) {
 
 export async function deleteBrand(brandId: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error("Unauthorized")
 
     // Use Admin Client
@@ -468,13 +458,14 @@ export async function deleteBrand(brandId: string) {
         throw new Error("Failed to delete brand: " + error.message)
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/brands')
     redirect('/brands')
 }
 
 export async function updateBrandbookVisibility(brandId: string, visibility: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) throw new Error("Unauthorized")
 
     const { createAdminClient } = await import("@/lib/supabase/server")
@@ -521,6 +512,7 @@ export async function updateBrandbookVisibility(brandId: string, visibility: str
         }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/brands')
     revalidatePath(`/brand/${brandId}/brandbook`)
     return { success: true }
@@ -528,7 +520,7 @@ export async function updateBrandbookVisibility(brandId: string, visibility: str
 
 export async function getBrands() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return []
 

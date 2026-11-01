@@ -1,8 +1,9 @@
 'use server'
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
+import { invalidateShareRoadmap } from "@/lib/share-cache"
 import { ROADMAP_TEMPLATES } from "@/lib/roadmap-templates"
 
 export interface RoadmapStage {
@@ -41,34 +42,36 @@ export interface RoadmapStage {
 export async function getProjectRoadmap(projectId: string) {
     const supabase = await createClient()
 
-    // 1. Get Project to find workspace_id
-    const { data: project, error: pError } = await supabase
-        .from('projects')
-        .select('workspace_id')
-        .eq('id', projectId)
-        .single()
+    // 1+2. Get Project to find workspace_id, then the Stages for that workspace
+    const fetchStages = async () => {
+        const { data: project, error: pError } = await supabase
+            .from('projects')
+            .select('workspace_id')
+            .eq('id', projectId)
+            .single()
 
-    if (pError || !project?.workspace_id) {
-        console.error("[getProjectRoadmap] Project or Workspace not found:", pError)
-        return []
-    }
+        if (pError || !project?.workspace_id) {
+            console.error("[getProjectRoadmap] Project or Workspace not found:", pError)
+            return null
+        }
 
-    // 2. Get Stages for that workspace
-    const { data: stages, error: sError } = await supabase
-        .from('project_stages')
-        .select('*')
-        .eq('workspace_id', project.workspace_id)
-        .order('position', { ascending: true })
+        const { data: stages, error: sError } = await supabase
+            .from('project_stages')
+            .select('*')
+            .eq('workspace_id', project.workspace_id)
+            .order('position', { ascending: true })
 
-    if (sError) {
-        console.error("[getProjectRoadmap] Error fetching stages:", sError)
-        return []
+        if (sError) {
+            console.error("[getProjectRoadmap] Error fetching stages:", sError)
+            return null
+        }
+
+        return stages
     }
 
     // 3. Get Tasks for this project
-    // We use Prisma for tasks to ensure we can read the newly added stage_id if needed, 
-    // but actually Supabase client is also fine if we don't have types yet.
-    const { data: tasks, error: tError } = await supabase
+    // PERFORMANCE: tasks only depend on projectId, so they load in parallel with the stages chain
+    const fetchTasks = () => supabase
         .from('tasks')
         .select(`
             id, 
@@ -87,6 +90,12 @@ export async function getProjectRoadmap(projectId: string) {
             assignee:users!tasks_assignee_id_fkey(id, name, avatar_url)
         `)
         .eq('project_id', projectId)
+
+    const [stages, { data: tasks, error: tError }] = await Promise.all([fetchStages(), fetchTasks()])
+
+    if (!stages) {
+        return []
+    }
 
     if (tError) {
         console.error("[getProjectRoadmap] Error fetching tasks:", tError)
@@ -174,6 +183,7 @@ export async function updateTaskStage(taskId: string, stageId: string, projectId
             WHERE id = $2::uuid
         `, stageId, taskId)
 
+        invalidateShareRoadmap()
         revalidatePath(`/roadmap`)
         revalidatePath(`/projects/${projectId}`)
         return { success: true }
@@ -195,6 +205,7 @@ export async function updateTaskPosition(taskId: string, position: number, stage
             WHERE id = $3::uuid
         `, position, stageId, taskId)
 
+        invalidateShareRoadmap()
         revalidatePath(`/roadmap`)
         revalidatePath(`/projects/${projectId}`)
         return { success: true }
@@ -218,6 +229,7 @@ export async function updateBatchTaskPositions(updates: { id: string, position: 
             `, update.position, update.stageId, update.id)
         }
 
+        invalidateShareRoadmap()
         revalidatePath(`/roadmap`)
         revalidatePath(`/projects/${projectId}`)
         return { success: true }
@@ -238,6 +250,7 @@ export async function updateStagePosition(stageId: string, newPosition: number) 
             SET position = $1, updated_at = NOW()
             WHERE id = $2::uuid
         `, newPosition, stageId)
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         return { success: true }
     } catch (error: unknown) {
@@ -272,6 +285,7 @@ export async function createRoadmapStage(
             VALUES (gen_random_uuid(), $1::uuid, $2, $3, $4, $5::timestamptz, $6::timestamptz, NOW(), NOW())
         `, workspaceId, name, color, newPosition, startDate || null, dueDate || null)
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         return { success: true }
     } catch (error: unknown) {
@@ -290,6 +304,7 @@ export async function deleteRoadmapStage(stageId: string) {
             DELETE FROM public.project_stages
             WHERE id = $1::uuid
         `, stageId)
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         return { success: true }
     } catch (error: unknown) {
@@ -318,6 +333,7 @@ export async function updateRoadmapStage(
             WHERE id = $5::uuid
         `, name, color, startDate || null, dueDate || null, stageId)
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         return { success: true }
     } catch (error: unknown) {
@@ -340,6 +356,7 @@ export async function reorderRoadmapStages(updates: { id: string, position: numb
             `, update.position, update.id)
         }
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         return { success: true }
     } catch (error: unknown) {
@@ -454,6 +471,7 @@ export async function applyRoadmapTemplate(workspaceId: string, templateId: stri
                 .eq('id', projectId)
         }
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         if (projectId) revalidatePath(`/projects/${projectId}`)
         return { success: true }
@@ -534,6 +552,7 @@ export async function advanceProjectStage(projectId: string) {
 
         console.log(`[advanceProjectStage] Advanced project ${projectId} to stage: ${nextStage.name}`)
 
+        invalidateShareRoadmap()
         revalidatePath(`/projects/${projectId}`)
         revalidatePath('/roadmap')
         revalidatePath('/projects')
@@ -562,7 +581,7 @@ export async function createRoadmapTask(
 ) {
     try {
         const supabase = await createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const user = await getCurrentUser()
 
         const { data: task, error } = await supabase
             .from('tasks')
@@ -588,6 +607,7 @@ export async function createRoadmapTask(
 
         if (error) throw error
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/projects/${projectId}`)
         return { success: true, task }
@@ -625,6 +645,7 @@ export async function toggleRoadmapTask(taskId: string, projectId: string) {
 
         if (error) throw error
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/projects/${projectId}`)
         return { success: true, completed: newCompleted }
@@ -648,6 +669,7 @@ export async function deleteRoadmapTask(taskId: string, projectId: string) {
 
         if (error) throw error
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/projects/${projectId}`)
         return { success: true }
@@ -671,6 +693,7 @@ export async function updateRoadmapTask(taskId: string, title: string, projectId
 
         if (error) throw error
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/projects/${projectId}`)
         return { success: true }
@@ -769,6 +792,7 @@ export async function updateRoadmapTaskDetails(
 
         if (error) throw error
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/projects/${projectId}`)
         return { success: true }
@@ -796,6 +820,7 @@ export async function completeStageTasks(projectId: string, stageId: string) {
 
         if (error) throw error
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath('/share/[assetId]/roadmap')
         return { success: true }
@@ -819,6 +844,7 @@ export async function archiveRoadmapTask(taskId: string, projectId: string) {
 
         if (error) throw error
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/projects/${projectId}`)
         return { success: true }
@@ -857,6 +883,7 @@ export async function duplicateRoadmapTask(taskId: string, projectId: string) {
 
         if (insertError) throw insertError
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/projects/${projectId}`)
         return { success: true, task: duplicated }

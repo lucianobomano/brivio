@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { invalidateShareRoadmap } from "@/lib/share-cache"
 
 // ==================== INTERFACES ====================
 
@@ -66,6 +67,7 @@ export async function createTaskList(data: {
     }
 
     console.log("[createTaskList] Created list:", list)
+    invalidateShareRoadmap()
     revalidatePath('/tasks')
     return { success: true, list }
 }
@@ -236,6 +238,7 @@ export async function createQuickProject(data: {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/tasks')
     revalidatePath('/projects')
     return { success: true, project }
@@ -334,6 +337,7 @@ export async function archiveTaskList(listId: string) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/tasks')
     return { success: true }
 }
@@ -423,6 +427,7 @@ export async function createTask(data: {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${data.listId}`)
     revalidatePath('/tasks')
     return { success: true, task }
@@ -481,6 +486,7 @@ export async function updateTaskStatus(taskId: string, status: TaskStatus, listI
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     revalidatePath('/tasks')
     return { success: true }
@@ -511,6 +517,7 @@ export async function updateTaskPosition(
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     revalidatePath('/tasks')
     return { success: true }
@@ -536,6 +543,7 @@ export async function updateTask(taskId: string, data: {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     revalidatePath('/tasks')
     return { success: true }
@@ -554,6 +562,7 @@ export async function deleteTask(taskId: string, listId: string) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     revalidatePath('/tasks')
     return { success: true }
@@ -579,6 +588,7 @@ export async function updateTaskTime(taskId: string, field: 'estimated_time' | '
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     revalidatePath('/tasks')
     return { success: true }
@@ -616,6 +626,7 @@ export async function toggleTaskComplete(taskId: string, listId: string) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     revalidatePath('/tasks')
     return { success: true, completed: newCompleted }
@@ -662,6 +673,7 @@ export async function moveTaskToColumn(taskId: string, direction: 'left' | 'righ
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     return { success: true, newStatus }
 }
@@ -703,6 +715,7 @@ export async function addSubtask(taskId: string, title: string, listId: string) 
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     return { success: true, subtask: newSubtask }
 }
@@ -740,6 +753,7 @@ export async function toggleSubtask(taskId: string, subtaskId: string, listId: s
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath(`/tasks/${listId}`)
     return { success: true }
 }

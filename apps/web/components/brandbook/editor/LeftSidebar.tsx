@@ -48,6 +48,7 @@ import { Switch } from "@/components/ui/switch"
 import { Input } from "@/components/ui/input"
 import { useBrandDesign } from "./BrandDesignContext"
 import { AddPagesModal } from "./AddPagesModal"
+import { DeleteConfirmationModal } from "./DeleteConfirmationModal"
 
 interface LeftSidebarProps {
     modules: any[]
@@ -57,6 +58,10 @@ interface LeftSidebarProps {
     onRenameModule?: (id: string, newTitle: string) => void
     onDuplicateModule?: (id: string) => void
     onDeleteModule?: (id: string) => void
+    /** Moves a page into a separator or subseparator of the menu (persisted as the page category) */
+    onMoveModuleToCategory?: (id: string, categoryId: string) => void
+    /** Deletes several pages at once, already confirmed (deleting the "Outras páginas" separator with its pages) */
+    onDeleteModules?: (ids: string[]) => void | Promise<void>
     onToggleVisibility?: (id: string) => void
     onToggleLock?: (id: string) => void
     onToggleFullscreen?: (id: string) => void
@@ -72,6 +77,8 @@ interface LeftSidebarProps {
         avatar_url?: string
     } | null
     brandLogoUrl?: string | null
+    /** Extra item at the bottom of the menu (the Asset library button in Preview / on the shared link) */
+    footerSlot?: React.ReactNode
 }
 
 // Logic moved to @/lib/brandbook-utils.ts
@@ -96,10 +103,15 @@ function PageSettingsPopover({
     onToggleVisibility,
     onToggleLock,
     onToggleFullscreen,
+    moveTargets,
+    onMoveToCategory,
     isOpen,
     onOpenChange
 }: {
     module: any
+    /** Every separator / subseparator of the side menu, to move the page into (indented = subseparator) */
+    moveTargets?: { id: string, label: string, isSub: boolean }[]
+    onMoveToCategory?: (categoryId: string) => void
     onRename?: (val: string) => void
     onDuplicate?: () => void
     onDelete?: () => void
@@ -152,6 +164,25 @@ function PageSettingsPopover({
                             placeholder="Page name"
                         />
                     </div>
+
+                    {/* Move to another separator (main ones included) */}
+                    {moveTargets && moveTargets.length > 0 && (
+                        <div className="space-y-2">
+                            <label className="text-xs text-gray-500 font-medium block">Mover para</label>
+                            <select
+                                value={getEffectiveCategory(module)}
+                                onChange={(e) => onMoveToCategory?.(e.target.value)}
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full h-8 bg-[#1A1A20] border border-[#333] rounded-md px-2 text-sm text-gray-200 outline-none focus:border-[#FF0054] cursor-pointer"
+                            >
+                                {moveTargets.map(target => (
+                                    <option key={target.id} value={target.id}>
+                                        {target.isSub ? `\u00A0\u00A0\u00A0↳ ${target.label}` : target.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
 
                     {/* Duplicate */}
                     <button
@@ -344,6 +375,8 @@ function SidebarItem({ module, isActive, onSelect, isReadOnly, customStyle, ...a
                         onToggleVisibility={() => actions.onToggleVisibility?.(module.id)}
                         onToggleLock={() => actions.onToggleLock?.(module.id)}
                         onToggleFullscreen={() => actions.onToggleFullscreen?.(module.id)}
+                        moveTargets={actions.moveTargets}
+                        onMoveToCategory={(categoryId) => actions.onMoveModuleToCategory?.(module.id, categoryId)}
                     />
                 </div>
             )}
@@ -359,6 +392,8 @@ export function LeftSidebar({
     onRenameModule,
     onDuplicateModule,
     onDeleteModule,
+    onDeleteModules,
+    onMoveModuleToCategory,
     onToggleVisibility,
     onToggleLock,
     onToggleFullscreen,
@@ -369,7 +404,8 @@ export function LeftSidebar({
     isCollapsed = false,
     onToggleCollapse,
     userData = null,
-    brandLogoUrl = null
+    brandLogoUrl = null,
+    footerSlot
 }: LeftSidebarProps) {
     // Categories collapsed by default, but open 'others' if it has pages
     const [openCategories, setOpenCategories] = useState<string[]>(['others'])
@@ -392,6 +428,7 @@ export function LeftSidebar({
                 if (saved) {
                     setDeletedSubCategories(JSON.parse(saved))
                 }
+                setIsOthersHidden(localStorage.getItem(`brandbook_${brandbookId}_hide_others`) === '1')
                 const savedNames = localStorage.getItem(`brandbook_${brandbookId}_custom_category_names`)
                 if (savedNames) {
                     setCustomCategoryNames(JSON.parse(savedNames))
@@ -428,11 +465,26 @@ export function LeftSidebar({
         toast.success(`Separador renomeado para "${trimmed}"`)
     }
 
-    const handleDeleteSubCategory = (subCatId: string, subCatLabel: string) => {
-        if (typeof window !== 'undefined' && !window.confirm(`Tem certeza que deseja excluir o subseparador "${subCatLabel}"? As páginas existentes serão preservadas em "Outras páginas".`)) {
-            return
-        }
+    // "Outras páginas" can be deleted too: empty, it is hidden (it comes back as soon as a page lands in it, so no
+    // page is ever out of sight); with pages, they are deleted with it after confirming
+    const [isOthersHidden, setIsOthersHidden] = useState(false)
+    const [isDeleteOthersOpen, setIsDeleteOthersOpen] = useState(false)
+    const confirmDeleteOthers = async () => {
+        const pages = (modulesByCategoryRef.current['others'] || []) as { id: string }[]
+        if (pages.length) await onDeleteModules?.(pages.map(p => p.id))
+        setIsOthersHidden(true)
+        if (typeof window !== 'undefined' && brandbookId) localStorage.setItem(`brandbook_${brandbookId}_hide_others`, '1')
+        toast.success(pages.length ? `Separador "Outras páginas" e ${pages.length} ${pages.length === 1 ? 'página excluídos' : 'páginas excluídos'}` : 'Separador "Outras páginas" excluído')
+    }
 
+    // Deleting a subcategory asks first in the editor's own confirmation modal (not the browser's confirm())
+    const [subCategoryToDelete, setSubCategoryToDelete] = useState<{ id: string, label: string } | null>(null)
+    const handleDeleteSubCategory = (subCatId: string, subCatLabel: string) => {
+        setOpenMenuCatId(null)
+        setSubCategoryToDelete({ id: subCatId, label: subCatLabel })
+    }
+
+    const confirmDeleteSubCategory = (subCatId: string, subCatLabel: string) => {
         setDeletedSubCategories(prev => {
             const next = Array.from(new Set([...prev, subCatId]))
             if (typeof window !== 'undefined' && brandbookId) {
@@ -468,6 +520,9 @@ export function LeftSidebar({
         })
         return grouped
     }, [modules, deletedSubCategories])
+
+    const modulesByCategoryRef = React.useRef(modulesByCategory)
+    modulesByCategoryRef.current = modulesByCategory
 
     const isCategoryHidden = (catId: string) => {
         const targetModules: any[] = []
@@ -639,16 +694,24 @@ export function LeftSidebar({
                             onOpenChange={(open) => setOpenMenuCatId(open ? catId : null)}
                         >
                             <DropdownMenuTrigger asChild>
-                                <button
-                                    type="button"
+                                {/* Not a <button>: this sits inside the accordion's trigger button, and a button can't
+                                    contain another one (invalid HTML / hydration error). Same pattern as the eye toggle */}
+                                <span
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="Mais opções"
                                     className="h-full px-2 hover:bg-black/5 text-[#0F172A] hover:text-[#FF0054] transition-colors flex items-center justify-center cursor-pointer"
                                     title="Mais opções"
                                     onClick={(e) => {
                                         e.stopPropagation()
                                     }}
+                                    onKeyDown={(e) => {
+                                        // Keep Enter / Space for the menu, not the accordion around it
+                                        if (e.key === 'Enter' || e.key === ' ') e.stopPropagation()
+                                    }}
                                 >
                                     <MoreVertical className="w-3 h-3" />
-                                </button>
+                                </span>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent
                                 align="end"
@@ -679,6 +742,20 @@ export function LeftSidebar({
                                     Adicionar página personalizada
                                 </DropdownMenuItem>
 
+                                {catId === 'others' && (
+                                    <DropdownMenuItem
+                                        className="text-red-400 hover:bg-red-500/20 hover:text-red-300 px-3 py-1.5 text-xs rounded-sm cursor-pointer flex items-center gap-2"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            setOpenMenuCatId(null)
+                                            setIsDeleteOthersOpen(true)
+                                        }}
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                        Excluir separador
+                                    </DropdownMenuItem>
+                                )}
+
                                 {isSubCategory && (
                                     <DropdownMenuItem
                                         className="text-red-400 hover:bg-red-500/20 hover:text-red-300 px-3 py-1.5 text-xs rounded-sm cursor-pointer flex items-center gap-2"
@@ -699,7 +776,21 @@ export function LeftSidebar({
         )
     }
 
+    const moveTargets = React.useMemo(() => {
+        const targets: { id: string, label: string, isSub: boolean }[] = []
+        CATEGORIES.forEach(cat => {
+            targets.push({ id: cat.id, label: customCategoryNames[cat.id] || cat.label, isSub: false })
+            cat.subCategories?.forEach(sub => {
+                if (!deletedSubCategories.includes(sub.id)) targets.push({ id: sub.id, label: customCategoryNames[sub.id] || sub.label, isSub: true })
+            })
+        })
+        targets.push({ id: 'others', label: customCategoryNames['others'] || 'Outras páginas', isSub: false })
+        return targets
+    }, [customCategoryNames, deletedSubCategories])
+
     const sharedActions = {
+        moveTargets,
+        onMoveModuleToCategory,
         onRenameModule,
         onDuplicateModule,
         onDeleteModule,
@@ -768,7 +859,7 @@ export function LeftSidebar({
                         <div className="p-8 flex flex-col items-center pb-6">
                             {brandLogoUrl ? (
                                 <div className="w-[80px] h-[80px] rounded-full bg-white border border-gray-100 flex items-center justify-center overflow-hidden shadow-lg shadow-purple-500/10">
-                                    <img src={brandLogoUrl} alt={brandName} className="w-full h-full object-contain p-1" />
+                                    <img loading="lazy" decoding="async" src={brandLogoUrl} alt={brandName} className="w-full h-full object-contain p-1" />
                                 </div>
                             ) : (
                                 <div className="w-[80px] h-[80px] rounded-full bg-gradient-brand flex items-center justify-center text-white text-2xl font-bold shadow-lg shadow-purple-500/20">
@@ -851,7 +942,8 @@ export function LeftSidebar({
                                     )
                                 })}
 
-                                {/* 2. Others Section */}
+                                {/* 2. Others Section (hidden after being deleted, back as soon as it holds pages) */}
+                                {(!isOthersHidden || (modulesByCategory['others']?.length || 0) > 0) && (
                                 <AccordionItem value="others" className="border-none">
                                     <AccordionTrigger
                                         style={{ ...sidebarTextStyle, fontWeight: 600 }}
@@ -863,15 +955,18 @@ export function LeftSidebar({
                                         {renderPagesList('others')}
                                     </AccordionContent>
                                 </AccordionItem>
+                                )}
                             </Accordion>
                         </ScrollArea>
+
+                        {footerSlot && <div className="px-3 pb-2 pt-2 border-t border-[#EBEBEB] empty:hidden" style={{ color: sidebarTextStyle.color }}>{footerSlot}</div>}
 
                         {/* User Profile / Bottom */}
                         <div className="p-4 border-t border-[#EBEBEB] mt-auto">
                             <div className="flex items-center gap-3">
                                 <div className="w-8 h-8 rounded-full bg-gray-300 overflow-hidden flex items-center justify-center">
                                     {userData?.avatar_url ? (
-                                        <img src={userData.avatar_url} alt={userData.name} className="w-full h-full object-cover" />
+                                        <img loading="lazy" decoding="async" src={userData.avatar_url} alt={userData.name} className="w-full h-full object-cover" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-tr from-[#1E1F24] to-[#2D3039] text-white text-xs font-bold uppercase">
                                             {userData?.name ? userData.name.charAt(0).toUpperCase() : "U"}
@@ -891,6 +986,29 @@ export function LeftSidebar({
             </div>
 
             {/* Add Pages Modal */}
+            <DeleteConfirmationModal
+                isOpen={isDeleteOthersOpen}
+                onClose={() => setIsDeleteOthersOpen(false)}
+                onConfirm={confirmDeleteOthers}
+                title="Excluir separador"
+                message={(() => {
+                    const pages = (modulesByCategory['others'] || []) as { title?: string }[]
+                    if (!pages.length) return 'O separador "Outras páginas" deixa de aparecer no menu. Volta a aparecer sozinho se alguma página ficar sem separador.'
+                    const names = pages.slice(0, 4).map(p => `"${p.title || 'Sem título'}"`).join(', ') + (pages.length > 4 ? ` e mais ${pages.length - 4}` : '')
+                    return `As ${pages.length} ${pages.length === 1 ? 'página' : 'páginas'} deste separador (${names}) ${pages.length === 1 ? 'será eliminada' : 'serão eliminadas'} permanentemente, com todo o conteúdo. Esta ação não pode ser desfeita.`
+                })()}
+                confirmLabel={(modulesByCategory['others']?.length || 0) > 0 ? 'Excluir separador e páginas' : 'Excluir'}
+            />
+
+            <DeleteConfirmationModal
+                isOpen={!!subCategoryToDelete}
+                onClose={() => setSubCategoryToDelete(null)}
+                onConfirm={() => { if (subCategoryToDelete) confirmDeleteSubCategory(subCategoryToDelete.id, subCategoryToDelete.label) }}
+                title="Excluir subseparador"
+                message={`Tem a certeza que deseja excluir o subseparador "${subCategoryToDelete?.label ?? ''}"? As páginas que estão nele não são apagadas: passam para "Outras páginas".`}
+                confirmLabel="Excluir"
+            />
+
             <AddPagesModal
                 isOpen={isAddPagesModalOpen}
                 onClose={() => {

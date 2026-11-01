@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Navbar } from "@/components/layout/Navbar"
 import { Button } from "@/components/ui/button"
@@ -7,7 +7,7 @@ import Link from "next/link"
 
 export default async function BrandOverviewPage({ params }: { params: Promise<{ brandId: string }> }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
         redirect('/login')
@@ -42,7 +42,7 @@ export default async function BrandOverviewPage({ params }: { params: Promise<{ 
                     <div className="absolute -bottom-10 left-8 flex items-end">
                         <div className="w-24 h-24 rounded-xl bg-bg-1 border-4 border-bg-0 shadow-lg flex items-center justify-center overflow-hidden">
                             {brand.logo_url ? (
-                                <img src={brand.logo_url} alt={brand.name} className="w-full h-full object-cover" />
+                                <img loading="lazy" decoding="async" src={brand.logo_url} alt={brand.name} className="w-full h-full object-cover" />
                             ) : (
                                 <span className="text-2xl font-bold">{brand.name.substring(0, 2).toUpperCase()}</span>
                             )}

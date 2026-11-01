@@ -1,8 +1,10 @@
 "use client"
 
 import React from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
+import { ROADMAP_TEMPLATES } from "@/lib/roadmap-templates"
 import { Button } from "@/components/ui/button"
 import {
     Trash2,
@@ -31,8 +33,6 @@ import { format } from "date-fns"
 import { type BlockData, type DocumentSettings } from "./DocumentBlocks"
 import { uploadProjectMedia } from "@/app/actions/projects"
 import { Loader2 } from "lucide-react"
-import jsPDF from "jspdf"
-import html2canvas from "html2canvas"
 import {
     Select,
     SelectContent,
@@ -40,6 +40,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { ColorInput } from "@/components/ui/color-input"
 
 interface Block {
     id: string
@@ -1008,6 +1009,9 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
         toast.success(`Template "${template.name}" aplicado!`)
     }
 
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
+
     const handleDeleteTemplate = async (templateId: string, e: React.MouseEvent) => {
         e.stopPropagation()
         if (confirm("Tem certeza que deseja excluir este template permanentemente?")) {
@@ -1145,6 +1149,8 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
             toast.loading("Capturando PDF (Processamento Pesado)...", { id: toastId })
 
             // 6. Capture the full height
+            // PERFORMANCE: PDF libraries are loaded only when exporting
+            const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")])
             const canvas = await html2canvas(clone, {
                 scale: 2,
                 useCORS: true,
@@ -1339,7 +1345,7 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
 
                                                 {userRole === 'admin' && (
                                                     <button
-                                                        onClick={(e) => handleDeleteTemplate(template.id, e)}
+                                                        onClick={(e) => { e.stopPropagation(); runAction(() => handleDeleteTemplate(template.id, e)) }}
                                                         className="absolute top-4 right-4 z-[40] p-2.5 bg-black/50 hover:bg-red-600 text-white rounded-xl backdrop-blur-xl border border-white/10 opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 shadow-2xl"
                                                         title="Excluir Template"
                                                     >
@@ -1419,8 +1425,7 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
                                     <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Cor Principal</p>
                                     <div className="flex items-center gap-4 bg-white/5 border border-white/5 p-3 rounded-2xl hover:bg-white/10 transition-colors group">
                                         <div className="w-10 h-10 rounded-xl bg-gray-900 border border-white/10 flex items-center justify-center p-1 relative overflow-hidden ring-2 ring-transparent group-hover:ring-white/10 transition-all">
-                                            <input
-                                                type="color"
+                                            <ColorInput
                                                 value={settings.primaryColor}
                                                 onChange={(e) => setSettings({ ...settings, primaryColor: e.target.value })}
                                                 className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
@@ -1442,8 +1447,7 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
                                     <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Cor de Destaque</p>
                                     <div className="flex items-center gap-4 bg-white/5 border border-white/5 p-3 rounded-2xl hover:bg-white/10 transition-colors group">
                                         <div className="w-10 h-10 rounded-xl bg-gray-900 border border-white/10 flex items-center justify-center p-1 relative overflow-hidden ring-2 ring-transparent group-hover:ring-white/10 transition-all">
-                                            <input
-                                                type="color"
+                                            <ColorInput
                                                 value={settings.secondaryColor}
                                                 onChange={(e) => setSettings({ ...settings, secondaryColor: e.target.value })}
                                                 className="absolute inset-0 w-full h-full cursor-pointer opacity-0"
@@ -1471,8 +1475,7 @@ export function DocumentBuilder({ projectId, type, initialData, onClose, onSave 
                                     <div className="grid grid-cols-1 gap-4">
                                         <div className="flex items-center gap-4 bg-white/5 border border-white/5 p-3 rounded-2xl hover:bg-white/10 transition-colors group">
                                             <div className="w-10 h-10 rounded-xl bg-gray-900 border border-white/10 flex items-center justify-center p-1 relative overflow-hidden ring-2 ring-transparent group-hover:ring-white/10 transition-all">
-                                                <input
-                                                    type="color"
+                                                <ColorInput
                                                     value={settings.sidebarColor || '#FFDECB'}
                                                     onChange={(e) => setSettings({ ...settings, sidebarColor: e.target.value })}
                                                     className="absolute inset-0 w-full h-full cursor-pointer opacity-0"

@@ -83,7 +83,7 @@ export const DownloadPreviewTooltip = ({ file, headerColor }: DownloadPreviewToo
                 <div className="w-full h-[140px] bg-[#EEF2F6] rounded-lg flex items-center justify-center border border-gray-200/50">
                     {/* Preview Image or Placeholder */}
                     {url ? (
-                        <img src={url} alt="Preview" className="h-full w-full object-contain p-2" />
+                        <img loading="lazy" decoding="async" src={url} alt="Preview" className="h-full w-full object-contain p-2" />
                     ) : (
                         <span className="text-gray-500 font-normal">File preview</span>
                     )}

@@ -216,7 +216,7 @@ export function ClientRoadmapView({
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#1D1D1F] to-[#3d3d3f] flex items-center justify-center text-white font-black text-[14px] shadow-lg">
                             {brand?.logo_url ? (
-                                <img src={brand.logo_url} alt="" className="w-full h-full object-cover rounded-2xl" />
+                                <img loading="lazy" decoding="async" src={brand.logo_url} alt="" className="w-full h-full object-cover rounded-2xl" />
                             ) : (
                                 brand?.name?.substring(0, 2).toUpperCase() || "B"
                             )}

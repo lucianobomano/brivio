@@ -116,7 +116,7 @@ export function StandupListClient({ workspaceId, initialStandups = [] }: Standup
                                 <div className="absolute inset-0 z-0" style={{ background: standup.coverUrl }} />
                             ) : standup.coverUrl ? (
                                 <div className="absolute inset-0 z-0">
-                                    <img src={standup.coverUrl} alt="" className="w-full h-full object-cover" />
+                                    <img loading="lazy" decoding="async" src={standup.coverUrl} alt="" className="w-full h-full object-cover" />
                                     <div className="absolute inset-0 bg-black/40" />
                                 </div>
                             ) : (
@@ -185,7 +185,7 @@ export function StandupListClient({ workspaceId, initialStandups = [] }: Standup
                                         <div key={i} className="w-10 h-10 rounded-full border-2 border-white/20 bg-neutral-800 overflow-hidden relative shadow-lg">
                                             {/* If member is string (url), use img, else initials */}
                                             {typeof member === 'string' && member.startsWith('http') ? (
-                                                <img src={member} alt="" className="w-full h-full object-cover" />
+                                                <img loading="lazy" decoding="async" src={member} alt="" className="w-full h-full object-cover" />
                                             ) : (
                                                 <>
                                                     <div className={`absolute inset-0 bg-gradient-to-br from-neutral-600 to-neutral-800`} />

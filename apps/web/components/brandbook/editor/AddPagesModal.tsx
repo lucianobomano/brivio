@@ -1,7 +1,11 @@
 "use client"
 
 import React, { useState } from "react"
-import { X, Plus, Type, Image as ImageIcon, Music, Gem } from "lucide-react"
+import {
+    Plus, Type, Image as ImageIcon, Music, Gem, History, BookOpen, Drama, AudioLines, Languages, Quote, Tag, BookOpenText,
+    PenLine, Shapes, Brush, LayoutGrid, Hexagon, MonitorSmartphone, Package, Clapperboard, Flower2, Hand, Cookie, Sparkles,
+    type LucideIcon,
+} from "lucide-react"
 import { addBrandbookPages } from "@/app/actions/brandbook"
 import { CATEGORIES } from "@/lib/brandbook-utils"
 import { createClient } from "@/lib/supabase/client"
@@ -29,9 +33,39 @@ interface AddPagesModalProps {
     filterCategory?: string | null
 }
 
-const TEMPLATES = [
+/** Icon of a page card: a lucide icon inside the page frame */
+const framed = (Icon: LucideIcon) => (
+    <div className="w-12 h-16 border border-[#2d3139] group-hover:border-white/40 rounded flex items-center justify-center bg-[#1a1b21] transition-colors">
+        <Icon className="w-6 h-6 text-[#97a1b3] group-hover:text-white transition-colors" strokeWidth={1.5} />
+    </div>
+)
+
+/** Groups of the grid, in order (the categories of lib/brandbook-utils) */
+const GROUPS = [
+    { id: 'base', label: 'Começar' },
+    { id: 'overview', label: 'Visão geral' },
+    { id: 'verbal_identity', label: 'Identidade verbal' },
+    { id: 'visual_identity', label: 'Identidade visual' },
+    { id: 'sensory_identity', label: 'Identidade sensorial' },
+]
+
+interface PageTemplate {
+    id: string
+    label: string
+    defaultTitle: string
+    type: string
+    defaultCategory: string
+    group: string
+    icon: React.ReactNode
+}
+
+const page = (id: string, label: string, defaultTitle: string, type: string, category: string, Icon: LucideIcon): PageTemplate =>
+    ({ id, label, defaultTitle, type, defaultCategory: category, group: category, icon: framed(Icon) })
+
+const TEMPLATES: PageTemplate[] = [
     {
         id: 'blank',
+        group: 'base',
         label: 'Blank',
         defaultTitle: 'Sem título',
         type: 'custom',
@@ -40,6 +74,7 @@ const TEMPLATES = [
     },
     {
         id: 'guide_intro',
+        group: 'overview',
         label: 'Guide intro',
         defaultTitle: 'Visão geral',
         type: 'mission',
@@ -55,6 +90,7 @@ const TEMPLATES = [
     },
     {
         id: 'philosophy',
+        group: 'overview',
         label: 'Philosophy',
         defaultTitle: 'DNA da marca',
         type: 'archetype',
@@ -68,8 +104,20 @@ const TEMPLATES = [
             </div>
         )
     },
+    page('history', 'History', 'História da marca', 'history', 'overview', History),
+    { ...page('visual_guide', 'Visual style guide', 'Guia de estilo visual', 'custom', 'visual_guide', BookOpen), group: 'overview' },
+
+    page('personality', 'Personality', 'Personalidade da marca', 'custom', 'verbal_identity', Drama),
+    page('voice_tone', 'Tone of voice', 'Tom de voz', 'voice_tone', 'verbal_identity', AudioLines),
+    page('language', 'Preferred language', 'Linguagem preferencial', 'custom', 'verbal_identity', Languages),
+    page('slogans', 'Slogans & taglines', 'Slogans e taglines', 'custom', 'verbal_identity', Quote),
+    page('naming', 'Naming system', 'Naming system', 'custom', 'verbal_identity', Tag),
+    page('storytelling', 'Storytelling', 'Storytelling base', 'custom', 'verbal_identity', BookOpenText),
+    page('copywriting', 'Copywriting', 'Copywriting guidelines', 'custom', 'verbal_identity', PenLine),
+
     {
         id: 'logo',
+        group: 'visual_identity',
         label: 'Logo',
         defaultTitle: 'Logo',
         type: 'logo',
@@ -82,6 +130,7 @@ const TEMPLATES = [
     },
     {
         id: 'colors',
+        group: 'visual_identity',
         label: 'Colors',
         defaultTitle: 'Cores',
         type: 'palette',
@@ -96,6 +145,7 @@ const TEMPLATES = [
     },
     {
         id: 'typography',
+        group: 'visual_identity',
         label: 'Typography',
         defaultTitle: 'Tipografia',
         type: 'typography',
@@ -106,8 +156,10 @@ const TEMPLATES = [
             </div>
         )
     },
+    page('iconography', 'Iconography', 'Iconografia', 'icons', 'visual_identity', Shapes),
     {
         id: 'photography',
+        group: 'visual_identity',
         label: 'Photography',
         defaultTitle: 'Imagens & Fotografia',
         type: 'photography',
@@ -118,8 +170,16 @@ const TEMPLATES = [
             </div>
         )
     },
+    page('illustration', 'Illustration', 'Ilustração', 'illustration', 'visual_identity', Brush),
+    page('grid', 'Grid & layouts', 'Grid & Layouts', 'grid', 'visual_identity', LayoutGrid),
+    page('graphic_elements', 'Graphic elements', 'Elementos gráficos', 'custom', 'visual_identity', Hexagon),
+    page('digital_apps', 'Digital applications', 'Aplicações digitais', 'applications', 'visual_identity', MonitorSmartphone),
+    page('offline_apps', 'Offline applications', 'Aplicações offline', 'applications', 'visual_identity', Package),
+    page('motion', 'Motion design', 'Motion design', 'motion', 'visual_identity', Clapperboard),
+
     {
         id: 'sound',
+        group: 'sensory_identity',
         label: 'Sound',
         defaultTitle: 'Som da marca',
         type: 'custom',
@@ -129,7 +189,11 @@ const TEMPLATES = [
                 <Music className="w-6 h-6 text-[#97a1b3] group-hover:text-white transition-colors" strokeWidth={1.5} />
             </div>
         )
-    }
+    },
+    page('scent', 'Scent', 'Identidade olfativa', 'custom', 'sensory_identity', Flower2),
+    page('touch', 'Touch', 'Identidade tátil', 'custom', 'sensory_identity', Hand),
+    page('taste', 'Taste', 'Identidade gustativa', 'custom', 'sensory_identity', Cookie),
+    page('multimodal', 'Multimodal experience', 'Experiência multimodal', 'custom', 'sensory_identity', Sparkles),
 ]
 
 export function AddPagesModal({
@@ -146,7 +210,9 @@ export function AddPagesModal({
 
     if (!isOpen) return null
 
-    const handleSave = async (template: typeof TEMPLATES[0]) => {
+    const existing = new Set(existingPageTitles.map(t => t.toLowerCase()))
+
+    const handleSave = async (template: PageTemplate) => {
         const finalTitle = customName.trim() || template.defaultTitle
 
         // Avoid adding duplicate title
@@ -216,8 +282,8 @@ export function AddPagesModal({
                 <div
                     className="pointer-events-auto relative flex flex-col overflow-hidden shadow-2xl"
                     style={{
-                        width: '722px',
-                        height: '492px',
+                        width: 'min(722px, calc(100vw - 32px))',
+                        height: 'min(640px, calc(100vh - 64px))',
                         backgroundColor: '#15161b',
                         borderRadius: '12px',
                     }}
@@ -249,23 +315,44 @@ export function AddPagesModal({
                             />
                         </div>
 
-                        {/* Grid */}
-                        <div className="grid grid-cols-4 gap-4 flex-1 overflow-y-auto min-h-0 pb-2">
-                            {TEMPLATES.map((template) => (
-                                <button
-                                    key={template.id}
-                                    onClick={() => handleSave(template)}
-                                    disabled={isSaving}
-                                    className="h-[130px] border border-[#2d3139] hover:border-[#ff0054] rounded-lg bg-[#1a1b21] flex flex-col items-center justify-center gap-3 p-3 hover:shadow-lg transition-all group outline-none"
-                                >
-                                    <div className="flex-1 flex items-center justify-center">
-                                        {template.icon}
+                        {/* Grid, by category */}
+                        <div className="flex-1 overflow-y-auto min-h-0 pb-2 pr-1 flex flex-col gap-6 custom-scrollbar">
+                            {GROUPS.map(group => {
+                                const items = TEMPLATES.filter(t => t.group === group.id)
+                                if (!items.length) return null
+                                return (
+                                    <div key={group.id} className="flex flex-col gap-3">
+                                        {group.id !== 'base' && (
+                                            <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#6b7280] select-none">{group.label}</span>
+                                        )}
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                            {items.map((template) => {
+                                                // Already in the brandbook: only addable again under another name
+                                                const added = !customName.trim() && existing.has(template.defaultTitle.toLowerCase())
+                                                return (
+                                                    <button
+                                                        key={template.id}
+                                                        onClick={() => handleSave(template)}
+                                                        disabled={isSaving || added}
+                                                        title={added ? 'Esta página já existe. Escreva outro nome para adicionar outra.' : template.defaultTitle}
+                                                        className="relative h-[130px] border border-[#2d3139] enabled:hover:border-[#ff0054] rounded-lg bg-[#1a1b21] flex flex-col items-center justify-center gap-3 p-3 enabled:hover:shadow-lg transition-all group outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                                                    >
+                                                        {added && (
+                                                            <span className="absolute top-2 right-2 text-[9px] font-semibold uppercase tracking-wider text-[#97a1b3] bg-[#2d3139] rounded px-1.5 py-0.5">Adicionada</span>
+                                                        )}
+                                                        <div className="flex-1 flex items-center justify-center">
+                                                            {template.icon}
+                                                        </div>
+                                                        <span className="text-gray-400 group-hover:text-white text-xs font-semibold tracking-wide select-none text-center leading-tight">
+                                                            {template.label}
+                                                        </span>
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
-                                    <span className="text-gray-400 group-hover:text-white text-xs font-semibold tracking-wide select-none">
-                                        {template.label}
-                                    </span>
-                                </button>
-                            ))}
+                                )
+                            })}
                         </div>
                     </div>
                 </div>

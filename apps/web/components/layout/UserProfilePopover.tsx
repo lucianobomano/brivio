@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { Settings, User, ChevronRight, HelpCircle, LogOut, Briefcase, Repeat2, Clock } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 
@@ -92,7 +92,7 @@ export function UserProfilePopover({ user, isOpen, onClose }: UserProfilePopover
                 <div className="relative px-5 -mt-10">
                     <div className="w-20 h-20 rounded-full border-4 border-bg-1 bg-accent-indigo flex items-center justify-center text-white text-lg font-bold overflow-hidden shadow-lg">
                         {avatarUrl ? (
-                            <img src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={avatarUrl} alt={displayName} className="w-full h-full object-cover" />
                         ) : (
                             <span>{avatarInitials}</span>
                         )}

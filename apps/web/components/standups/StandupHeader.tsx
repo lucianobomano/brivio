@@ -13,9 +13,10 @@ import {
 import { cn } from "@/lib/utils"
 import Image from "next/image"
 import { useTheme } from "next-themes"
-import { usePathname, useRouter } from "next/navigation"
+import { usePathname } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
+import dynamic from "next/dynamic"
 import { CreateBrandModal } from "@/components/brands/CreateBrandModal"
-import { CreateBrandbookFromTemplateModal } from "@/components/brandbook/CreateBrandbookFromTemplateModal"
 import { createClient } from "@/lib/supabase/client"
 import {
     DropdownMenu,
@@ -26,7 +27,11 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { UserProfilePopover } from "@/components/layout/UserProfilePopover"
 import { toast } from "sonner"
-import { GlobalSettingsView } from "@/components/settings/GlobalSettingsView"
+
+// PERFORMANCE: the settings screen and the template modal only appear after a click, so they are
+// loaded (and their workspace data fetched) on first open instead of with every page using this header
+const GlobalSettingsView = dynamic(() => import("@/components/settings/GlobalSettingsView").then(m => m.GlobalSettingsView), { ssr: false })
+const CreateBrandbookFromTemplateModal = dynamic(() => import("@/components/brandbook/CreateBrandbookFromTemplateModal").then(m => m.CreateBrandbookFromTemplateModal), { ssr: false })
 import { WorkspaceProvider } from "@/components/providers/WorkspaceProvider"
 
 interface AppUser {
@@ -302,17 +307,21 @@ export function StandupHeader() {
                 </div>
             </header>
 
-            <WorkspaceProvider>
-                <GlobalSettingsView
-                    isOpen={isSettingsOpen}
-                    onClose={() => setIsSettingsOpen(false)}
-                />
-            </WorkspaceProvider>
+            {isSettingsOpen && (
+                <WorkspaceProvider>
+                    <GlobalSettingsView
+                        isOpen={isSettingsOpen}
+                        onClose={() => setIsSettingsOpen(false)}
+                    />
+                </WorkspaceProvider>
+            )}
 
-            <CreateBrandbookFromTemplateModal
-                open={isTemplateModalOpen}
-                onOpenChange={setIsTemplateModalOpen}
-            />
+            {isTemplateModalOpen && (
+                <CreateBrandbookFromTemplateModal
+                    open={isTemplateModalOpen}
+                    onOpenChange={setIsTemplateModalOpen}
+                />
+            )}
         </>
     )
 }

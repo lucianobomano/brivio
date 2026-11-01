@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export interface UserProfile {
@@ -36,7 +36,7 @@ export interface WorkspaceSettings {
 // USER SETTINGS
 export async function updateProfile(data: Partial<UserProfile>) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const { error } = await supabase
@@ -59,7 +59,7 @@ export async function updateProfile(data: Partial<UserProfile>) {
 
 export async function updateSocialLinks(links: { platform: string; url: string }[]) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const { error } = await supabase
@@ -79,7 +79,7 @@ export async function updateSocialLinks(links: { platform: string; url: string }
 // WORKSPACE SETTINGS
 export async function updateWorkspaceSettings(workspaceId: string, data: Partial<WorkspaceSettings>) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     // SECURITY: Verify the user is a member of this workspace before updating
@@ -176,7 +176,7 @@ export async function getUserData() {
 
 export async function searchDesigners(query: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return []
 
     const { data, error } = await supabase
@@ -199,7 +199,7 @@ export async function createWorkspaceWithSettings(data: {
     members: { type: 'platform' | 'email', value: string }[]
 }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     // 1. Create Workspace
@@ -340,7 +340,7 @@ export async function inviteMember(workspaceId: string, email: string, role: str
 
 export async function removeMember(memberId: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     // RLS should handle permission checks (only admins/owners can delete)

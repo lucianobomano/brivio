@@ -271,7 +271,7 @@ export function StandupDetailClient({ initialStandup, currentUser }: StandupDeta
                                             <div className="flex items-center gap-4">
                                                 <div className={cn("w-12 h-12 rounded-[14px] flex items-center justify-center font-bold text-sm border border-white/5", update.user.color)}>
                                                     {update.user.avatar && update.user.avatar.startsWith('http')
-                                                        ? <img src={update.user.avatar} alt={update.user.name} className="w-full h-full object-cover rounded-[14px]" />
+                                                        ? <img loading="lazy" decoding="async" src={update.user.avatar} alt={update.user.name} className="w-full h-full object-cover rounded-[14px]" />
                                                         : update.user.avatar
                                                     }
                                                 </div>
@@ -376,7 +376,7 @@ export function StandupDetailClient({ initialStandup, currentUser }: StandupDeta
                                 .map((m: any) => (
                                     <div key={m.user.id} className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity cursor-pointer">
                                         <div className="w-9 h-9 rounded-full bg-[#25262B] flex items-center justify-center text-[10px] font-black text-[#97A1B3] border border-[#373737] overflow-hidden">
-                                            {m.user.avatar_url ? <img src={m.user.avatar_url} alt={m.user.name} className="w-full h-full object-cover" /> : m.user.name.charAt(0)}
+                                            {m.user.avatar_url ? <img loading="lazy" decoding="async" src={m.user.avatar_url} alt={m.user.name} className="w-full h-full object-cover" /> : m.user.name.charAt(0)}
                                         </div>
                                         <div>
                                             <span className="text-sm text-white font-medium block">{m.user.name}</span>

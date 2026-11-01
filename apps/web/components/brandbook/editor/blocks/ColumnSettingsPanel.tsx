@@ -3,6 +3,11 @@ import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Lock, Unlock, RotateCcw, Copy, CopyPlus, Trash2, Check } from "lucide-react"
 import { Label } from "@/components/ui/label"
+import { DistributionIcon } from "../SectionSettingsPanel"
+import { EDITOR_COLLISION_PADDING } from "../editorLayout"
+import { HoverTab } from "../AnimationPanel"
+import type { HoverEffect } from "../hoverEffects"
+import { SmoothColorInput } from "../SmoothColorInput"
 
 interface ColumnSettingsPanelProps {
     isOpen: boolean
@@ -42,6 +47,16 @@ interface ColumnSettingsPanelProps {
     blockGap?: number
     onBlockGapChange?: (gap: number) => void
 
+    /** Side-by-side slots inside the column, one item each (1 = items stacked as usual) */
+    subColumns?: number
+    /** How the column's items share its height: 'packed' follows the vertical alignment (default) */
+    contentDistribution?: 'packed' | 'between' | 'around' | 'evenly'
+    onContentDistributionChange?: (value: 'packed' | 'between' | 'around' | 'evenly') => void
+    /** Hover state of the column and of the texts inside it */
+    hoverEffect?: HoverEffect
+    onHoverEffectChange?: (effect: HoverEffect) => void
+    onSubColumnsChange?: (count: number) => void
+
     isFreeFlow?: boolean
     onFreeFlowChange?: (val: boolean) => void
 
@@ -54,6 +69,9 @@ interface ColumnSettingsPanelProps {
     onFullWidthChange?: (val: boolean) => void
     isFullHeight?: boolean
     onFullHeightChange?: (val: boolean) => void
+    /** 'fit': as tall as its content · 'fill': fills the room it has (row / section) · none: default sizing */
+    heightMode?: 'fit' | 'fill'
+    onHeightModeChange?: (mode: 'fit' | 'fill' | undefined) => void
 
     onReset: () => void
     onCopyColumn?: () => void
@@ -90,6 +108,12 @@ export function ColumnSettingsPanel({
     onPaddingChange,
     blockGap = 16,
     onBlockGapChange,
+    subColumns = 1,
+    contentDistribution = 'packed',
+    onContentDistributionChange,
+    hoverEffect,
+    onHoverEffectChange,
+    onSubColumnsChange,
     isFreeFlow = false,
     onFreeFlowChange,
     columnWidth = 'auto',
@@ -100,6 +124,8 @@ export function ColumnSettingsPanel({
     onFullWidthChange,
     isFullHeight = false,
     onFullHeightChange,
+    heightMode,
+    onHeightModeChange,
     onReset,
     onCopyColumn,
     onDuplicateColumn,
@@ -200,6 +226,8 @@ export function ColumnSettingsPanel({
         onPaddingChange?.(newPadding)
     }
 
+    const [panelTab, setPanelTab] = React.useState<'settings' | 'hover'>('settings')
+
     return (
         <Popover open={isOpen} onOpenChange={onOpenChange}>
             <PopoverTrigger asChild>
@@ -209,6 +237,7 @@ export function ColumnSettingsPanel({
             <PopoverContent
                 side="left"
                 align="start"
+                collisionPadding={EDITOR_COLLISION_PADDING}
                 className="w-[300px] p-0 bg-[#15161B] border-none shadow-2xl rounded-lg overflow-hidden flex flex-col"
                 style={{ zIndex: 9999, transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`, maxHeight: '680px' }}
             >
@@ -224,6 +253,27 @@ export function ColumnSettingsPanel({
                     </button>
                 </div>
 
+                {/* Tabs */}
+                <div className="flex gap-1 px-3 pt-3 shrink-0">
+                    {([['settings', 'Configurar'], ['hover', 'Hover']] as const).map(([id, label]) => (
+                        <button
+                            key={id}
+                            onClick={() => setPanelTab(id)}
+                            className={cn(
+                                "flex-1 h-8 rounded-md text-[12px] font-semibold transition-colors",
+                                panelTab === id ? "bg-[#23242b] text-white" : "text-[#666] hover:text-white"
+                            )}
+                        >
+                            {label}
+                        </button>
+                    ))}
+                </div>
+
+                {panelTab === 'hover' ? (
+                    <div className="flex-1 min-h-0 overflow-y-auto flex flex-col [&>div]:!p-4">
+                        <HoverTab effect={hoverEffect || {}} onChange={(effect) => onHoverEffectChange?.(effect)} />
+                    </div>
+                ) : (
                 <div
                     className="p-4 flex flex-col gap-3 text-white/90 text-sm overflow-y-auto flex-1 column-settings-scroll"
                     style={{
@@ -300,22 +350,86 @@ export function ColumnSettingsPanel({
                             </button>
                         </div>
 
-                        {/* Full Height Toggle */}
-                        <div className="flex items-center justify-between mt-2">
-                            <span className="text-gray-400 text-sm">Altura total</span>
-                            <button
-                                onClick={() => onFullHeightChange?.(!isFullHeight)}
-                                className={cn(
-                                    "w-[44px] h-[24px] rounded-full relative transition-colors duration-200",
-                                    isFullHeight ? "bg-[#FF0054]" : "bg-[#2A2B35]"
-                                )}
-                            >
-                                <div className={cn(
-                                    "w-[20px] h-[20px] rounded-full bg-white absolute top-[2px] transition-transform duration-200 shadow-md",
-                                    isFullHeight ? "translate-x-[22px]" : "translate-x-[2px]"
-                                )} />
-                            </button>
+                        {/* Height mode: fit to content / fill container ("Altura total" columns read as fill) */}
+                        <div className="flex flex-col gap-1.5 mt-3">
+                            <span className="text-gray-400 text-sm">Altura</span>
+                            <div className="grid grid-cols-2 gap-1 bg-[#1A1A20] rounded-[4px] p-1">
+                                {([
+                                    { id: 'fit', label: 'Ajustar ao conteúdo', title: 'Fit to content — a coluna tem só a altura do seu conteúdo' },
+                                    { id: 'fill', label: 'Preencher', title: 'Fill container — a coluna ocupa toda a altura disponível' },
+                                ] as const).map(option => {
+                                    const active = (heightMode ?? (isFullHeight ? 'fill' : undefined)) === option.id
+                                    return (
+                                        <button
+                                            key={option.id}
+                                            title={option.title}
+                                            // Clicking the active mode again goes back to the default sizing
+                                            onClick={() => onHeightModeChange?.(active ? undefined : option.id)}
+                                            className={cn(
+                                                "h-[28px] rounded-[2px] text-[11px] font-medium transition-colors",
+                                                active ? "bg-[#FF0054] text-white" : "text-gray-400 hover:text-white hover:bg-[#2A2B35]"
+                                            )}
+                                        >
+                                            {option.label}
+                                        </button>
+                                    )
+                                })}
+                            </div>
                         </div>
+                    </div>
+
+                    {/* Subcolumns */}
+                    <div className="py-3 border-b border-[#333] flex flex-col gap-2">
+                        <div className="flex items-center justify-between">
+                            <span className="font-light text-gray-400">Subcolunas</span>
+                            <span className="text-[11px] text-gray-500">{subColumns === 1 ? 'Itens empilhados' : `${subColumns} itens lado a lado`}</span>
+                        </div>
+                        <div className="flex gap-2 w-full">
+                            {[1, 2, 3, 4].map(count => (
+                                <button
+                                    key={count}
+                                    onClick={() => onSubColumnsChange?.(count)}
+                                    title={count === 1 ? 'Uma subcoluna: itens empilhados' : `${count} subcolunas, um item em cada`}
+                                    className={cn(
+                                        "flex-1 h-[35px] border rounded-[2px] transition-all flex gap-[1px] p-[3px]",
+                                        subColumns === count
+                                            ? "border-[#FF0054] shadow-[0_0_0_1px_rgba(255,0,80,0.1)]"
+                                            : "border-[#333] hover:border-[#666]"
+                                    )}
+                                >
+                                    {Array.from({ length: count }).map((_, i) => (
+                                        <div key={i} className="flex-1 border border-[#444] rounded-[1px]" />
+                                    ))}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Distribution of the items inside the column (top to bottom) */}
+                    <div className="py-3 border-b border-[#333] flex flex-col gap-2">
+                        <span className="font-light text-gray-400">Distribuição</span>
+                        <div className="grid grid-cols-4 gap-1 bg-[#1A1A20] rounded-[4px] p-1">
+                            {([
+                                { id: 'packed', title: 'Agrupar — os itens ficam juntos, onde o alinhamento vertical indicar' },
+                                { id: 'between', title: 'Espaço entre — o espaço livre fica entre os itens' },
+                                { id: 'around', title: 'Espaço à volta — o espaço livre fica à volta de cada item' },
+                                { id: 'evenly', title: 'Distribuído — espaços iguais entre os itens e nas pontas' },
+                            ] as const).map(option => (
+                                <button
+                                    key={option.id}
+                                    title={option.title}
+                                    aria-label={option.title}
+                                    onClick={() => onContentDistributionChange?.(option.id)}
+                                    className={cn(
+                                        "h-[30px] flex items-center justify-center rounded-[2px] transition-colors",
+                                        contentDistribution === option.id ? "bg-[#FF0054] text-white" : "text-gray-400 hover:text-white hover:bg-[#2A2B35]"
+                                    )}
+                                >
+                                    <DistributionIcon type={option.id} vertical />
+                                </button>
+                            ))}
+                        </div>
+                        <span className="text-[10px] text-gray-500">Nota-se quando a coluna é mais alta do que os seus itens.</span>
                     </div>
 
                     {/* Block Gap / Spacing between blocks */}
@@ -434,7 +548,7 @@ export function ColumnSettingsPanel({
                     <div className="mt-2.5 h-[50px] pb-2.5 flex items-center justify-between border-b border-[#333]">
                         <span className="font-light text-gray-400">Background color</span>
                         <div className="relative w-6 h-6 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10" style={{ backgroundColor }}>
-                            <input
+                            <SmoothColorInput
                                 type="color"
                                 value={backgroundColor}
                                 onChange={(e) => onBackgroundColorChange(e.target.value)}
@@ -483,7 +597,7 @@ export function ColumnSettingsPanel({
                                 <option value="dotted">Dotted</option>
                             </select>
                             <div className="relative w-6 h-6 rounded-full overflow-hidden cursor-pointer ring-1 ring-white/10" style={{ backgroundColor: borderColor }}>
-                                <input
+                                <SmoothColorInput
                                     type="color"
                                     value={borderColor}
                                     onChange={(e) => onBorderColorChange(e.target.value)}
@@ -625,6 +739,7 @@ export function ColumnSettingsPanel({
                     </div>
 
                 </div>
+                )}
 
                 {/* Footer Action Container: Reset, Copy Column, Duplicate Column, Lock Column, Delete Column */}
                 <div className="border-t border-[#2A2B35] bg-[#121317] p-2 flex items-center justify-between gap-1 shrink-0">

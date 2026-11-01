@@ -1,6 +1,7 @@
 import React, { useState } from "react"
 import { X } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ColorInput } from "@/components/ui/color-input"
 // Note: Intentionally avoiding shadcn Switch to match exact custom requirements
 
 interface VideoSettings {
@@ -301,8 +302,7 @@ export function VideoSettingsPanel({
                             placeholder="00"
                         />
                         <div className="w-[24px] h-[24px] rounded-full bg-white cursor-pointer relative group">
-                            <input
-                                type="color"
+                            <ColorInput
                                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
                                 value={borderColor}
                                 onChange={(e) => {

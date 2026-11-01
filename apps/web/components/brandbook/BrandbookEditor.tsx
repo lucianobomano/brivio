@@ -1,6 +1,7 @@
 "use client"
 
-import React, { useState, useRef, useMemo } from "react"
+import React, { useState, useRef, useMemo, useEffect, useCallback } from "react"
+import { toast } from "sonner"
 import {
     DndContext,
     rectIntersection,
@@ -14,15 +15,23 @@ import {
     sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable"
 import { Clock, SlidersHorizontal, Bell, Home, BookmarkPlus, Monitor, Smartphone } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import Image from "next/image"
 import { cn } from "@/lib/utils"
 import dynamic from "next/dynamic"
 
 import { LeftSidebar } from "./editor/LeftSidebar"
-import { getEffectiveCategory } from "@/lib/brandbook-utils"
+import { SharedNavigation, NavigationGate } from "./editor/navigation/SharedNavigation"
+import { AssetLibraryAccessProvider, AssetLibraryNavButton } from "./editor/navigation/AssetLibraryAccess"
+import { CATEGORIES, getEffectiveCategory } from "@/lib/brandbook-utils"
+import type { NavPage } from "./editor/BrandDesignContext"
 import { MainCanvasWithHistory } from "./editor/MainCanvas"
+import type { AnimationSettings } from "./editor/AnimatedBlock"
+import type { ColumnData, ComponentKind } from "./editor/componentPresets"
+import type { HoverEffect } from "./editor/hoverEffects"
 import { DeleteConfirmationModal } from "./editor/DeleteConfirmationModal"
+import { TemplateEditDock, TEMPLATE_MARK, type TemplateMark } from "./editor/TemplateEditDock"
+import { TemplateBrandbookEditBar } from "./editor/TemplateBrandbookEditBar"
 import { BrandbookFooter } from "./editor/BrandbookFooter"
 
 const AssetLibrary = dynamic(() => import("./editor/AssetLibrary").then(m => m.AssetLibrary), { ssr: false })
@@ -104,12 +113,112 @@ export default function BrandbookEditor({
     const [isAnimationPanelOpen, setIsAnimationPanelOpen] = useState(false)
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
 
+    // Element the Animar panel edits: the last selected one, kept when the selection is cleared
+    // (clicks outside a block deselect it while the panel is still open)
+    const [animationTargetId, setAnimationTargetId] = useState<string | null>(null)
+    useEffect(() => {
+        if (activeBlockId) setAnimationTargetId(activeBlockId)
+    }, [activeBlockId])
+
+    // Preview shows the page as visitors see it: drop the selection and close every editing panel
+    useEffect(() => {
+        if (!isPreviewMode) return
+        setActiveBlockId(null)
+        setIsSettingsPanelOpen(false)
+        setIsAssetLibraryOpen(false)
+        setIsComponentsLibraryOpen(false)
+        setIsTemplateModalOpen(false)
+        setIsAnimationPanelOpen(false)
+        setIsResponsiveMenuOpen(false)
+    }, [isPreviewMode])
+
     // DND State
     const [activeDragId, setActiveDragId] = useState<string | null>(null)
 
     // Persistence Refs
     const activeSaveTimeouts = useRef<Record<string, NodeJS.Timeout>>({})
     const latestContentRef = useRef<Record<string, any>>({}) // Track latest content to avoid saving old versions
+    // Modules with changes not sent yet, the per-module chain that sends them in order, and saves on the wire
+    const pendingSavesRef = useRef<Set<string>>(new Set())
+    const saveChainsRef = useRef<Record<string, Promise<void>>>({})
+    const inFlightSavesRef = useRef(0)
+    const saveFailuresRef = useRef<Record<string, number>>({})
+
+    /**
+     * Sends a module's latest content now. Saves of one module run one after another, so an older,
+     * slower request can never land after (and overwrite) a newer one. A failed save is retried.
+     */
+    const saveModuleNow = useCallback((moduleId: string): Promise<void> => {
+        if (activeSaveTimeouts.current[moduleId]) {
+            clearTimeout(activeSaveTimeouts.current[moduleId])
+            delete activeSaveTimeouts.current[moduleId]
+        }
+        if (!pendingSavesRef.current.has(moduleId)) return saveChainsRef.current[moduleId] || Promise.resolve()
+        pendingSavesRef.current.delete(moduleId)
+
+        const run = async () => {
+            inFlightSavesRef.current++
+            try {
+                // Read at send time: always the most recent content of the module
+                const result = await updateModuleContent(moduleId, latestContentRef.current[moduleId], brandId)
+                if (!result.success) throw new Error(result.error)
+                delete saveFailuresRef.current[moduleId]
+            } catch (err) {
+                console.error('[BrandbookEditor] Server save failed:', err)
+                const failures = (saveFailuresRef.current[moduleId] || 0) + 1
+                saveFailuresRef.current[moduleId] = failures
+                if (failures === 1) toast.error('Não foi possível guardar as últimas alterações. A tentar de novo…')
+                // Keep the change queued (unless a newer edit already queued it) and retry a few times
+                if (failures <= 3 && !pendingSavesRef.current.has(moduleId)) {
+                    pendingSavesRef.current.add(moduleId)
+                    activeSaveTimeouts.current[moduleId] = setTimeout(() => { saveModuleNow(moduleId) }, 3000 * failures)
+                } else if (failures > 3) {
+                    toast.error('As alterações não foram guardadas. Verifique a ligação e edite de novo para tentar outra vez.')
+                }
+            } finally {
+                inFlightSavesRef.current--
+            }
+        }
+
+        const chain = (saveChainsRef.current[moduleId] || Promise.resolve()).then(run)
+        saveChainsRef.current[moduleId] = chain
+        return chain
+    }, [brandId])
+
+    /** Sends every queued change right away (leaving the page, hiding the tab, closing the editor) */
+    const flushPendingSaves = useCallback(() => {
+        return Promise.all(Array.from(pendingSavesRef.current).map(id => saveModuleNow(id)))
+    }, [saveModuleNow])
+
+    useEffect(() => {
+        const onBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (pendingSavesRef.current.size === 0 && inFlightSavesRef.current === 0) return
+            flushPendingSaves()
+            // Ask the browser to confirm leaving while the last changes are still being written
+            e.preventDefault()
+            e.returnValue = ''
+        }
+        const onVisibilityChange = () => {
+            if (document.visibilityState === 'hidden') flushPendingSaves()
+        }
+        const onPageHide = () => { flushPendingSaves() }
+        window.addEventListener('beforeunload', onBeforeUnload)
+        window.addEventListener('pagehide', onPageHide)
+        document.addEventListener('visibilitychange', onVisibilityChange)
+        return () => {
+            window.removeEventListener('beforeunload', onBeforeUnload)
+            window.removeEventListener('pagehide', onPageHide)
+            document.removeEventListener('visibilitychange', onVisibilityChange)
+            // Leaving the editor inside the app: write whatever is still queued
+            flushPendingSaves()
+        }
+    }, [flushPendingSaves])
+
+    // Superadmins editing a brandbook template (opened from the templates modal with ?editTemplate=<id>)
+    const [editTemplateId, setEditTemplateId] = useState<string | null>(null)
+    useEffect(() => {
+        setEditTemplateId(new URLSearchParams(window.location.search).get('editTemplate'))
+    }, [])
 
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -165,30 +274,12 @@ export default function BrandbookEditor({
         // 2. Track latest content in ref to ensure server save uses most recent data
         latestContentRef.current[moduleId] = newContent
 
-        // 3. Debounced server save
+        // 3. Debounced server save (flushed early when leaving the page or the editor)
+        pendingSavesRef.current.add(moduleId)
         if (activeSaveTimeouts.current[moduleId]) {
             clearTimeout(activeSaveTimeouts.current[moduleId])
         }
-
-        activeSaveTimeouts.current[moduleId] = setTimeout(async () => {
-            const contentToSave = latestContentRef.current[moduleId]
-            console.log('[BrandbookEditor] Triggering server save for:', moduleId)
-
-            try {
-                console.log('[BrandbookEditor] Starting server save for module:', moduleId)
-                const result = await updateModuleContent(moduleId, contentToSave, brandId)
-                if (result.success) {
-                    console.log('[BrandbookEditor] Server save successful for module:', moduleId)
-                } else {
-                    console.error('[BrandbookEditor] Server save failed:', result.error)
-                    alert('Erro ao salvar alterações no servidor: ' + result.error)
-                }
-            } catch (err) {
-                console.error('[BrandbookEditor] Error during server save:', err)
-            } finally {
-                delete activeSaveTimeouts.current[moduleId]
-            }
-        }, 1500) // Slightly longer debounce to ensure all rapid changes are captured
+        activeSaveTimeouts.current[moduleId] = setTimeout(() => { saveModuleNow(moduleId) }, 1500)
     }
 
     const handleRenameModule = async (moduleId: string, newTitle: string) => {
@@ -208,13 +299,15 @@ export default function BrandbookEditor({
     }
 
     const handleDuplicateModule = async (moduleId: string) => {
+        const toastId = toast.loading("A duplicar a página…")
         const result = await duplicateModule(moduleId, brandId)
         if (result.success && result.module) {
             setItems(prev => [...prev, result.module])
             setSelectedModuleId(result.module.id)
+            toast.success("Página duplicada", { id: toastId })
         } else {
             console.error("Failed to duplicate module:", result.error)
-            alert("Erro ao duplicar a página.")
+            toast.error("Erro ao duplicar a página.", { id: toastId })
         }
     }
 
@@ -237,8 +330,31 @@ export default function BrandbookEditor({
         const result = await deleteModule(moduleId, brandId)
         if (!result.success) {
             console.error("Failed to delete module:", result.error)
-            alert("Erro ao eliminar a página no servidor.")
+            toast.error("Erro ao eliminar a página no servidor.")
         }
+    }
+
+    /** Moves a page to another separator / subseparator; the category is saved, so the new structure survives a reload */
+    const handleMoveModuleToCategory = async (moduleId: string, categoryId: string) => {
+        const item = items.find(m => m.id === moduleId)
+        if (!item || getEffectiveCategory(item) === categoryId) return
+        setItems(prev => prev.map(m => m.id === moduleId ? { ...m, category: categoryId } : m))
+        if (moduleId.startsWith('new-')) return
+        const result = await updateModuleCategory(moduleId, categoryId, brandId)
+        if (!result.success) toast.error('Não foi possível mover a página. Tente de novo.')
+    }
+
+    /** Deletes several pages at once (already confirmed by the caller, e.g. deleting the "Outras páginas" separator) */
+    const handleDeleteModules = async (moduleIds: string[]) => {
+        if (moduleIds.length === 0) return
+        setItems(prev => prev.filter(m => !moduleIds.includes(m.id)))
+        if (selectedModuleId && moduleIds.includes(selectedModuleId)) setSelectedModuleId(null)
+
+        const results = await Promise.all(
+            moduleIds.filter(id => !id.startsWith('new-')).map(id => deleteModule(id, brandId))
+        )
+        const failed = results.filter(r => !r.success).length
+        if (failed) toast.error(`Não foi possível eliminar ${failed} ${failed === 1 ? 'página' : 'páginas'} no servidor.`)
     }
 
     const handleToggleVisibility = async (moduleId: string) => {
@@ -265,9 +381,29 @@ export default function BrandbookEditor({
         await updateModule(moduleId, { isFullscreen: newValue }, brandId)
     }
 
-    const handleSelectComponent = (component: Block) => {
+    const handleSelectComponent = (component: Block | ColumnData, kind: ComponentKind = 'section') => {
         if (!activeModule) return
-        
+
+        // Columns and blocks go to the editor clipboard: the canvas then shows its paste options
+        // (inside sections for a column, inside columns for a block) so the user picks the spot
+        if (kind !== 'section') {
+            const clipboardItem = {
+                itemType: kind,
+                data: component,
+                label: kind === 'column' ? 'Componente de coluna' : 'Componente de bloco',
+            }
+            try {
+                localStorage.setItem('brivio_clipboard', JSON.stringify(clipboardItem))
+            } catch { /* ignore */ }
+            window.dispatchEvent(new CustomEvent('brivio_clipboard_update', { detail: clipboardItem }))
+            toast.success(kind === 'column' ? "Coluna pronta a colar" : "Bloco pronto a colar", {
+                description: kind === 'column'
+                    ? "Use “Colar coluna copiada nesta seção” na secção onde a quer."
+                    : "Use a opção de colar dentro da coluna onde o quer.",
+            })
+            return
+        }
+
         const cloneWithNewId = (obj: any): any => {
             if (Array.isArray(obj)) return obj.map(item => cloneWithNewId(item))
             if (obj && typeof obj === 'object') {
@@ -292,21 +428,37 @@ export default function BrandbookEditor({
         })
     }
 
+    /**
+     * Superadmins: edit a ready-made template. It is placed like any component, marked as "being edited";
+     * the dock at the bottom then saves it over the template.
+     */
+    const handleEditTemplate = (template: { id: string, name: string, description?: string, kind: ComponentKind, data: Block | ColumnData }) => {
+        const mark: TemplateMark = { presetId: template.id, name: template.name, description: template.description, kind: template.kind }
+        const data = JSON.parse(JSON.stringify(template.data))
+        if (template.kind === 'section') data.content = { ...data.content, settings: { ...(data.content?.settings || {}), [TEMPLATE_MARK]: mark } }
+        else if (template.kind === 'column') data.settings = { ...(data.settings || {}), [TEMPLATE_MARK]: mark }
+        else data.content = { ...(data.content || {}), [TEMPLATE_MARK]: mark }
+        handleSelectComponent(data, template.kind)
+        toast.message('Template em edição', {
+            description: template.kind === 'section'
+                ? 'A secção foi adicionada ao fim da página. Edite-a e use «Guardar template» em baixo.'
+                : 'Cole-o na página, edite-o e use «Guardar template» em baixo.',
+        })
+    }
 
 
-    const handleSelectAnimation = (animationId: string) => {
-        if (!activeBlockId || !activeModule) return
+
+    /**
+     * Writes animation fields on the selected element: blocks/sections keep them in `content`,
+     * columns in `settings` (a column id can be the selection when animating a column).
+     */
+    const updateActiveAnimation = (patch: { animation?: string, animationSettings?: AnimationSettings, hoverEffect?: HoverEffect }) => {
+        if (!animationTargetId || !activeModule) return
 
         const updateBlocksRecursively = (blocks: Block[]): Block[] => {
             return blocks.map(block => {
-                if (block.id === activeBlockId) {
-                    return {
-                        ...block,
-                        content: {
-                            ...block.content,
-                            animation: animationId
-                        }
-                    }
+                if (block.id === animationTargetId) {
+                    return { ...block, content: { ...block.content, ...patch } }
                 }
                 if (block.type === 'layout' && block.content?.columns) {
                     return {
@@ -315,6 +467,7 @@ export default function BrandbookEditor({
                             ...block.content,
                             columns: block.content.columns.map((col: any) => ({
                                 ...col,
+                                settings: col.id === animationTargetId ? { ...col.settings, ...patch } : col.settings,
                                 blocks: updateBlocksRecursively(col.blocks || [])
                             }))
                         }
@@ -329,15 +482,21 @@ export default function BrandbookEditor({
         handleUpdateModule(activeModule.id, { ...editorContent, blocks: newBlocks })
     }
 
-    const activeBlockAnimation = useMemo(() => {
-        if (!activeBlockId || !activeModule) return null
+    const handleSelectAnimation = (animationId: string) => updateActiveAnimation({ animation: animationId })
+    const handleAnimationSettingsChange = (animationSettings: AnimationSettings) => updateActiveAnimation({ animationSettings })
+    const handleHoverEffectChange = (hoverEffect: HoverEffect) => updateActiveAnimation({ hoverEffect })
 
-        const findBlockRecursively = (blocks: Block[]): Block | null => {
+    const activeBlockAnimationState = useMemo(() => {
+        if (!animationTargetId || !activeModule) return null
+
+        type AnimationFields = { animation?: string, animationSettings?: AnimationSettings, hoverEffect?: HoverEffect }
+        const findRecursively = (blocks: Block[]): AnimationFields | null => {
             for (const block of blocks) {
-                if (block.id === activeBlockId) return block
+                if (block.id === animationTargetId) return block.content || {}
                 if (block.type === 'layout' && block.content?.columns) {
                     for (const col of block.content.columns) {
-                        const found = findBlockRecursively(col.blocks || [])
+                        if (col.id === animationTargetId) return col.settings || {}
+                        const found = findRecursively(col.blocks || [])
                         if (found) return found
                     }
                 }
@@ -346,9 +505,9 @@ export default function BrandbookEditor({
         }
 
         const editorContent = activeModule.content_json as unknown as EditorContent
-        const block = findBlockRecursively(editorContent.blocks || [])
-        return block?.content?.animation || null
-    }, [activeBlockId, activeModule])
+        return findRecursively(editorContent.blocks || [])
+    }, [animationTargetId, activeModule])
+    const activeBlockAnimation = activeBlockAnimationState?.animation || null
 
     const activeSections = useMemo(() => {
         if (!activeModule?.content_json) return []
@@ -386,9 +545,42 @@ export default function BrandbookEditor({
         })
     }, [activeModule])
 
-    const availableModules = useMemo(() => {
-        return items.map(m => ({ id: m.id, title: m.title || 'Sem título' }))
-    }, [items])
+    // Side-menu customizations live in localStorage (see LeftSidebar); read them so page groups carry the same labels
+    const [menuCustomizations, setMenuCustomizations] = useState<{ names: Record<string, string>, deleted: string[] }>({ names: {}, deleted: [] })
+    useEffect(() => {
+        try {
+            const names = JSON.parse(localStorage.getItem(`brandbook_${brandbookId}_custom_category_names`) || '{}')
+            const deleted = JSON.parse(localStorage.getItem(`brandbook_${brandbookId}_deleted_subcategories`) || '[]')
+            setMenuCustomizations({ names, deleted })
+        } catch { /* keep defaults */ }
+    }, [brandbookId])
+
+    /** Pages in side-menu order (category, then its subcategories, then "Outras páginas"), each with its group label */
+    const availableModules = useMemo<NavPage[]>(() => {
+        const label = (id: string, fallback: string) => menuCustomizations.names[id] || fallback
+        const groupOf = (m: BrandbookModule) => {
+            const cat = getEffectiveCategory(m)
+            return menuCustomizations.deleted.includes(cat) ? 'others' : cat
+        }
+        const order: { id: string, label: string }[] = []
+        CATEGORIES.forEach(cat => {
+            order.push({ id: cat.id, label: label(cat.id, cat.label) })
+            cat.subCategories?.forEach(sub => order.push({ id: sub.id, label: label(sub.id, sub.label) }))
+        })
+        order.push({ id: 'others', label: label('others', 'Outras páginas') })
+        const known = new Set(order.map(o => o.id))
+
+        const pages: NavPage[] = []
+        order.forEach(group => {
+            items
+                .filter(m => {
+                    const g = groupOf(m)
+                    return group.id === 'others' ? (g === 'others' || !known.has(g)) : g === group.id
+                })
+                .forEach(m => pages.push({ id: m.id, title: m.title || 'Sem título', group: group.label, isHidden: m.isHidden }))
+        })
+        return pages
+    }, [items, menuCustomizations])
 
     return (
         <BrandDesignProvider
@@ -416,7 +608,10 @@ export default function BrandbookEditor({
                     const currentCategory = getEffectiveCategory(activeItem)
 
                     // Possible category IDs from LeftSidebar
-                    const categoryIds = ['overview', 'visual_guide', 'verbal_identity', 'visual_identity', 'sensory_identity', 'others']
+                    const categoryIds = [
+                        ...CATEGORIES.flatMap(c => [c.id, ...(c.subCategories?.map(sub => sub.id) || [])]),
+                        'others',
+                    ]
                     const isOverContainer = categoryIds.includes(overIdStr)
 
                     let targetCategory = currentCategory
@@ -474,9 +669,14 @@ export default function BrandbookEditor({
                     setActiveDragId(null)
                 }}
             >
+                <AssetLibraryAccessProvider brandId={brandId} canEdit={!isReadOnly} openEditorLibrary={() => setIsAssetLibraryOpen(true)}>
                 <div className="flex w-full h-screen overflow-hidden overflow-x-hidden bg-bg-2 flex-row relative text-white">
 
-                    {/* 1. Sidebar - Full Height (First child in flex-row) */}
+                    {/* Navigation chosen in Settings → Navegação (Preview / shared link); side panels take room here */}
+                    <SharedNavigation slot="row-start" previewing={isPreviewMode} />
+
+                    {/* 1. Sidebar - Full Height (First child in flex-row); hidden when another navigation style is shown */}
+                    <NavigationGate previewing={isPreviewMode}>
                     <LeftSidebar
                         modules={items}
                         activeModuleId={selectedModuleId}
@@ -485,6 +685,8 @@ export default function BrandbookEditor({
                         onRenameModule={handleRenameModule}
                         onDuplicateModule={handleDuplicateModule}
                         onDeleteModule={handleDeleteModule}
+                        onDeleteModules={handleDeleteModules}
+                        onMoveModuleToCategory={handleMoveModuleToCategory}
                         onToggleVisibility={handleToggleVisibility}
                         onToggleLock={handleToggleLock}
                         onToggleFullscreen={handleToggleFullscreen}
@@ -498,14 +700,20 @@ export default function BrandbookEditor({
                         isReadOnly={isReadOnly}
                         isCollapsed={isSidebarCollapsed}
                         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                        footerSlot={isPreviewMode ? <AssetLibraryNavButton look="row" colors={{ text: 'inherit', muted: 'inherit', hover: 'rgba(127,127,127,0.12)', accent: '#FF0054' }} /> : undefined}
                     />
+                    </NavigationGate>
 
                     {/* 2. Main Content Area - Column (Canvas + Footer) */}
                     <div className="flex-1 flex flex-col relative overflow-hidden">
+                        {/* Shared navigation: top bars take room, capsules / docks / menus float over the page */}
+                        <SharedNavigation slot="column-start" previewing={isPreviewMode} />
+                        <SharedNavigation slot="overlay" previewing={isPreviewMode} />
 
-                        {/* Top Bar Actions (Fixed top/right) */}
+                        {/* Top Bar Actions (Fixed top/right) — above every context bar, popover and panel of the editor
+                            (they go up to z 9999); modals sit higher */}
                         {!isReadOnly && (
-                            <div className="absolute top-4 right-6 z-[1000] flex items-center gap-4">
+                            <div className="absolute top-4 right-6 z-[10000] flex items-center gap-4">
                                 {/* Control Group */}
                                 <div className="h-[52px] bg-[#111116] px-2 pl-6 rounded-full flex items-center shadow-2xl border border-[#222]">
                                     <div className="flex items-center gap-4">
@@ -709,12 +917,32 @@ export default function BrandbookEditor({
 
                     </div>
 
+                    <SharedNavigation slot="row-end" previewing={isPreviewMode} />
+
                 </div>
+                </AssetLibraryAccessProvider>
 
                 <BrandSettingsPanel
                     isOpen={isSettingsPanelOpen}
                     onClose={() => setIsSettingsPanelOpen(false)}
                     brandId={brandId}
+                    page={activeModule ? {
+                        title: activeModule.title,
+                        background: (activeModule.content_json as { pageBackground?: string })?.pageBackground,
+                        onChange: (color) => {
+                            const { pageBackground: _previous, ...rest } = (activeModule.content_json || {}) as Record<string, unknown>
+                            handleUpdateModule(activeModule.id, color ? { ...rest, pageBackground: color } : rest)
+                        },
+                        // "All pages": drop every page's own background so the general one shows everywhere
+                        onClearAllPages: () => {
+                            items.forEach(item => {
+                                const content = (item.content_json || {}) as Record<string, unknown>
+                                if (!content.pageBackground) return
+                                const { pageBackground: _removed, ...rest } = content
+                                handleUpdateModule(item.id, rest)
+                            })
+                        },
+                    } : undefined}
                 />
 
                 <AssetLibrary
@@ -728,7 +956,25 @@ export default function BrandbookEditor({
                     onClose={() => setIsComponentsLibraryOpen(false)}
                     brandId={brandId}
                     onSelectComponent={handleSelectComponent}
+                    onEditTemplate={isSuperAdmin ? handleEditTemplate : undefined}
                 />
+
+                {isSuperAdmin && !isPreviewMode && activeModule && (
+                    <TemplateEditDock
+                        blocks={((activeModule.content_json as any)?.blocks || []) as Block[]}
+                        onChange={(blocks) => handleUpdateModule(activeModule.id, { ...(activeModule.content_json as any), blocks })}
+                    />
+                )}
+
+                {isSuperAdmin && editTemplateId && !isPreviewMode && (
+                    <TemplateBrandbookEditBar
+                        templateId={editTemplateId}
+                        brandId={brandId}
+                        brandName={brandName}
+                        modules={items}
+                        flushPendingSaves={flushPendingSaves}
+                    />
+                )}
 
                 <SaveAsTemplateModal
                     isOpen={isTemplateModalOpen}
@@ -744,6 +990,11 @@ export default function BrandbookEditor({
                     onClose={() => setIsAnimationPanelOpen(false)}
                     onSelectAnimation={handleSelectAnimation}
                     initialAnimation={activeBlockAnimation}
+                    animationSettings={activeBlockAnimationState?.animationSettings}
+                    onAnimationSettingsChange={handleAnimationSettingsChange}
+                    hoverEffect={activeBlockAnimationState?.hoverEffect}
+                    onHoverEffectChange={handleHoverEffectChange}
+                    hasTarget={!!activeBlockAnimationState}
                 />
             </DndContext >
         </BrandDesignProvider >

@@ -3,13 +3,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react'
 import { Block } from './types'
 
-// History entry type
-interface HistoryEntry {
-    blocks: Block[]
-    description: string
-    timestamp: number
-}
-
 // Context type
 interface EditorHistoryContextType {
     // State
@@ -24,6 +17,9 @@ interface EditorHistoryContextType {
     redo: () => void
     canUndo: boolean
     canRedo: boolean
+    /** How many steps can be undone / redone (up to HISTORY_LIMIT) */
+    undoCount: number
+    redoCount: number
 
     // Toast
     showDeleteToast: (blockType: string) => void
@@ -56,165 +52,192 @@ interface EditorHistoryProviderProps {
     children: React.ReactNode
     initialBlocks: Block[]
     onBlocksChange?: (blocks: Block[]) => void
+    /** The page the blocks belong to: every page keeps its own history */
+    historyKey?: string
+    /** Preview / read-only: the shortcuts do nothing */
+    enabled?: boolean
+}
+
+/** How many steps can be undone (a setting of the panel later on) */
+export const HISTORY_LIMIT = 50
+
+/** Changes to the same block closer than this are one step (typing a word, dragging a slider) */
+const COALESCE_MS = 800
+
+interface Stacks { past: Block[][], future: Block[][] }
+
+/** A block's own data, without its columns (they are compared one by one) */
+const ownData = (b: Block) => JSON.stringify({ ...b, content: { ...(b.content || {}), columns: undefined } })
+
+/**
+ * The one block (or column) that changed between two versions of the page, or null when several changed
+ * or blocks were added / removed / moved. Used to merge quick successive edits of the same thing.
+ */
+const singleChange = (a: Block[], b: Block[]): string | null => {
+    let changed: string | null = null
+    let count = 0
+    const walk = (x: Block[], y: Block[]): boolean => {
+        if (x.length !== y.length) return false
+        for (let i = 0; i < x.length; i++) {
+            const p = x[i], q = y[i]
+            if (p === q) continue
+            if (!p || !q || p.id !== q.id) return false
+            const pc = p.content?.columns as { id: string, settings?: unknown, blocks?: Block[] }[] | undefined
+            const qc = q.content?.columns as { id: string, settings?: unknown, blocks?: Block[] }[] | undefined
+            if (Array.isArray(pc) || Array.isArray(qc)) {
+                if (!Array.isArray(pc) || !Array.isArray(qc) || pc.length !== qc.length) return false
+                if (ownData(p) !== ownData(q)) { changed = p.id; count++ }
+                for (let j = 0; j < pc.length; j++) {
+                    if (pc[j] === qc[j]) continue
+                    if (pc[j]?.id !== qc[j]?.id) return false
+                    if (JSON.stringify(pc[j].settings) !== JSON.stringify(qc[j].settings)) { changed = pc[j].id; count++ }
+                    if (!walk(pc[j].blocks || [], qc[j].blocks || [])) return false
+                }
+            } else if (JSON.stringify(p) !== JSON.stringify(q)) {
+                changed = p.id
+                count++
+            }
+        }
+        return true
+    }
+    return walk(a, b) && count === 1 ? changed : null
+}
+
+/** Shortcuts act on the page unless the focus is in a field outside it (a panel, a search, a modal) */
+const isOutsideField = (target: EventTarget | null) => {
+    const el = target as HTMLElement | null
+    if (!el || !el.tagName) return false
+    const editable = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || el.isContentEditable
+    return editable && !el.closest('[data-page-scroller]')
 }
 
 export function EditorHistoryProvider({
     children,
     initialBlocks,
-    onBlocksChange
+    onBlocksChange,
+    historyKey = 'page',
+    enabled = true,
 }: EditorHistoryProviderProps) {
-    // History stacks
-    const [past, setPast] = useState<HistoryEntry[]>([])
+    // History of every page, kept while the editor is open
+    const stacksRef = useRef(new Map<string, Stacks>())
     const [present, setPresent] = useState<Block[]>(initialBlocks)
-    const [future, setFuture] = useState<HistoryEntry[]>([])
+    const presentRef = useRef<Block[]>(initialBlocks)
+    const lastEdit = useRef<{ id: string | null, at: number }>({ id: null, at: 0 })
+    // Steps available on each page (state, so the buttons and counters follow)
+    const [counts, setCounts] = useState<Record<string, { undo: number, redo: number }>>({})
 
     // Toast state
     const [toastData, setToastData] = useState<ToastData | null>(null)
     const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
-    // Flag to prevent adding to history on internal updates
-    const isInternalUpdate = useRef(false)
+    const stack = useCallback((): Stacks => {
+        let s = stacksRef.current.get(historyKey)
+        if (!s) { s = { past: [], future: [] }; stacksRef.current.set(historyKey, s) }
+        return s
+    }, [historyKey])
 
-    // Max history size
-    const MAX_HISTORY = 50
+    const syncCounts = useCallback(() => {
+        const s = stack()
+        setCounts(c => ({ ...c, [historyKey]: { undo: s.past.length, redo: s.future.length } }))
+    }, [stack, historyKey])
 
-    // Log initialization
-    console.log('[EditorHistoryProvider] Mounted with', initialBlocks.length, 'initial blocks')
+    /** Records a new version of the page (merging quick edits of the same block into one step) */
+    const record = useCallback((next: Block[]) => {
+        const prev = presentRef.current
+        if (next === prev) return
+        const s = stack()
+        const id = singleChange(prev, next)
+        const now = Date.now()
+        const merge = !!id && id === lastEdit.current.id && now - lastEdit.current.at < COALESCE_MS && s.past.length > 0
+        if (!merge) {
+            s.past.push(prev)
+            if (s.past.length > HISTORY_LIMIT) s.past.splice(0, s.past.length - HISTORY_LIMIT)
+        }
+        s.future = []
+        lastEdit.current = { id, at: now }
+        presentRef.current = next
+        setPresent(next)
+        syncCounts()
+    }, [stack, syncCounts])
 
-    // Track if this is the first render
-    const isFirstRender = useRef(true)
-    const initialBlocksKey = JSON.stringify(initialBlocks)
-
-    // Sync with external initial blocks when module changes
+    // Another page: its own history, starting from what it holds
+    const [prevKey, setPrevKey] = useState(historyKey)
+    if (prevKey !== historyKey) {
+        setPrevKey(historyKey)
+        setPresent(initialBlocks)
+    }
     useEffect(() => {
-        // Skip first render since we already initialize with initialBlocks
-        if (isFirstRender.current) {
-            isFirstRender.current = false
-            return
-        }
+        presentRef.current = initialBlocks
+        lastEdit.current = { id: null, at: 0 }
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the page changes
+    }, [historyKey])
 
-        // Only sync if not from internal update
-        if (!isInternalUpdate.current) {
-            setPresent(initialBlocks)
-            // Clear history when switching modules
-            setPast([])
-            setFuture([])
-        }
-    }, [initialBlocksKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    // Changes made outside the canvas (a component from the library, a template, a save) are steps too;
+    // the same page coming back from the server (equal content) is not
+    useEffect(() => {
+        const current = presentRef.current
+        if (initialBlocks === current) return
+        if ((initialBlocks?.length || 0) === 0 && (current?.length || 0) === 0) return
+        if (JSON.stringify(initialBlocks) === JSON.stringify(current)) { presentRef.current = initialBlocks; return }
+        record(initialBlocks)
+    }, [initialBlocks, record])
 
     // Set blocks with history tracking
-    const setBlocks = useCallback((newBlocks: Block[], description: string = 'Edit') => {
-        if (isInternalUpdate.current) {
-            isInternalUpdate.current = false
-            setPresent(newBlocks)
-            return
-        }
-
-        setPast(prev => {
-            const newPast = [...prev, { blocks: present, description, timestamp: Date.now() }]
-            // Limit history size
-            if (newPast.length > MAX_HISTORY) {
-                return newPast.slice(-MAX_HISTORY)
-            }
-            return newPast
-        })
-
-        setPresent(newBlocks)
-        setFuture([]) // Clear redo stack on new action
-
-        // Notify parent
-        if (onBlocksChange) {
-            onBlocksChange(newBlocks)
-        }
-    }, [present, onBlocksChange])
+    const setBlocks = useCallback((newBlocks: Block[]) => {
+        record(newBlocks)
+        onBlocksChange?.(newBlocks)
+    }, [record, onBlocksChange])
 
     // Set blocks without tracking history (for loading, etc.)
     const setBlocksWithoutHistory = useCallback((newBlocks: Block[]) => {
-        isInternalUpdate.current = true
+        presentRef.current = newBlocks
         setPresent(newBlocks)
-        if (onBlocksChange) {
-            onBlocksChange(newBlocks)
-        }
+        onBlocksChange?.(newBlocks)
     }, [onBlocksChange])
 
-    // Undo
     const undo = useCallback(() => {
-        if (past.length === 0) return
+        const s = stack()
+        const previous = s.past.pop()
+        if (!previous) return
+        s.future.unshift(presentRef.current)
+        lastEdit.current = { id: null, at: 0 }
+        presentRef.current = previous
+        setPresent(previous)
+        syncCounts()
+        onBlocksChange?.(previous)
+    }, [stack, syncCounts, onBlocksChange])
 
-        const previous = past[past.length - 1]
-        const newPast = past.slice(0, -1)
-
-        isInternalUpdate.current = true
-        setPast(newPast)
-        setFuture(prev => [{ blocks: present, description: 'Undo', timestamp: Date.now() }, ...prev])
-        setPresent(previous.blocks)
-
-        if (onBlocksChange) {
-            onBlocksChange(previous.blocks)
-        }
-    }, [past, present, onBlocksChange])
-
-    // Redo
     const redo = useCallback(() => {
-        if (future.length === 0) return
+        const s = stack()
+        const next = s.future.shift()
+        if (!next) return
+        s.past.push(presentRef.current)
+        lastEdit.current = { id: null, at: 0 }
+        presentRef.current = next
+        setPresent(next)
+        syncCounts()
+        onBlocksChange?.(next)
+    }, [stack, syncCounts, onBlocksChange])
 
-        const next = future[0]
-        const newFuture = future.slice(1)
-
-        isInternalUpdate.current = true
-        setFuture(newFuture)
-        setPast(prev => [...prev, { blocks: present, description: 'Redo', timestamp: Date.now() }])
-        setPresent(next.blocks)
-
-        if (onBlocksChange) {
-            onBlocksChange(next.blocks)
-        }
-    }, [future, present, onBlocksChange])
-
-    // Keyboard shortcuts
+    // Keyboard: Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z and Ctrl+Y redo — also while typing in a text of the page
+    // (each word, deletion or style change is a step). Fields of panels, searches and modals keep their own.
     useEffect(() => {
+        if (!enabled) return
         const handleKeyDown = (e: KeyboardEvent) => {
-            // Check if user is typing in an input or contenteditable
-            const target = e.target as HTMLElement
-            const isEditing = target.tagName === 'INPUT' ||
-                target.tagName === 'TEXTAREA' ||
-                target.isContentEditable
-
-            if (isEditing) {
-                return
-            }
-
+            if (!(e.ctrlKey || e.metaKey) || e.altKey) return
             const key = e.key.toLowerCase()
-
-            // CTRL+Z or CMD+Z for Undo
-            if ((e.ctrlKey || e.metaKey) && key === 'z' && !e.shiftKey) {
-                e.preventDefault()
-                console.log('[EditorHistory] Undo triggered, canUndo:', past.length > 0)
-                undo()
-            }
-
-            // CTRL+SHIFT+Z or CMD+SHIFT+Z for Redo
-            if ((e.ctrlKey || e.metaKey) && key === 'z' && e.shiftKey) {
-                e.preventDefault()
-                console.log('[EditorHistory] Redo triggered (Shift+Z), canRedo:', future.length > 0)
-                redo()
-            }
-
-            // CTRL+Y for Redo (Windows)
-            if ((e.ctrlKey || e.metaKey) && key === 'y') {
-                e.preventDefault()
-                console.log('[EditorHistory] Redo triggered (Y), canRedo:', future.length > 0)
-                redo()
-            }
+            const isUndo = key === 'z' && !e.shiftKey
+            const isRedo = (key === 'z' && e.shiftKey) || (key === 'y' && !e.shiftKey)
+            if (!isUndo && !isRedo) return
+            if (isOutsideField(e.target)) return
+            e.preventDefault()
+            e.stopPropagation()
+            if (isUndo) undo()
+            else redo()
         }
-
-        console.log('[EditorHistory] Keyboard listener attached')
-        document.addEventListener('keydown', handleKeyDown)
-        return () => {
-            console.log('[EditorHistory] Keyboard listener removed')
-            document.removeEventListener('keydown', handleKeyDown)
-        }
-    }, [undo, redo, past.length, future.length])
+        document.addEventListener('keydown', handleKeyDown, true)
+        return () => document.removeEventListener('keydown', handleKeyDown, true)
+    }, [enabled, undo, redo])
 
     // Show delete toast
     const showDeleteToast = useCallback((blockType: string) => {
@@ -237,7 +260,18 @@ export function EditorHistoryProvider({
             'color': 'Cor',
             'embed': 'Embed',
             'audio': 'Áudio',
-            'story': 'Story Slider'
+            'story': 'Story Slider',
+            'marquee': 'Texto em loop',
+            'footer': 'Rodapé',
+            'logo-showcase': 'Logótipo',
+            'logo-size': 'Tamanho mínimo',
+            'logo-misuse': 'Usos incorretos',
+            'type-specimen': 'Espécime tipográfico',
+            'color-accordion': 'Paleta em acordeão',
+            'icon-specimen': 'Iconografia',
+            'photo-grade': 'Tratamento fotográfico',
+            'motif-field': 'Formas da marca',
+            'social-mockup': 'Rede social'
         }
 
         const typeName = blockTypeNames[blockType] || 'Bloco'
@@ -271,8 +305,10 @@ export function EditorHistoryProvider({
                 setBlocksWithoutHistory,
                 undo,
                 redo,
-                canUndo: past.length > 0,
-                canRedo: future.length > 0,
+                canUndo: (counts[historyKey]?.undo || 0) > 0,
+                canRedo: (counts[historyKey]?.redo || 0) > 0,
+                undoCount: counts[historyKey]?.undo || 0,
+                redoCount: counts[historyKey]?.redo || 0,
                 showDeleteToast,
                 dismissToast,
                 toastData

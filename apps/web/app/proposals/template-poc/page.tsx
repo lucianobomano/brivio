@@ -1,11 +1,11 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { AuthLayoutInner } from "@/components/layout/AuthLayoutInner"
 import { TemplateSelectorPOC } from "@/components/proposals/builder/templates/TemplateSelector"
 
 export default async function TemplatePOCPage() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
         redirect('/login')

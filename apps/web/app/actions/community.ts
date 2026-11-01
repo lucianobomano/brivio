@@ -1,11 +1,11 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function getCommunityPosts() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     // 1. Fetch Community Posts
     const { data: posts, error: postsError } = await supabase
@@ -122,7 +122,7 @@ export async function getCommunityPosts() {
 
 export async function likePost(postId: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { error: "Unauthorized" }
 

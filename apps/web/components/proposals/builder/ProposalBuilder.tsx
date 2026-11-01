@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useRef } from "react"
+import { toast } from "sonner"
 import {
     DndContext,
     closestCenter,
@@ -15,7 +16,7 @@ import {
     sortableKeyboardCoordinates,
 } from "@dnd-kit/sortable"
 import { Clock, SlidersHorizontal, Bell, Home } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { cn } from "@/lib/utils"
 import dynamic from "next/dynamic"
 
@@ -105,10 +106,14 @@ export default function ProposalBuilder({ initialModules, proposalId, brandId, p
     }
 
     const handleDuplicateModule = async (moduleId: string) => {
+        const toastId = toast.loading("A duplicar a secção…")
         const result = await duplicateProposalModule(moduleId, proposalId)
         if (result.success && result.module) {
             setItems(prev => [...prev, result.module])
             setSelectedModuleId(result.module.id)
+            toast.success("Secção duplicada", { id: toastId })
+        } else {
+            toast.error("Erro ao duplicar a secção.", { id: toastId })
         }
     }
 

@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import { motion, AnimatePresence } from "framer-motion"
 import { 
     ShieldAlert, 
@@ -18,7 +19,7 @@ import {
     MoreVertical,
     Eye
 } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -236,7 +237,7 @@ function UsersAdminModule() {
                                 <tr key={u.id} className="hover:bg-bg-0/50 transition-colors">
                                     <td className="px-6 py-4 font-bold text-white flex items-center gap-3">
                                         <div className="w-8 h-8 rounded-full bg-bg-3 overflow-hidden shrink-0">
-                                            {u.avatar_url && <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />}
+                                            {u.avatar_url && <img loading="lazy" decoding="async" src={u.avatar_url} alt="" className="w-full h-full object-cover" />}
                                         </div>
                                         {u.name || 'Sem Nome'}
                                     </td>
@@ -339,7 +340,7 @@ function ProjectsAdminModule() {
                                 </DropdownMenu>
                             </div>
                             <div className="h-32 bg-bg-2 rounded-xl overflow-hidden relative">
-                                {p.cover_url && <img src={`https://gksgqymvtdbdfysguzbn.supabase.co/storage/v1/object/public/assets/${p.cover_url}`} className="w-full h-full object-cover" />}
+                                {p.cover_url && <img loading="lazy" decoding="async" src={`https://gksgqymvtdbdfysguzbn.supabase.co/storage/v1/object/public/assets/${p.cover_url}`} className="w-full h-full object-cover" />}
                                 <div className="absolute top-2 left-2">
                                     <Badge variant="secondary" className="bg-black/50 backdrop-blur-md">{p.status}</Badge>
                                 </div>
@@ -441,7 +442,7 @@ function BrandbooksAdminModule() {
                             </div>
                             <div className="h-32 bg-bg-2 rounded-xl flex items-center justify-center overflow-hidden">
                                 {b.logo_url ? (
-                                    <img src={`https://gksgqymvtdbdfysguzbn.supabase.co/storage/v1/object/public/assets/${b.logo_url}`} className="max-w-full max-h-full object-contain p-4" />
+                                    <img loading="lazy" decoding="async" src={`https://gksgqymvtdbdfysguzbn.supabase.co/storage/v1/object/public/assets/${b.logo_url}`} className="max-w-full max-h-full object-contain p-4" />
                                 ) : (
                                     <BookOpen className="w-8 h-8 text-text-tertiary" />
                                 )}
@@ -543,7 +544,7 @@ function WorkspacesAdminModule() {
                             </div>
                             <div className="w-16 h-16 rounded-xl bg-bg-2 flex items-center justify-center overflow-hidden shrink-0">
                                 {w.avatar_url ? (
-                                    <img src={`https://gksgqymvtdbdfysguzbn.supabase.co/storage/v1/object/public/assets/${w.avatar_url}`} className="w-full h-full object-cover" />
+                                    <img loading="lazy" decoding="async" src={`https://gksgqymvtdbdfysguzbn.supabase.co/storage/v1/object/public/assets/${w.avatar_url}`} className="w-full h-full object-cover" />
                                 ) : (
                                     <Briefcase className="w-6 h-6 text-text-tertiary" />
                                 )}
@@ -592,6 +593,9 @@ function BillingAdminModule() {
         }
         setActionId(null)
     }
+
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
 
     const handleReject = async (id: string) => {
         if (!window.confirm("Tem a certeza que deseja rejeitar esta subscrição?")) return
@@ -680,7 +684,7 @@ function BillingAdminModule() {
                                 <Button 
                                     variant="outline" 
                                     className="flex-1 md:flex-none border-red-500/30 text-red-500 hover:bg-red-500/10"
-                                    onClick={() => handleReject(sub.id)}
+                                    onClick={() => runAction(() => handleReject(sub.id))}
                                     disabled={actionId === sub.id}
                                 >
                                     {actionId === sub.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4 mr-1" />} Rejeitar
@@ -738,6 +742,9 @@ function AccessAdminModule() {
         }
         setIsAdding(false)
     }
+
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
 
     const handleRemove = async (id: string) => {
         if (!window.confirm("Remover o acesso deste administrador?")) return
@@ -799,7 +806,7 @@ function AccessAdminModule() {
                                 </div>
                                 {admin.role !== 'superadmin' && (
                                     <button 
-                                        onClick={() => handleRemove(admin.id)}
+                                        onClick={() => runAction(() => handleRemove(admin.id))}
                                         className="p-2 text-text-tertiary hover:text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
                                         title="Remover acesso"
                                     >

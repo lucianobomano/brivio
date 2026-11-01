@@ -4,6 +4,7 @@ import { Download, X, Trash2 } from "lucide-react" // Using X for close if neede
 import * as SwitchPrimitives from "@radix-ui/react-switch"
 import { Input } from "@/components/ui/input"
 import { cn } from "@/lib/utils"
+import { ColorInput } from "@/components/ui/color-input"
 
 interface ButtonSettingsPanelProps {
     settings: any // block.content.settings or merged style
@@ -123,8 +124,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete }: B
                     <div className="flex items-center justify-between">
                         <span>Background</span> {/* Corrected label from image artifact 'Background hover' to standard logic, user can rename if needed but 'Background' is safer */}
                         <div className="relative">
-                            <input
-                                type="color"
+                            <ColorInput
                                 value={settings.style?.backgroundColor || '#FF0054'}
                                 onChange={(e) => updateStyle('backgroundColor', e.target.value)}
                                 className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
@@ -167,8 +167,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete }: B
                         <div className="flex items-center justify-between">
                             <span>Background hover</span>
                             <div className="relative">
-                                <input
-                                    type="color"
+                                <ColorInput
                                     value={settings.hover?.backgroundColor || '#00FF94'}
                                     onChange={(e) => updateHoverIdx('backgroundColor', e.target.value)}
                                     className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
@@ -182,8 +181,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete }: B
                         <div className="flex items-center justify-between">
                             <span>Text hover</span>
                             <div className="relative">
-                                <input
-                                    type="color"
+                                <ColorInput
                                     value={settings.hover?.color || '#ffffff'}
                                     onChange={(e) => updateHoverIdx('color', e.target.value)}
                                     className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
@@ -197,8 +195,7 @@ export function ButtonSettingsPanel({ settings, onUpdate, onClose, onDelete }: B
                         <div className="flex items-center justify-between">
                             <span>Border hover</span>
                             <div className="relative">
-                                <input
-                                    type="color"
+                                <ColorInput
                                     value={settings.hover?.borderColor || '#3333FF'}
                                     onChange={(e) => updateHoverIdx('borderColor', e.target.value)}
                                     className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"

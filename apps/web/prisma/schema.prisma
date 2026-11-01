@@ -251,6 +251,10 @@ model Brand {
   settings      BrandSettings?
   asset_folders AssetFolder[]
   saved_components SavedComponent[]
+  spaces        BrandSpace[]
+  objects       BrandObject[]
+  decisions     BrandDecision[]
+  flows         BrandFlow[]
 
   @@unique([workspace_id, slug])
   @@map("brands")
@@ -853,3 +857,122 @@ model ProjectNote {
 
   @@map("project_notes")
 }
+
+model BrandSpace {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id             String    @db.Uuid
+  name                 String
+  description          String?
+  use_official_context Boolean?  @default(true)
+  viewport             Json?     @default("{\"x\": 0, \"y\": 0, \"zoom\": 1}")
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  brand                Brand     @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  objects              BrandObject[]
+  nodes                BrandNode[]
+  relationships        BrandRelationship[]
+  decisions            BrandDecision[]
+
+  @@map("brand_spaces")
+}
+
+model BrandObject {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id             String    @db.Uuid
+  space_id             String?   @db.Uuid
+  type                 String
+  category             String
+  title                String
+  content              Json?     @default("{}")
+  metadata             Json?     @default("{}")
+  rationale            String?
+  status               String?   @default("draft")
+  confidence           Decimal?  @default(100)
+  source               String?   @default("human")
+  version              Int?      @default(1)
+  created_by           String?
+  is_official          Boolean?  @default(false)
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  brand                Brand       @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  space                BrandSpace? @relation(fields: [space_id], references: [id], onDelete: Cascade)
+  nodes                BrandNode[]
+
+  @@map("brand_objects")
+}
+
+model BrandNode {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  space_id             String    @db.Uuid
+  object_id            String?   @db.Uuid
+  type                 String
+  category             String
+  x                    Float     @default(0)
+  y                    Float     @default(0)
+  width                Float?    @default(320)
+  height               Float?    @default(200)
+  is_collapsed         Boolean?  @default(false)
+  group_id             String?
+  outputs_history      Json?     @default("[]")
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  space                BrandSpace   @relation(fields: [space_id], references: [id], onDelete: Cascade)
+  object               BrandObject? @relation(fields: [object_id], references: [id], onDelete: Cascade)
+
+  @@map("brand_nodes")
+}
+
+model BrandRelationship {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  space_id             String    @db.Uuid
+  source_node_id       String    @db.Uuid
+  target_node_id       String    @db.Uuid
+  relationship_type    String    @default("supports")
+  status               String?   @default("active")
+  metadata             Json?     @default("{}")
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  space                BrandSpace @relation(fields: [space_id], references: [id], onDelete: Cascade)
+
+  @@map("brand_relationships")
+}
+
+model BrandDecision {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id             String    @db.Uuid
+  space_id             String?   @db.Uuid
+  decision_number      Int?
+  title                String
+  decision             String
+  rationale            String?
+  status               String?   @default("approved")
+  related_objects      Json?     @default("[]")
+  author               String?
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  brand                Brand       @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+  space                BrandSpace? @relation(fields: [space_id], references: [id], onDelete: Cascade)
+
+  @@map("brand_decisions")
+}
+
+model BrandFlow {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  brand_id             String?   @db.Uuid
+  name                 String
+  description          String?
+  category             String?
+  nodes_json           Json?     @default("[]")
+  edges_json           Json?     @default("[]")
+  groups_json          Json?     @default("[]")
+  is_template          Boolean?  @default(false)
+  created_at           DateTime? @default(now()) @db.Timestamptz(6)
+
+  brand                Brand?    @relation(fields: [brand_id], references: [id], onDelete: Cascade)
+
+  @@map("brand_flows")
+}
+

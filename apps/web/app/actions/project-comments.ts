@@ -1,12 +1,13 @@
 'use server'
 
 import { prisma } from '@/lib/prisma'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient, getCurrentUser } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { canViewProject } from '@/lib/brand-access'
 
 async function getAuthenticatedUser() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     return user
 }
 
@@ -29,53 +30,51 @@ export interface ProjectCommentType {
 // Get all comments for a project
 export async function getProjectComments(projectId: string): Promise<ProjectCommentType[]> {
     const user = await getAuthenticatedUser()
+    // SECURITY: comments of unpublished projects are for its members only
+    if (!(await canViewProject(projectId))) return []
 
-    const comments = await prisma.projectComment.findMany({
-        where: {
-            project_id: projectId,
-            parent_id: null // Only top-level comments
-        },
-        include: {
-            author: {
-                select: {
-                    id: true,
-                    name: true,
-                    avatar_url: true
-                }
-            },
-            replies: {
-                include: {
-                    author: {
-                        select: {
-                            id: true,
-                            name: true,
-                            avatar_url: true
-                        }
-                    },
-                    likes: user ? {
-                        where: { user_id: user.id }
-                    } : false,
-                    replies: {
-                        include: {
-                            author: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    avatar_url: true
-                                }
-                            }
-                        },
-                        orderBy: { created_at: 'asc' }
-                    }
-                },
-                orderBy: { created_at: 'asc' }
-            },
-            likes: user ? {
-                where: { user_id: user.id }
-            } : false
-        },
-        orderBy: { created_at: 'desc' }
-    })
+    // PERFORMANCE: Prisma's nested include ran one query per level (comments, authors, replies,
+    // likes...), each a separate round-trip. Load every comment of the project plus the viewer's
+    // likes in two parallel Supabase queries and rebuild the 3-level tree in memory.
+    // Admin client keeps the access level Prisma had.
+    const supabase = await createAdminClient()
+    const [{ data: rows, error }, { data: likeRows }] = await Promise.all([
+        supabase
+            .from('project_comments')
+            .select('id, parent_id, content, likes_count, created_at, author:users!project_comments_author_id_fkey(id, name, avatar_url)')
+            .eq('project_id', projectId),
+        user
+            ? supabase
+                .from('project_comment_likes')
+                .select('comment_id, project_comments!inner(project_id)')
+                .eq('user_id', user.id)
+                .eq('project_comments.project_id', projectId)
+            : Promise.resolve({ data: [] as { comment_id: string }[] }),
+    ])
+
+    if (error) {
+        console.error("Error fetching project comments:", error)
+        return []
+    }
+
+    const likedIds = new Set((likeRows || []).map((l: any) => l.comment_id))
+    const all = (rows || []).map((c: any) => ({
+        ...c,
+        author: Array.isArray(c.author) ? c.author[0] : c.author,
+        created_at: c.created_at ? new Date(c.created_at) : null,
+    }))
+    const byCreated = (dir: 1 | -1) => (a: any, b: any) => dir * ((a.created_at?.getTime() ?? 0) - (b.created_at?.getTime() ?? 0))
+    const childrenOf = (parentId: string) => all.filter(c => c.parent_id === parentId).sort(byCreated(1))
+
+    const comments = all.filter(c => !c.parent_id).sort(byCreated(-1)).map(c => ({
+        ...c,
+        likes: likedIds.has(c.id) ? [c.id] : [],
+        replies: childrenOf(c.id).map(r => ({
+            ...r,
+            likes: likedIds.has(r.id) ? [r.id] : [],
+            replies: childrenOf(r.id),
+        })),
+    }))
 
     return comments.map(comment => ({
         id: comment.id,
@@ -84,14 +83,14 @@ export async function getProjectComments(projectId: string): Promise<ProjectComm
         created_at: comment.created_at,
         author: comment.author,
         isLiked: Array.isArray(comment.likes) && comment.likes.length > 0,
-        replies: comment.replies.map(reply => ({
+        replies: comment.replies.map((reply: any) => ({
             id: reply.id,
             content: reply.content,
             likes_count: reply.likes_count,
             created_at: reply.created_at,
             author: reply.author,
             isLiked: Array.isArray(reply.likes) && reply.likes.length > 0,
-            replies: reply.replies.map(nestedReply => ({
+            replies: reply.replies.map((nestedReply: any) => ({
                 id: nestedReply.id,
                 content: nestedReply.content,
                 likes_count: 0,
@@ -117,6 +116,17 @@ export async function addProjectComment(
 
     if (!content.trim()) {
         return { success: false, error: 'O comentário não pode estar vazio' }
+    }
+
+    if (!(await canViewProject(projectId))) {
+        return { success: false, error: 'Sem acesso a este projeto' }
+    }
+    // A reply must stay in the same project as its parent
+    if (parentId) {
+        const parent = await prisma.projectComment.findUnique({ where: { id: parentId }, select: { project_id: true } })
+        if (!parent || parent.project_id !== projectId) {
+            return { success: false, error: 'Comentário não encontrado' }
+        }
     }
 
     try {
@@ -168,6 +178,11 @@ export async function toggleCommentLike(
     }
 
     try {
+        const comment = await prisma.projectComment.findUnique({ where: { id: commentId }, select: { project_id: true } })
+        if (!comment || !(await canViewProject(comment.project_id))) {
+            return { success: false, error: 'Comentário não encontrado' }
+        }
+
         const existingLike = await prisma.projectCommentLike.findUnique({
             where: {
                 comment_id_user_id: {

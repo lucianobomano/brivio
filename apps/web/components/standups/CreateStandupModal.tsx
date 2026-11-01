@@ -412,7 +412,7 @@ export function CreateStandupModal({ open, onOpenChange, workspaceId, editingSta
                                                             {item.type === 'gradient' ? (
                                                                 <div className="w-full h-full" style={{ background: item.value }} />
                                                             ) : (
-                                                                <img src={item.value} alt={item.label} className="w-full h-full object-cover" />
+                                                                <img loading="lazy" decoding="async" src={item.value} alt={item.label} className="w-full h-full object-cover" />
                                                             )}
 
                                                             {selectedCover === item.value && (

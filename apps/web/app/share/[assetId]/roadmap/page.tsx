@@ -1,7 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
-import { getProjectNotes } from "@/app/actions/notes"
-import { getProjectMeetings } from "@/app/actions/meetings"
+import { unstable_cache } from "next/cache"
+import { SHARE_ROADMAP_TAG } from "@/lib/share-cache"
+import { loadProjectMeetings, loadProjectNotes } from "@/lib/project-data"
 import { ClientRoadmapView } from "./ClientRoadmapView"
 
 /**
@@ -10,6 +11,12 @@ import { ClientRoadmapView } from "./ClientRoadmapView"
  */
 async function getPublicRoadmapStats(projectId: string) {
     const supabase = await createAdminClient()
+
+    // 3. Get Tasks for this project (only depends on projectId, so it starts right away)
+    const tasksPromise = supabase
+        .from('tasks')
+        .select('id, title, status, stage_id, completed, cover_url, description, estimated_time, start_date, due_date, elapsed_time, sprint_id, priority')
+        .eq('project_id', projectId)
 
     // 1. Get Project to find workspace_id
     const { data: project, error: pError } = await supabase
@@ -33,11 +40,7 @@ async function getPublicRoadmapStats(projectId: string) {
         return null
     }
 
-    // 3. Get Tasks for this project
-    const { data: tasks } = await supabase
-        .from('tasks')
-        .select('id, title, status, stage_id, completed, cover_url, description, estimated_time, start_date, due_date, elapsed_time, sprint_id, priority')
-        .eq('project_id', projectId)
+    const { data: tasks } = await tasksPromise
 
     // 4. Group tasks by stage and filter stages without tasks
     const roadmap = stages
@@ -96,7 +99,37 @@ async function getPublicRoadmapStats(projectId: string) {
     }
 }
 
-export default async function ClientRoadmapPage({ 
+/**
+ * PERFORMANCE: public viewers share one cached copy per project instead of hitting the
+ * database on every visit. Mutations call invalidateShareRoadmap() (tag), and the 60s
+ * revalidate bounds staleness for any write path that doesn't.
+ */
+const getShareRoadmapData = unstable_cache(
+    async (assetId: string) => {
+        // Use admin client to bypass RLS — this is a public page
+        const supabase = await createAdminClient()
+
+        // Everything here is keyed by assetId, so it loads in parallel.
+        // Notes/meetings are only rendered after the project is confirmed to exist.
+        const [{ data: project, error: pError }, roadmapStats, { notes }, meetings] = await Promise.all([
+            // Fetch project details
+            supabase
+                .from('projects')
+                .select('*, brands(*)')
+                .eq('id', assetId)
+                .single(),
+            getPublicRoadmapStats(assetId),
+            loadProjectNotes(assetId),
+            loadProjectMeetings(assetId),
+        ])
+
+        return { project: pError ? null : project, roadmapStats, notes, meetings }
+    },
+    ['share-roadmap-data'],
+    { tags: [SHARE_ROADMAP_TAG], revalidate: 60 }
+)
+
+export default async function ClientRoadmapPage({
     params,
     searchParams
 }: { 
@@ -108,23 +141,11 @@ export default async function ClientRoadmapPage({
     const initialLayout = typeof resolvedSearchParams.layout === 'string' ? resolvedSearchParams.layout : 'default'
     const initialBg = typeof resolvedSearchParams.bg === 'string' ? resolvedSearchParams.bg : 'default'
     
-    // Use admin client to bypass RLS — this is a public page
-    const supabase = await createAdminClient()
+    const { project, roadmapStats, notes, meetings } = await getShareRoadmapData(assetId)
 
-    // Fetch project details
-    const { data: project, error: pError } = await supabase
-        .from('projects')
-        .select('*, brands(*)')
-        .eq('id', assetId)
-        .single()
-
-    if (pError || !project) {
+    if (!project) {
         return notFound()
     }
-
-    const roadmapStats = await getPublicRoadmapStats(assetId)
-    const { notes } = await getProjectNotes(assetId)
-    const meetings = await getProjectMeetings(assetId)
 
     // If no roadmap data, show empty state instead of 404
     const emptyRoadmap = {

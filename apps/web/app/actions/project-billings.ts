@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export interface Billing {
@@ -37,7 +37,7 @@ export async function getProjectBillings(projectId: string) {
 
 export async function createProjectBilling(projectId: string, data: Partial<Billing>) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Unauthorized" }
 

@@ -1,9 +1,11 @@
 import React from "react"
+import { EDITOR_COLLISION_PADDING } from "./editorLayout"
 import { Check, ArrowUp, ArrowDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { MarginSettingsControl, BlockMargin } from "./blocks/MarginSettingsControl"
 import { InlineColorPicker } from "@/components/ui/inline-color-picker"
+import { useSwatchColors } from "./colorSwatches"
 
 interface TextSettingsPanelProps {
     isOpen: boolean
@@ -25,12 +27,6 @@ interface TextSettingsPanelProps {
     onMarginChange?: (margin: BlockMargin) => void
     trigger?: React.ReactNode
 }
-
-const PRESET_COLORS = [
-    "#4CAF50", "#FFEB3B", "#F44336", "#3E2723", "#FF9800", "#0023F5", "#E91E63", "#9C27B0",
-    "#9E9E9E", "#212121", "#9C27B0", "#00BCD4", "#FFE0B2", "#263238", "#69F0AE", "#3E2723",
-    "#3F51B5", "#4A148C", "#C5E1A5", "#FF80AB", "#00E676", "#F0F4C3", "#FF5252", "#311B92"
-]
 
 const HEIGHT_OPTIONS = [1, 3, 5, 8, 100]
 
@@ -76,15 +72,20 @@ export function TextSettingsPanel({
         setHeightInput(heightValue?.toString() || '')
     }, [heightValue])
 
+    // Brand palette first, then the recently used colours
+    const { swatches, brandCount, noteColor } = useSwatchColors(16)
+    const pickColor = (c: string) => { onColorChange(c); noteColor(c) }
+    const pickBackground = (c: string) => { onBackgroundColorChange?.(c); noteColor(c) }
+
     const handleHexSubmit = () => {
         if (/^#[0-9A-F]{6}$/i.test(hexInput)) {
-            onColorChange(hexInput)
+            pickColor(hexInput)
         }
     }
 
     const handleBgHexSubmit = () => {
         if (/^#[0-9A-F]{6}$/i.test(bgHexInput)) {
-            onBackgroundColorChange?.(bgHexInput)
+            pickBackground(bgHexInput)
         }
     }
 
@@ -142,6 +143,7 @@ export function TextSettingsPanel({
                 ref={panelRef}
                 side="right"
                 align="start"
+                collisionPadding={EDITOR_COLLISION_PADDING}
                 className="w-[280px] p-0 bg-[#15161B] border-none shadow-2xl rounded-lg overflow-hidden flex flex-col gap-4 pb-6 custom-scrollbar max-h-[680px] overflow-y-auto"
                 style={{
                     zIndex: 2100,
@@ -178,7 +180,7 @@ export function TextSettingsPanel({
                         <InlineColorPicker
                             color={color}
                             onChange={(newHex) => {
-                                onColorChange(newHex)
+                                pickColor(newHex)
                                 setHexInput(newHex)
                             }}
                             height={90}
@@ -205,10 +207,11 @@ export function TextSettingsPanel({
 
                         {/* Preset Colors Grid */}
                         <div className="grid grid-cols-8 gap-2">
-                            {PRESET_COLORS.slice(0, 16).map((c, i) => (
+                            {swatches.map((c, i) => (
                                 <button
-                                    key={i}
-                                    onClick={() => onColorChange(c)}
+                                    key={c}
+                                    title={i < brandCount ? 'Cor da marca' : undefined}
+                                    onClick={() => pickColor(c)}
                                     className="w-5 h-5 rounded-sm hover:scale-110 transition-transform ring-1 ring-white/10"
                                     style={{ backgroundColor: c }}
                                 />
@@ -224,7 +227,7 @@ export function TextSettingsPanel({
                         <InlineColorPicker
                             color={backgroundColor || '#ffffff'}
                             onChange={(newHex) => {
-                                onBackgroundColorChange?.(newHex)
+                                pickBackground(newHex)
                                 setBgHexInput(newHex)
                             }}
                             height={75}
@@ -251,16 +254,17 @@ export function TextSettingsPanel({
 
                         {/* Preset Bg Colors Grid */}
                         <div className="grid grid-cols-8 gap-2">
-                            {PRESET_COLORS.slice(0, 15).map((c, i) => (
+                            {swatches.slice(0, 15).map((c, i) => (
                                 <button
-                                    key={i}
-                                    onClick={() => onBackgroundColorChange?.(c)}
+                                    key={c}
+                                    title={i < brandCount ? 'Cor da marca' : undefined}
+                                    onClick={() => pickBackground(c)}
                                     className="w-5 h-5 rounded-sm hover:scale-110 transition-transform ring-1 ring-white/10"
                                     style={{ backgroundColor: c }}
                                 />
                             ))}
                             <button
-                                onClick={() => onBackgroundColorChange?.('')}
+                                onClick={() => pickBackground('')}
                                 className="w-5 h-5 rounded-sm bg-transparent border border-white/10 flex items-center justify-center overflow-hidden hover:bg-white/5 relative"
                                 title="Transparent"
                             >

@@ -561,7 +561,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                         height: formatDim(style?.height) || 'auto'
                     }}
                 >
-                    <img
+                    <img loading="lazy" decoding="async"
                         src={url}
                         alt={caption || "Block Image"}
                         className={cn(
@@ -690,7 +690,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                     )}
 
                                     {/* Main Image (Always rendered to maintain layout) */}
-                                    <img
+                                    <img loading="lazy" decoding="async"
                                         src={item.url}
                                         alt={item.caption || "Gallery image"}
                                         className="w-full h-full object-cover block"
@@ -704,7 +704,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                                 showHoverImage ? "opacity-100" : "opacity-0"
                                             )}
                                         >
-                                            <img
+                                            <img loading="lazy" decoding="async"
                                                 src={item.hoverImage}
                                                 alt=""
                                                 className="w-full h-full object-cover"
@@ -794,7 +794,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         transition={{ duration: 0.5, ease: "easeInOut" }}
                                         className="absolute inset-0 w-full h-full"
                                     >
-                                        <img
+                                        <img loading="lazy" decoding="async"
                                             src={currentItem.url}
                                             alt={currentItem.caption || "Carousel Slide"}
                                             className="w-full h-full object-cover"
@@ -909,7 +909,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
 
                             {/* Content */}
                             <div className="flex-1 flex items-center justify-center p-8 bg-gray-50">
-                                <img
+                                <img loading="lazy" decoding="async"
                                     src={items[downloadPopupIndex].url}
                                     className="max-w-full max-h-[70vh] shadow-xl rounded-lg object-contain"
                                 />
@@ -980,7 +980,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
 
                         {/* Main Image */}
                         <div className="relative w-full h-full max-w-[90vw] max-h-[90vh] flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
-                            <img
+                            <img loading="lazy" decoding="async"
                                 src={items[lightboxIndex]?.url}
                                 className="max-w-full max-h-full object-contain drop-shadow-2xl animate-in fade-in zoom-in-95 duration-200"
                             />

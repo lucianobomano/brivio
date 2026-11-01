@@ -127,7 +127,9 @@ export const EmbedBlock = ({ block, isReadOnly, onUpdate }: EmbedBlockProps) => 
                 <UploadAssetDialog
                     isOpen={isUploadOpen}
                     onOpenChange={setIsUploadOpen}
-                    onUpload={(file) => {
+                    onUpload={(files) => new Promise<void>((resolve) => {
+                        const file = Array.isArray(files) ? files[0] : files
+                        if (!file) return resolve()
                         const reader = new FileReader()
                         reader.onloadend = () => {
                             onUpdate(block.id, {
@@ -137,10 +139,10 @@ export const EmbedBlock = ({ block, isReadOnly, onUpdate }: EmbedBlockProps) => 
                                 filesize: `${(file.size / 1024 / 1024).toFixed(2)} MB`,
                                 type: file.name.split('.').pop()?.toUpperCase() || 'FILE'
                             })
+                            resolve()
                         }
                         reader.readAsDataURL(file)
-                        setIsUploadOpen(false)
-                    }}
+                    })}
                 />
 
                 {isSettingsOpen && (

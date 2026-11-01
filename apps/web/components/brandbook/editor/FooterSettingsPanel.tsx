@@ -1,10 +1,12 @@
 "use client"
 
 import React, { useState, useRef, useEffect } from "react"
+import { useSwatchColors } from "./colorSwatches"
 import { MoreHorizontal, Upload, Trash2, Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useBrandDesign, FooterSettings } from "./BrandDesignContext"
 import { uploadBrandbookMedia } from "@/app/actions/brandbook"
+import { SmoothColorInput } from "./SmoothColorInput"
 
 interface FooterSettingsPanelProps {
     onClose: () => void
@@ -134,19 +136,8 @@ export function FooterSettingsPanel({ onClose, className }: FooterSettingsPanelP
         setIsUploadMenuOpen(false)
     }
 
-    // Curated color swatches
-    const colorSwatches = [
-        '#FFFFFF',
-        '#000000',
-        '#111827',
-        '#1F2937',
-        '#374151',
-        '#4B5563',
-        '#9CA3AF',
-        '#F3F4F6',
-        '#FF0054',
-        ...(settings.color_palette || [])
-    ].filter((v, i, a) => a.indexOf(v) === i)
+    // Brand palette first, then the recently used colours
+    const { swatches: colorSwatches, brandCount, noteColor } = useSwatchColors(15)
 
     return (
         <div
@@ -286,25 +277,26 @@ export function FooterSettingsPanel({ onClose, className }: FooterSettingsPanelP
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
-                                <input
+                                <SmoothColorInput
                                     type="color"
                                     value={footerSettings.backgroundColor || '#ffffff'}
-                                    onChange={(e) => updateFooterSettings({ backgroundColor: e.target.value })}
+                                    onChange={(e) => { updateFooterSettings({ backgroundColor: e.target.value }); noteColor(e.target.value) }}
                                     className="w-7 h-7 rounded border border-white/10 cursor-pointer p-0 bg-transparent"
                                 />
                                 <input
                                     type="text"
                                     value={footerSettings.backgroundColor || '#ffffff'}
-                                    onChange={(e) => updateFooterSettings({ backgroundColor: e.target.value })}
+                                    onChange={(e) => { updateFooterSettings({ backgroundColor: e.target.value }); noteColor(e.target.value) }}
                                     className="flex-1 bg-[#15161B] border border-[#333] text-white text-[11px] px-2 py-1 rounded uppercase focus:border-[#FF0054] outline-none"
                                 />
                             </div>
                             <div className="grid grid-cols-5 gap-1.5 pt-1">
-                                {colorSwatches.map((color) => (
+                                {colorSwatches.map((color, i) => (
                                     <button
                                         key={color}
                                         type="button"
-                                        onClick={() => updateFooterSettings({ backgroundColor: color })}
+                                        title={i < brandCount ? 'Cor da marca' : undefined}
+                                        onClick={() => { updateFooterSettings({ backgroundColor: color }); noteColor(color) }}
                                         className={cn(
                                             "w-6 h-6 rounded-full border border-white/15 flex items-center justify-center transition-transform hover:scale-110",
                                             footerSettings.backgroundColor?.toLowerCase() === color.toLowerCase() && "ring-2 ring-[#FF0054]"
@@ -349,25 +341,26 @@ export function FooterSettingsPanel({ onClose, className }: FooterSettingsPanelP
                                 </button>
                             </div>
                             <div className="flex items-center gap-2">
-                                <input
+                                <SmoothColorInput
                                     type="color"
                                     value={footerSettings.textColor || '#000000'}
-                                    onChange={(e) => updateFooterSettings({ textColor: e.target.value })}
+                                    onChange={(e) => { updateFooterSettings({ textColor: e.target.value }); noteColor(e.target.value) }}
                                     className="w-7 h-7 rounded border border-white/10 cursor-pointer p-0 bg-transparent"
                                 />
                                 <input
                                     type="text"
                                     value={footerSettings.textColor || '#000000'}
-                                    onChange={(e) => updateFooterSettings({ textColor: e.target.value })}
+                                    onChange={(e) => { updateFooterSettings({ textColor: e.target.value }); noteColor(e.target.value) }}
                                     className="flex-1 bg-[#15161B] border border-[#333] text-white text-[11px] px-2 py-1 rounded uppercase focus:border-[#FF0054] outline-none"
                                 />
                             </div>
                             <div className="grid grid-cols-5 gap-1.5 pt-1">
-                                {colorSwatches.map((color) => (
+                                {colorSwatches.map((color, i) => (
                                     <button
                                         key={color}
                                         type="button"
-                                        onClick={() => updateFooterSettings({ textColor: color })}
+                                        title={i < brandCount ? 'Cor da marca' : undefined}
+                                        onClick={() => { updateFooterSettings({ textColor: color }); noteColor(color) }}
                                         className={cn(
                                             "w-6 h-6 rounded-full border border-white/15 flex items-center justify-center transition-transform hover:scale-110",
                                             footerSettings.textColor?.toLowerCase() === color.toLowerCase() && "ring-2 ring-[#FF0054]"
@@ -424,7 +417,7 @@ export function FooterSettingsPanel({ onClose, className }: FooterSettingsPanelP
                             {footerSettings.backgroundImage && (
                                 <>
                                     <div className="w-full h-20 rounded border border-white/10 overflow-hidden relative group">
-                                        <img
+                                        <img loading="lazy" decoding="async"
                                             src={footerSettings.backgroundImage}
                                             alt="Background preview"
                                             className="w-full h-full object-cover"

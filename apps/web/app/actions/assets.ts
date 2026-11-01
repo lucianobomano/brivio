@@ -1,9 +1,10 @@
 "use server"
 
 
-import { createClient, createAdminClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
+import { canAccessBrand, getUserWorkspaceIds } from "@/lib/brand-access"
 
 // --- TYPES ---
 export interface AssetFolder {
@@ -77,13 +78,6 @@ export async function getAssets(scope: { brandId?: string, workspaceId?: string 
         folderQuery = folderQuery.is('parent_id', null)
     }
 
-    const { data: folders, error: folderError } = await folderQuery
-
-    if (folderError) {
-        console.error("Error fetching folders:", folderError)
-        return { success: false, error: folderError.message }
-    }
-
     // 2. Fetch Assets in this scope
     let assetQuery = supabase
         .from('assets')
@@ -100,17 +94,10 @@ export async function getAssets(scope: { brandId?: string, workspaceId?: string 
         assetQuery = assetQuery.is('folder_id', null)
     }
 
-    const { data: assets, error: assetError } = await assetQuery
-
-    if (assetError) {
-        console.error("Error fetching assets:", assetError)
-        return { success: false, error: assetError.message }
-    }
-
-    // 3. Fetch Breadcrumbs
-    const breadcrumbs: AssetFolder[] = []
-    if (folderId) {
-        let currentId: string | null = folderId
+    // 3. Fetch Breadcrumbs (walks up the folder chain one parent at a time)
+    const loadBreadcrumbs = async () => {
+        const breadcrumbs: AssetFolder[] = []
+        let currentId: string | null = folderId || null
         while (currentId) {
             const { data } = await supabase
                 .from('asset_folders')
@@ -123,6 +110,24 @@ export async function getAssets(scope: { brandId?: string, workspaceId?: string 
             breadcrumbs.unshift(folder)
             currentId = folder.parent_id
         }
+        return breadcrumbs
+    }
+
+    // PERFORMANCE: folders, assets and breadcrumbs are independent, so they load in parallel
+    const [{ data: folders, error: folderError }, { data: assets, error: assetError }, breadcrumbs] = await Promise.all([
+        folderQuery,
+        assetQuery,
+        loadBreadcrumbs(),
+    ])
+
+    if (folderError) {
+        console.error("Error fetching folders:", folderError)
+        return { success: false, error: folderError.message }
+    }
+
+    if (assetError) {
+        console.error("Error fetching assets:", assetError)
+        return { success: false, error: assetError.message }
     }
 
     return { success: true, folders, assets, breadcrumbs }
@@ -147,8 +152,6 @@ export async function getFavorites(scope: { brandId?: string, workspaceId?: stri
     if (brandId) folderQuery = folderQuery.eq('brand_id', brandId)
     if (workspaceId) folderQuery = folderQuery.eq('workspace_id', workspaceId)
 
-    const { data: folders, error: folderError } = await folderQuery
-
     // 2. Fetch Favorite Assets
     let assetQuery = supabase
         .from('assets')
@@ -160,7 +163,8 @@ export async function getFavorites(scope: { brandId?: string, workspaceId?: stri
     if (brandId) assetQuery = assetQuery.eq('brand_id', brandId)
     if (workspaceId) assetQuery = assetQuery.eq('workspace_id', workspaceId)
 
-    const { data: assets, error: assetError } = await assetQuery
+    // PERFORMANCE: both queries are independent, so they run in parallel
+    const [{ data: folders, error: folderError }, { data: assets, error: assetError }] = await Promise.all([folderQuery, assetQuery])
 
     if (folderError || assetError) {
         return { success: false, error: folderError?.message || assetError?.message }
@@ -197,7 +201,7 @@ export async function getAllFolders(scope: { brandId?: string, workspaceId?: str
 
 export async function createFolder(scope: { brandId?: string, workspaceId?: string }, name: string, parentId?: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const { brandId, workspaceId } = scope
@@ -227,7 +231,7 @@ export async function createFolder(scope: { brandId?: string, workspaceId?: stri
 
 export async function uploadAsset(formData: FormData) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const file = formData.get("file") as File
@@ -305,7 +309,7 @@ function mapMimeTypeToAssetType(mimeType: string): string {
 
 export async function deleteFolder(folderId: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const { error } = await supabase
@@ -321,7 +325,7 @@ export async function deleteFolder(folderId: string) {
 
 export async function deleteAsset(assetId: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const { error } = await supabase
@@ -403,7 +407,7 @@ export async function getTrash(scope: { brandId?: string, workspaceId?: string }
 
 export async function restoreItem(id: string, type: 'asset' | 'folder') {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const table = type === 'asset' ? 'assets' : 'asset_folders'
@@ -421,7 +425,7 @@ export async function restoreItem(id: string, type: 'asset' | 'folder') {
 
 export async function permanentlyDeleteItem(id: string, type: 'asset' | 'folder') {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const table = type === 'asset' ? 'assets' : 'asset_folders'
@@ -439,7 +443,7 @@ export async function permanentlyDeleteItem(id: string, type: 'asset' | 'folder'
 
 export async function renameFolder(folderId: string, newName: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     // Sanitize input
@@ -458,7 +462,7 @@ export async function renameFolder(folderId: string, newName: string) {
 
 export async function renameAsset(assetId: string, newName: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     // Sanitize input
@@ -477,7 +481,7 @@ export async function renameAsset(assetId: string, newName: string) {
 
 export async function moveFolder(folderId: string, destFolderId: string | null) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const { error } = await supabase
@@ -492,7 +496,7 @@ export async function moveFolder(folderId: string, destFolderId: string | null) 
 
 export async function moveAsset(assetId: string, destFolderId: string | null) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const { error } = await supabase
@@ -507,7 +511,7 @@ export async function moveAsset(assetId: string, destFolderId: string | null) {
 
 export async function updateFolderAccess(folderId: string, isPublic: boolean, allowViewers: boolean) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const { error } = await supabase
@@ -522,7 +526,7 @@ export async function updateFolderAccess(folderId: string, isPublic: boolean, al
 
 export async function toggleFavorite(id: string, type: 'asset' | 'folder', currentStatus: boolean) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const table = type === 'asset' ? 'assets' : 'asset_folders'
@@ -543,7 +547,7 @@ export async function toggleFavorite(id: string, type: 'asset' | 'folder', curre
 
 export async function getShareSettings(id: string, type: 'asset' | 'folder' | 'root') {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return null
 
     if (type === 'asset') {
@@ -572,7 +576,7 @@ export async function getShareSettings(id: string, type: 'asset' | 'folder' | 'r
 
 export async function updateShareSettings(id: string, type: 'asset' | 'folder' | 'root', settings: ShareSettings) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     try {
@@ -922,9 +926,39 @@ export async function verifySharedItemPasscode(id: string, passcode: string) {
     return { success: true }
 }
 
+// SECURITY: the same rules the public share page applies — link active, not expired, and
+// (if protected) the passcode already verified for this browser via the share_token cookie
+async function isShareReadable(id: string, supabase: any): Promise<boolean> {
+    const { share, sourceId } = await getEffectiveShareSettings(id, supabase)
+    if (!share?.active) return false
+    if (share.expirationEnabled && share.expirationDate && new Date(share.expirationDate) < new Date()) return false
+    if (share.passcodeEnabled && share.passcode) {
+        const cookieStore = await cookies()
+        const token = cookieStore.get(`share_token_${sourceId || id}`)?.value
+        if (token !== share.passcode) return false
+    }
+    return true
+}
+
+// SECURITY: members of the folder's brand/workspace may download it from their library
+async function isMemberOfTree(id: string, supabase: any): Promise<boolean> {
+    const { data: folder } = await supabase.from('asset_folders').select('brand_id, workspace_id').eq('id', id).maybeSingle()
+    if (folder?.brand_id && await canAccessBrand(folder.brand_id)) return true
+    if (folder?.workspace_id && (await getUserWorkspaceIds()).includes(folder.workspace_id)) return true
+    // Root share: the id is a brand id
+    return !folder && await canAccessBrand(id)
+}
+
 // Get all folder contents recursively for ZIP download
 export async function getAllFolderContentsRecursive(folderId: string, brandId?: string) {
     const supabase = await createAdminClient()
+
+    // SECURITY: this runs with the admin client and is reachable from the unauthenticated /share
+    // route, so it must not hand out any folder by id. Allow members, or a valid public share.
+    const targetId = folderId || brandId
+    if (!targetId || !((await isMemberOfTree(targetId, supabase)) || (await isShareReadable(targetId, supabase)))) {
+        return { success: false, error: "Sem acesso a esta pasta." }
+    }
 
     interface FileItem {
         path: string
@@ -1055,4 +1089,77 @@ export async function getStorageUsage(scope: { brandId?: string, workspaceId?: s
     })
 
     return { success: true, totalBytes }
+}
+
+/**
+ * Whether the brand's whole asset library is shared publicly (Share at the library root, link active and
+ * not expired). Read by the brandbook navigation, also for visitors of the published brandbook: it only
+ * tells yes / no, the library itself still goes through the share page and its passcode.
+ */
+export async function getPublicAssetLibraryStatus(brandId: string) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (!brandId || !uuidRegex.test(brandId)) return { active: false, protected: false }
+    const supabase = await createAdminClient()
+    const { data: rows } = await supabase.from('assets')
+        .select('metadata')
+        .eq('brand_id', brandId)
+        .is('folder_id', null)
+        .eq('name', '.share_settings')
+        .order('created_at', { ascending: true })
+        .limit(1)
+    const share = (rows?.[0]?.metadata as Record<string, unknown> | null)?.share as ShareSettings | undefined
+    const expired = !!(share?.expirationEnabled && share.expirationDate && new Date(share.expirationDate) < new Date())
+    return { active: !!share?.active && !expired, protected: !!(share?.passcodeEnabled && share?.passcode) }
+}
+
+/**
+ * Turns the public sharing of the brand's whole asset library on / off (the same root share as
+ * Asset Library → Share), keeping its passcode / expiration. Only members of the brand.
+ */
+export async function setPublicAssetLibrary(brandId: string, active: boolean) {
+    // SECURITY: members of the brand only; the write itself uses the admin client (the brand's root
+    // settings row isn't always visible to the user's client, and a hidden row must not turn into a duplicate)
+    if (!(await canAccessBrand(brandId))) return { success: false as const, error: "Unauthorized" }
+    const user = await getCurrentUser()
+    const admin = await createAdminClient()
+
+    const { data: rows, error: readError } = await admin.from('assets')
+        .select('id, metadata')
+        .eq('brand_id', brandId)
+        .is('folder_id', null)
+        .eq('name', '.share_settings')
+        .order('created_at', { ascending: true })
+    if (readError) return { success: false as const, error: readError.message }
+
+    const existing = rows?.[0]
+    const current = (existing?.metadata as Record<string, unknown> | null)?.share as ShareSettings | undefined
+    const settings: ShareSettings = { passcodeEnabled: false, expirationEnabled: false, ...current, active }
+    // Sharing again after the link expired: it starts over without the old date
+    if (active && settings.expirationEnabled && settings.expirationDate && new Date(settings.expirationDate) < new Date()) {
+        settings.expirationEnabled = false
+        settings.expirationDate = undefined
+    }
+
+    if (existing) {
+        const metadata = { ...((existing.metadata as Record<string, unknown> | null) || {}), share: settings }
+        const { error } = await admin.from('assets').update({ metadata }).eq('id', existing.id)
+        if (error) return { success: false as const, error: error.message }
+    } else {
+        const { data: brand } = await admin.from('brands').select('workspace_id').eq('id', brandId).maybeSingle()
+        const { error } = await admin.from('assets').insert({
+            name: '.share_settings',
+            folder_id: null,
+            brand_id: brandId,
+            workspace_id: brand?.workspace_id || null,
+            uploader_id: user?.id || null,
+            type: 'other',
+            file_url: 'internal://root-share-settings',
+            metadata: { share: settings },
+            is_downloadable: false,
+        })
+        if (error) return { success: false as const, error: error.message }
+    }
+
+    revalidatePath('/brand/[slug]')
+    return { success: true as const, status: await getPublicAssetLibraryStatus(brandId) }
 }

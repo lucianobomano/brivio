@@ -64,7 +64,7 @@ export function BillingSettings() {
                 <div className="p-6 bg-bg-2 border border-bg-3 rounded-2xl flex items-center justify-between hover:bg-white/[0.02] transition-all">
                     <div className="flex items-center gap-6">
                         <div className="w-14 h-10 bg-white/5 border border-bg-3 rounded-lg flex items-center justify-center">
-                            <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="w-8" />
+                            <img loading="lazy" decoding="async" src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" className="w-8" />
                         </div>
                         <div>
                             <div className="font-bold text-white">Mastercard •••• 4242</div>

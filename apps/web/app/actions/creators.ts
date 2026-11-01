@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient, createAdminClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function getCreators(filters?: { category?: string, type?: string, country?: string }) {
@@ -152,7 +152,7 @@ export async function getCreatorById(id: string) {
 
 export async function followCreator(followingId: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { error: "Unauthorized" }
 

@@ -57,7 +57,7 @@ export function BrandingSettings({ workspace }: BrandingSettingsProps) {
                     </div>
                     <div className="h-40 bg-white/5 rounded-xl border border-dashed border-bg-3 flex flex-col items-center justify-center gap-2 group transition-all hover:bg-white/10 hover:border-accent-indigo/40 cursor-pointer">
                         {formData.logo_url ? (
-                            <img src={formData.logo_url} alt="Logo Light" className="max-h-16 object-contain" />
+                            <img loading="lazy" decoding="async" src={formData.logo_url} alt="Logo Light" className="max-h-16 object-contain" />
                         ) : (
                             <>
                                 <Upload className="w-8 h-8 text-text-secondary/20" />
@@ -81,7 +81,7 @@ export function BrandingSettings({ workspace }: BrandingSettingsProps) {
                     </div>
                     <div className="h-40 bg-black/40 rounded-xl border border-dashed border-bg-3 flex flex-col items-center justify-center gap-2 group transition-all hover:bg-black/60 hover:border-accent-indigo/40 cursor-pointer">
                         {formData.logo_dark_url ? (
-                            <img src={formData.logo_dark_url} alt="Logo Dark" className="max-h-16 object-contain" />
+                            <img loading="lazy" decoding="async" src={formData.logo_dark_url} alt="Logo Dark" className="max-h-16 object-contain" />
                         ) : (
                             <>
                                 <Upload className="w-8 h-8 text-text-secondary/20" />

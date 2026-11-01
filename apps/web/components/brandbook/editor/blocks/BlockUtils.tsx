@@ -61,7 +61,8 @@ export const ResizableWrapper = ({
     isFocused,
     isReadOnly,
     className,
-    align = 'center', // Default to center for safety
+    align: alignProp,
+    hug = false,
     responsiveDevice
 }: {
     children: React.ReactNode,
@@ -72,9 +73,13 @@ export const ResizableWrapper = ({
     isFocused: boolean,
     isReadOnly?: boolean,
     className?: string,
+    /** Where the box sits in its column (not the text alignment inside it) */
     align?: 'left' | 'center' | 'right'
+    /** Box as wide as its content (up to the column) instead of the full column width */
+    hug?: boolean
     responsiveDevice?: 'desktop' | 'widescreen' | 'mobile'
 }) => {
+    const align = alignProp ?? 'center' // Default to center for safety (resize math)
     const { setIsResizingGlobal } = useBrandDesign();
     const containerRef = React.useRef<HTMLDivElement>(null);
     const [isResizing, setIsResizing] = React.useState<'left' | 'right' | 'top' | 'bottom' | null>(null);
@@ -283,10 +288,13 @@ export const ResizableWrapper = ({
         <div
             ref={containerRef}
             style={{
-                width: width || '100%',
+                width: width || (hug ? 'fit-content' : '100%'),
                 maxWidth: '100%',
                 minHeight: height || 'auto',
-                position: 'relative'
+                position: 'relative',
+                // A box narrower than the column sits where the column alignment says
+                marginLeft: alignProp === 'center' || alignProp === 'right' ? 'auto' : undefined,
+                marginRight: alignProp === 'center' ? 'auto' : undefined,
             }}
             className={cn(
                 "transition-[width,min-height] duration-200 ease-out max-w-full",
@@ -446,4 +454,39 @@ export const detectWeight = (style: TextBlockStyle | undefined, fallback: string
 
 export const detectLineHeight = (style: TextBlockStyle | undefined, fallback: string = '1.1') => {
     return style?.lineHeight || fallback
+}
+
+/** Scrolls the page holding this element (the editor canvas or the window) back to the top */
+export const scrollPageToTop = (from: HTMLElement | null) => {
+    let el = from?.parentElement || null
+    while (el) {
+        const style = getComputedStyle(el)
+        if (/(auto|scroll)/.test(style.overflowY) && el.scrollHeight > el.clientHeight) {
+            el.scrollTo({ top: 0, behavior: 'smooth' })
+            return
+        }
+        el = el.parentElement
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+/** Fonts that come with the system / the app: never fetched */
+const LOCAL_FONTS = new Set(['inter', 'arial', 'helvetica', 'georgia', 'times new roman', 'sans-serif', 'serif', 'monospace', 'system-ui', 'ui-sans-serif', 'ui-monospace', 'minion variable concept', 'satoshi', 'brandon grotesque'])
+
+/** Loads the Google font a text uses (set in its toolbar or by a library component), once per page */
+export const useGoogleFont = (fontFamily?: string) => {
+    useEffect(() => {
+        const name = fontFamily?.split(',')[0].replace(/["']/g, '').trim()
+        if (!name || LOCAL_FONTS.has(name.toLowerCase())) return
+        const id = `font-${name}`
+        if (document.getElementById(id)) return
+        const family = name.replace(/ /g, '+')
+        const link = document.createElement('link')
+        link.id = id
+        link.rel = 'stylesheet'
+        link.href = `https://fonts.googleapis.com/css2?family=${family}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap`
+        // Fonts without those weights / italics: ask for the font alone
+        link.onerror = () => { link.href = `https://fonts.googleapis.com/css2?family=${family}&display=swap` }
+        document.head.appendChild(link)
+    }, [fontFamily])
 }

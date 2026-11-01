@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { cn } from "@/lib/utils"
 import { useBrandDesign } from "./BrandDesignContext"
 import { BlockLink, LinkType } from "./types"
+import { EDITOR_COLLISION_PADDING } from "./editorLayout"
 
 interface LinkSettingsPopoverProps {
     isOpen: boolean
@@ -116,6 +117,7 @@ export function LinkSettingsPopover({
             {trigger && <PopoverTrigger asChild>{trigger}</PopoverTrigger>}
             <PopoverContent
                 align="center"
+                collisionPadding={EDITOR_COLLISION_PADDING}
                 side="top"
                 sideOffset={14}
                 className="w-[330px] bg-[#15161B] border border-[#2A2B35] rounded-xl p-0 text-white shadow-2xl z-[2100] outline-none overflow-hidden animate-in fade-in zoom-in-95 duration-150"

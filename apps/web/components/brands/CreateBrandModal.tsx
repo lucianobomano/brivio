@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { useRouter } from "next/navigation" // Added for redirection
+import { useRouter } from "nextjs-toploader/app" // Added for redirection (shows top progress bar)
 import { motion, AnimatePresence } from "framer-motion"
 import { Loader2, Upload, Plus, X, LayoutTemplate, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -462,7 +462,7 @@ function Step4_Logo({ file, onFileSelect, onSubmit, onChooseTemplate, onBack, is
                 {file ? (
                     <div className="flex flex-col items-center gap-2">
                         <div className="w-20 h-20 rounded-lg bg-white/10 flex items-center justify-center overflow-hidden">
-                            <img src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
+                            <img loading="lazy" decoding="async" src={URL.createObjectURL(file)} alt="Preview" className="w-full h-full object-contain" />
                         </div>
                         <span className="text-text-primary font-medium">{file.name}</span>
                         <span className="text-text-secondary text-sm">Clique para alterar</span>
@@ -734,7 +734,7 @@ function Step6_Templates({ onSelect, onSubmit, onBack, isSubmitting, selectedTem
                                 {/* Aspect Ratio Box */}
                                 <div className="aspect-[16/10] bg-bg-2 border border-white/5 rounded-3xl overflow-hidden relative">
                                     {template.thumbnail_url ? (
-                                        <img src={template.thumbnail_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                        <img loading="lazy" decoding="async" src={template.thumbnail_url} alt={template.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-bg-2 to-bg-3 relative overflow-hidden">
                                             <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-[#FF0054] via-transparent to-transparent" />

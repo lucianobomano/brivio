@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react"
 import { Upload, Download, Trash } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ColorInput as PickerInput } from "@/components/ui/color-input"
 import { Switch } from "@/components/ui/switch" // Assuming Switch exists, or I will implement a custom one to match design exactly
 // If Switch doesn't exist, I'll build a custom toggle.
 // I will verify common UI components later, but for now I'll write the code assuming I can use standard HTML/CSS for the specific toggle design requested.
@@ -67,8 +68,7 @@ export const DownloadSettingsPanel = ({ onClose, settings, onUpdate, onUpload, o
     // Helper for color input
     const ColorInput = ({ value, onChange, className }: { value: string, onChange: (val: string) => void, className?: string }) => (
         <label className={cn("w-8 h-8 rounded-full border border-white/10 cursor-pointer relative overflow-hidden", className)} style={{ backgroundColor: value }}>
-            <input
-                type="color"
+            <PickerInput
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
                 className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"

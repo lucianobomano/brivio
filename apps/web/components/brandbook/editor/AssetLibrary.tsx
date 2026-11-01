@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import {
     X,
     Folder,
@@ -51,6 +52,7 @@ import {
     restoreItem,
     permanentlyDeleteItem
 } from "@/app/actions/assets"
+import { refreshAssetLibraryStatus } from "./navigation/AssetLibraryAccess"
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -231,6 +233,9 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
         })
     }
 
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
+
     const handleCreateFolder = async () => {
         if (!newFolderName.trim()) return
         const res = await createFolder({ brandId }, newFolderName, currentFolderId)
@@ -239,7 +244,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             setIsCreateFolderModalOpen(false)
             loadData()
         } else {
-            alert("Failed to create folder")
+            toast.error("Erro ao criar a pasta")
         }
     }
 
@@ -441,7 +446,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                 else if (isFavoritesView) loadFavorites()
                 else if (isRecentView) loadRecentAssets()
                 else loadData()
-            } else alert("Failed to delete asset")
+            } else toast.error("Erro ao eliminar o ficheiro")
         } else if (type === 'folder') {
             const res = isTrashView ? await permanentlyDeleteItem(id, 'folder') : await deleteFolder(id)
             if (res.success) {
@@ -450,7 +455,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                 else if (isFavoritesView) loadFavorites()
                 else if (isRecentView) loadRecentAssets()
                 else loadData()
-            } else alert("Failed to delete folder")
+            } else toast.error("Erro ao eliminar a pasta")
         }
 
         setDeleteConfirmation({ isOpen: false, type: null, id: null })
@@ -463,7 +468,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             setFolderToRename(null)
             loadData()
         } else {
-            alert("Failed to rename")
+            toast.error("Erro ao mudar o nome")
         }
     }
 
@@ -478,7 +483,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             setDestinationFolderId("root")
             loadData()
         } else {
-            alert("Failed to move")
+            toast.error("Erro ao mover")
         }
     }
 
@@ -533,7 +538,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
         } else {
             // Revert on failure
             setFolderToManageAccess(folderToManageAccess)
-            alert("Failed to update permissions")
+            toast.error("Erro ao atualizar as permissões")
         }
     }
 
@@ -604,6 +609,8 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             email: newSettings.email
         })
         // Optional: toast.success("Settings saved") - simpler to be silent
+        // The brandbook navigation shows its Asset library button to visitors only while the root is shared
+        if (shareModal.type === 'root') refreshAssetLibraryStatus(shareModal.assetId)
     }
 
     // Expiration Modal Logic
@@ -680,7 +687,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
     return (
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[3000] flex items-center justify-center overflow-hidden text-[14px]">
+                <div className="fixed inset-0 z-[10200] flex items-center justify-center overflow-hidden text-[14px]">
                     {/* Dark Backdrop Overlay */}
                     <motion.div
                         initial={{ opacity: 0 }}
@@ -719,7 +726,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                         side="bottom"
                                         align="center"
                                         sideOffset={12}
-                                        className="w-[200px] z-[2100] bg-[#0D0D0E] border-[#1a1a1a] p-1.5 rounded-[22px] shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
+                                        className="w-[200px] z-[10300] bg-[#0D0D0E] border-[#1a1a1a] p-1.5 rounded-[22px] shadow-[0_20px_50px_rgba(0,0,0,0.6)]"
                                     >
                                         <PopoverArrow className="fill-[#0D0D0E] stroke-[#1a1a1a] stroke-[0.5px] scale-[2]" />
                                         <div className="flex flex-col">
@@ -1074,7 +1081,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                         <MoreVertical className="w-4 h-4" />
                                                                     </button>
                                                                 </DropdownMenuTrigger>
-                                                                <DropdownMenuContent align="end" className="w-56 bg-[#0D0D0E] border-[#222] p-1.5 rounded-xl text-gray-200 z-[3500]">
+                                                                <DropdownMenuContent align="end" className="w-56 bg-[#0D0D0E] border-[#222] p-1.5 rounded-xl text-gray-200 z-[10300]">
                                                                     {!isTrashView ? (
                                                                         <>
                                                                             <DropdownMenuItem
@@ -1265,7 +1272,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                             </div>
 
                                                             {asset.type === 'image' && (
-                                                                <img src={asset.file_url} alt={asset.name} className="w-full h-auto block" />
+                                                                <img loading="lazy" decoding="async" src={asset.file_url} alt={asset.name} className="w-full h-auto block" />
                                                             )}
                                                             {asset.type !== 'image' && (
                                                                 <div className="w-full h-full flex items-center justify-center bg-[#1a1a1a]">
@@ -1313,7 +1320,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                                 <DropdownMenuTrigger asChild>
                                                                                     <MoreHorizontal className="w-4 h-4 hover:text-white cursor-pointer transition-colors" />
                                                                                 </DropdownMenuTrigger>
-                                                                                <DropdownMenuContent align="end" className="w-56 bg-[#0D0D0E] border-[#222] p-1.5 rounded-xl text-gray-200 z-[3500]">
+                                                                                <DropdownMenuContent align="end" className="w-56 bg-[#0D0D0E] border-[#222] p-1.5 rounded-xl text-gray-200 z-[10300]">
                                                                                     {!isTrashView ? (
                                                                                         <>
                                                                                             <DropdownMenuItem
@@ -1504,7 +1511,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                 </button>
                                                             </PopoverTrigger>
                                                             <PopoverContent
-                                                                className="w-auto p-0 border-none bg-transparent shadow-none"
+                                                                className="w-auto p-0 border-none bg-transparent shadow-none z-[10300]"
                                                                 side="bottom"
                                                                 align="start"
                                                                 sideOffset={5}
@@ -1577,7 +1584,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 Cancel
                                             </button>
                                             <button
-                                                onClick={handleConfirmDelete}
+                                                onClick={() => runAction(handleConfirmDelete)} disabled={isActionPending} aria-busy={isActionPending}
                                                 className="min-w-[100px] h-[40px] border border-[#333] rounded-xl text-white hover:bg-white/5 transition-colors text-[14px] font-medium"
                                             >
                                                 Do it!
@@ -1697,7 +1704,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 placeholder="Folder name"
                                                 value={newFolderName}
                                                 onChange={(e) => setNewFolderName(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleCreateFolder()}
+                                                onKeyDown={(e) => e.key === 'Enter' && runAction(handleCreateFolder)}
                                                 className="w-full bg-transparent border-b border-[#333] text-white text-center pb-2 placeholder:text-[#555] focus:outline-none focus:border-[#ff0054] transition-colors text-[16px]"
                                                 autoFocus
                                             />
@@ -1705,7 +1712,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                                         <div className="flex items-center gap-6">
                                             <button
-                                                onClick={handleCreateFolder}
+                                                onClick={() => runAction(handleCreateFolder)} disabled={isActionPending} aria-busy={isActionPending}
                                                 className="px-8 py-2.5 bg-[#0A0A0B] hover:bg-[#1a1a1a] text-white rounded-lg transition-colors font-medium">
                                                 Salvar
                                             </button>
@@ -1749,7 +1756,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 placeholder="Folder name"
                                                 value={renameValue}
                                                 onChange={(e) => setRenameValue(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleRenameFolder()}
+                                                onKeyDown={(e) => e.key === 'Enter' && runAction(handleRenameFolder)}
                                                 className="w-full bg-transparent border-b border-[#333] text-white text-center pb-2 placeholder:text-[#555] focus:outline-none focus:border-[#ff0054] transition-colors text-[16px]"
                                                 autoFocus
                                             />
@@ -1757,7 +1764,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                                         <div className="flex items-center gap-6">
                                             <button
-                                                onClick={handleRenameFolder}
+                                                onClick={() => runAction(handleRenameFolder)} disabled={isActionPending} aria-busy={isActionPending}
                                                 className="px-8 py-2.5 bg-[#0A0A0B] hover:bg-[#1a1a1a] text-white rounded-lg transition-colors font-medium">
                                                 Salvar
                                             </button>
@@ -1801,7 +1808,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 placeholder="Asset name"
                                                 value={renameValue}
                                                 onChange={(e) => setRenameValue(e.target.value)}
-                                                onKeyDown={(e) => e.key === 'Enter' && handleRenameAsset()}
+                                                onKeyDown={(e) => e.key === 'Enter' && runAction(handleRenameAsset)}
                                                 className="w-full bg-transparent border-b border-[#333] text-white text-center pb-2 placeholder:text-[#555] focus:outline-none focus:border-[#ff0054] transition-colors text-[16px]"
                                                 autoFocus
                                             />
@@ -1809,7 +1816,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                                         <div className="flex items-center gap-6">
                                             <button
-                                                onClick={handleRenameAsset}
+                                                onClick={() => runAction(handleRenameAsset)} disabled={isActionPending} aria-busy={isActionPending}
                                                 className="px-8 py-2.5 bg-[#0A0A0B] hover:bg-[#1a1a1a] text-white rounded-lg transition-colors font-medium">
                                                 Salvar
                                             </button>
@@ -1860,7 +1867,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={handleMoveFolder}
+                                    onClick={() => runAction(handleMoveFolder)} disabled={isActionPending} aria-busy={isActionPending}
                                     className="px-4 py-2 bg-[#ff0054] text-white rounded-lg text-sm font-medium hover:bg-[#ff0054]/90"
                                 >
                                     Move
@@ -1898,7 +1905,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                     Cancel
                                 </button>
                                 <button
-                                    onClick={handleMoveAsset}
+                                    onClick={() => runAction(handleMoveAsset)} disabled={isActionPending} aria-busy={isActionPending}
                                     className="px-4 py-2 bg-[#ff0054] text-white rounded-lg text-sm font-medium hover:bg-[#ff0054]/90"
                                 >
                                     Move
@@ -2238,7 +2245,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                                         </button>
                                                                                     </PopoverTrigger>
                                                                                     <PopoverContent
-                                                                                        className="w-auto p-0 border-none bg-transparent shadow-none"
+                                                                                        className="w-auto p-0 border-none bg-transparent shadow-none z-[10300]"
                                                                                         side="bottom"
                                                                                         align="start"
                                                                                         sideOffset={5}
@@ -2281,7 +2288,13 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                     />
                                                                 </div>
                                                                 <button
-                                                                    onClick={() => alert(`Email sent to ${shareSettings.email}`)}
+                                                                    onClick={() => {
+                                                                        // No email service is configured: open the user's mail app with the link instead of claiming it was sent
+                                                                        const to = shareSettings.email?.trim()
+                                                                        if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) { toast.error("Enter a valid email address"); return }
+                                                                        const link = `${window.location.origin}/share/${shareModal.assetId}`
+                                                                        window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent("Shared files")}&body=${encodeURIComponent(link)}`
+                                                                    }}
                                                                     className="h-[36px] px-6 bg-[#ff0054] rounded-lg text-white text-[13px] font-medium hover:bg-[#ff0054]/90 transition-colors"
                                                                 >
                                                                     Send

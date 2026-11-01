@@ -3,12 +3,16 @@ import { cn } from "@/lib/utils"
 import { Lock, ChevronRight, Plus, Trash2 } from "lucide-react"
 import { useBrandDesign, FontStyle } from "./BrandDesignContext"
 import { UploadAssetPopup } from "./UploadAssetPopup"
+import { SmoothColorInput } from "./SmoothColorInput"
+import { NavigationSettingsView } from "./navigation/NavigationSettingsView"
+import { GOOGLE_FONTS } from "./googleFonts"
 
 // Sidebar Items
 const SIDEBAR_ITEMS = [
     { id: 'settings', label: 'Settings' },
     { id: 'colors', label: 'Colors' },
     { id: 'fonts', label: 'Fonts' },
+    { id: 'navigation', label: 'Navegação' },
     { id: 'url', label: 'URL & Domain' },
     { id: 'team', label: 'Manage editor team' },
     { id: 'viewers', label: 'Manage viewers' },
@@ -20,6 +24,18 @@ export interface BrandSettingsPanelProps {
     isOpen: boolean
     onClose: () => void
     brandId: string
+    /** The page open in the editor, for the page background color */
+    page?: PageBackgroundControls
+}
+
+/** Background of the open page: its own color (this page only) or the general one (all pages) */
+export interface PageBackgroundControls {
+    title?: string
+    /** The page's own background; none = it uses the general background */
+    background?: string
+    onChange: (color: string | undefined) => void
+    /** Removes every page's own background so all pages use the general one */
+    onClearAllPages: () => void
 }
 
 type ThemeMode = 'light' | 'dark'
@@ -34,7 +50,7 @@ type ThemeStyles = {
     accent?: string
 }
 
-export const BrandSettingsPanel = ({ isOpen, onClose, brandId }: BrandSettingsPanelProps) => {
+export const BrandSettingsPanel = ({ isOpen, onClose, brandId, page }: BrandSettingsPanelProps) => {
     const [activeTab, setActiveTab] = useState('settings')
     const [theme, setTheme] = useState<ThemeMode>('dark')
     const [scope, setScope] = useState<'global' | 'bam'>('global')
@@ -61,7 +77,8 @@ export const BrandSettingsPanel = ({ isOpen, onClose, brandId }: BrandSettingsPa
         <>
             <div
                 className={cn(
-                    "fixed inset-0 bg-black/50 z-[2999] transition-opacity duration-300",
+                    // Above the editor's top bar (z 10000)
+                    "fixed inset-0 bg-black/50 z-[10199] transition-opacity duration-300",
                     isOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
                 )}
                 onClick={onClose}
@@ -69,7 +86,7 @@ export const BrandSettingsPanel = ({ isOpen, onClose, brandId }: BrandSettingsPa
 
             <div
                 className={cn(
-                    `fixed top-0 right-0 h-full w-1/2 z-[3000] shadow-2xl transition-transform duration-300 ease-in-out flex rounded-l-[24px] overflow-hidden text-[14px]`,
+                    `fixed top-0 right-0 h-full w-1/2 z-[10200] shadow-2xl transition-transform duration-300 ease-in-out flex rounded-l-[24px] overflow-hidden text-[14px]`,
                     t.bg, t.text,
                     isOpen ? "translate-x-0" : "translate-x-full"
                 )}
@@ -124,7 +141,7 @@ export const BrandSettingsPanel = ({ isOpen, onClose, brandId }: BrandSettingsPa
                 {/* RIGHT CONTENT AREA */}
                 <div className={cn("flex-1 overflow-y-auto", t.bg, t.text)}>
                     <div className="p-12">
-                        <ContentRenderer tab={activeTab} theme={theme} t={t} brandId={brandId} />
+                        <ContentRenderer tab={activeTab} theme={theme} t={t} brandId={brandId} page={page} />
                     </div>
                 </div>
             </div>
@@ -132,12 +149,13 @@ export const BrandSettingsPanel = ({ isOpen, onClose, brandId }: BrandSettingsPa
     )
 }
 
-const ContentRenderer = ({ tab, theme, t, brandId }: { tab: string, theme: ThemeMode, t: ThemeStyles, brandId: string }) => {
+const ContentRenderer = ({ tab, theme, t, brandId, page }: { tab: string, theme: ThemeMode, t: ThemeStyles, brandId: string, page?: PageBackgroundControls }) => {
     const commonProps = { theme, t, brandId }
     switch (tab) {
         case 'settings': return <SettingsView {...commonProps} />
-        case 'colors': return <ColorsView {...commonProps} />
+        case 'colors': return <ColorsView {...commonProps} page={page} />
         case 'fonts': return <FontsView {...commonProps} />
+        case 'navigation': return <NavigationSettingsView t={t} />
         case 'url': return <UrlDomainView {...commonProps} />
         case 'team': return <ManageTeamView {...commonProps} />
         case 'viewers': return <ViewersView {...commonProps} />
@@ -167,7 +185,7 @@ const SettingsView = ({ t, brandId }: { t: ThemeStyles, brandId: string }) => {
                     <div className="w-[80px] h-[80px] rounded-full p-[2px] bg-gradient-to-b from-[#FF0054] to-[#00F0FF]">
                         <div className={cn("w-full h-full rounded-full border-4 relative flex items-center justify-center overflow-hidden", t.bg, t.bg === "bg-white" ? "border-white" : "border-[#15161B]")}>
                             {brandInfo.logo_url ? (
-                                <img src={brandInfo.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                                <img loading="lazy" decoding="async" src={brandInfo.logo_url} alt="Logo" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full bg-gradient-to-tr from-[#FF0054] to-[#00F0FF] opacity-20" />
                             )}
@@ -240,11 +258,76 @@ const SettingsView = ({ t, brandId }: { t: ThemeStyles, brandId: string }) => {
     )
 }
 
-const ColorsView = ({ t }: { t: ThemeStyles }) => {
+/** Page background: one color for this page only, or for every page (the general background) */
+const PageBackgroundControl = ({ t, page, general, onGeneralChange }: {
+    t: ThemeStyles
+    page?: PageBackgroundControls
+    general: string
+    onGeneralChange: (color: string) => void
+}) => {
+    const [scope, setScope] = useState<'page' | 'all'>(page?.background ? 'page' : 'all')
+    const isPage = scope === 'page' && !!page
+    const value = isPage ? (page?.background || general) : general
+
+    const change = (color: string) => {
+        if (isPage) page?.onChange(color)
+        else {
+            onGeneralChange(color)
+            page?.onClearAllPages()
+        }
+    }
+
+    return (
+        <div className={cn("flex flex-col gap-4 pb-10 border-b", t.border)}>
+            <span className={cn("text-[15px]", t.textSec)}>Cor de fundo da página</span>
+            <div className="flex flex-wrap items-end gap-8">
+                <div className="w-[220px]">
+                    <ColorInput label={isPage ? `Fundo de "${page?.title || 'esta página'}"` : 'Fundo de todas as páginas'} value={value} onChange={change} t={t} />
+                </div>
+                <div className="flex flex-col gap-2">
+                    <span className={cn("text-[12px]", t.textSec)}>Aplicar a</span>
+                    <div className={cn("flex gap-1 p-1 rounded-lg border", t.border)}>
+                        {([['page', 'Só esta página'], ['all', 'Todas as páginas']] as const).map(([id, label]) => (
+                            <button
+                                key={id}
+                                disabled={id === 'page' && !page}
+                                onClick={() => setScope(id)}
+                                className={cn(
+                                    "h-8 px-3 rounded-md text-[13px] font-medium transition-colors disabled:opacity-40",
+                                    scope === id ? "bg-[#FF0054] text-white" : cn(t.textSec, "hover:opacity-80")
+                                )}
+                            >
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+                {isPage && page?.background && (
+                    <button onClick={() => page.onChange(undefined)} className={cn("text-[13px] underline underline-offset-4 pb-2", t.textSec)}>
+                        Usar a cor de todas as páginas
+                    </button>
+                )}
+            </div>
+            <span className={cn("text-[12px]", t.textSec)}>
+                {isPage
+                    ? 'Só esta página fica com esta cor. As outras mantêm a sua.'
+                    : 'Muda o fundo de todas as páginas. As páginas que tinham uma cor própria passam a usar esta.'}
+            </span>
+        </div>
+    )
+}
+
+const ColorsView = ({ t, page }: { t: ThemeStyles, page?: PageBackgroundControls }) => {
     const { settings, updateSetting, addToPalette, removeFromPalette, updatePaletteColor } = useBrandDesign()
 
     return (
         <div className="flex flex-col gap-10 max-w-5xl">
+            <PageBackgroundControl
+                t={t}
+                page={page}
+                general={settings.main_project_bg}
+                onGeneralChange={(c) => updateSetting('main_project_bg', c)}
+            />
             <div className="flex flex-col gap-4">
                 <span className={cn("text-[15px]", t.textSec)}>Brand color palette</span>
                 <div className="flex items-center gap-4 flex-wrap">
@@ -290,12 +373,6 @@ const ColorsView = ({ t }: { t: ThemeStyles }) => {
                     />
                 </div>
                 <div className="flex flex-col gap-10">
-                    <ColorInput
-                        label="Main project background"
-                        value={settings.main_project_bg}
-                        onChange={(c) => updateSetting('main_project_bg', c)}
-                        t={t}
-                    />
                     <ColorInput
                         label="Highlights"
                         value={settings.highlights_bg}
@@ -436,15 +513,7 @@ const DeleteView = ({ t }: { t: ThemeStyles }) => (
 
 // --- Helper Components ---
 
-const GOOGLE_FONTS = [
-    "Inter", "Montserrat", "Poppins", "Roboto", "Open Sans", "Lato", "Urbanist", "Outfit",
-    "Plus Jakarta Sans", "Satoshi", "Brandon Grotesque", "Figtree", "Manrope", "Syne",
-    "Space Grotesk", "Public Sans", "Playfair Display", "Lora", "Merriweather",
-    "Libre Baskerville", "PT Serif", "Crimson Text", "Josefin Sans", "Josefin Slab",
-    "Arvo", "Oswald", "Rubik", "Raleway", "Nunito", "Archivo Black", "Staatliches",
-    "Bebas Neue", "Righteous", "Ultra", "Fira Code", "Source Code Pro", "Space Mono",
-    "Quicksand", "Kanit", "Heebo", "Work Sans", "Dosis", "Ubuntu", "Source Sans Pro"
-]
+// Fonts: the shared list of the font pickers (googleFonts.ts)
 const FONT_WEIGHTS = ["100", "200", "300", "400", "500", "600", "700", "800", "900"]
 const LINE_HEIGHTS = ["1.0", "1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "1.9", "2.0", "2.5", "3.0"]
 
@@ -513,7 +582,7 @@ const ColorPickerCircle = ({ color, onChange, className }: { color: string, onCh
             style={{ backgroundColor: color }}
             onClick={() => inputRef.current?.click()}
         >
-            <input
+            <SmoothColorInput
                 ref={inputRef}
                 type="color"
                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"

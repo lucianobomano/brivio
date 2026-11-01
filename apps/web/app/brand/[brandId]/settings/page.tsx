@@ -1,8 +1,9 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { Navbar } from "@/components/layout/Navbar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { ColorInput } from "@/components/ui/color-input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { updateBrand, deleteBrand } from "@/app/actions/brands"
@@ -10,7 +11,7 @@ import { Trash2, Save } from "lucide-react"
 
 export default async function BrandSettingsPage({ params }: { params: { brandId: string } }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
         redirect('/login')
@@ -64,10 +65,9 @@ export default async function BrandSettingsPage({ params }: { params: { brandId:
                                 <div className="space-y-2">
                                     <Label htmlFor="primaryColor">Brand Color</Label>
                                     <div className="flex gap-2">
-                                        <Input
+                                        <ColorInput
                                             id="primaryColor"
                                             name="primaryColor"
-                                            type="color"
                                             defaultValue={brand.primary_color || '#6366f1'}
                                             className="w-12 h-10 p-1 cursor-pointer"
                                         />

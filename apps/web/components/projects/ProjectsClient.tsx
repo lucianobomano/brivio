@@ -26,7 +26,8 @@ import {
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import Image from "next/image"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 

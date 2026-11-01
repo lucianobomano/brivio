@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import { Project } from "./ProjectsClient"
 import {
     MoreHorizontal,
@@ -70,6 +71,9 @@ export function ProjectContractsView({ project }: ProjectContractsViewProps) {
     React.useEffect(() => {
         fetchContracts()
     }, [fetchContracts])
+
+    // Busy state + double-submit guard for confirm/save actions
+    const [runAction, isActionPending] = useAsyncAction(async (fn: () => unknown) => { await fn() })
 
     const handleDelete = async (id: string) => {
         const result = await deleteContract(id)
@@ -288,7 +292,7 @@ export function ProjectContractsView({ project }: ProjectContractsViewProps) {
                                                         </DropdownMenuItem>
                                                         <div className="h-px bg-[#373737] my-1" />
                                                         <DropdownMenuItem
-                                                            onClick={() => handleDelete(contract.id)}
+                                                            onClick={() => runAction(() => handleDelete(contract.id))}
                                                             className="gap-2 text-xs text-red-500 hover:text-white hover:bg-red-500/10 cursor-pointer"
                                                         >
                                                             <Trash2 className="w-4 h-4" />

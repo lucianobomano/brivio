@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import { cache } from 'react'
 
 export async function createClient() {
     const cookieStore = await cookies()
@@ -34,6 +35,14 @@ export async function createClient() {
         }
     )
 }
+
+// PERFORMANCE: auth.getUser() is a network round-trip to Supabase Auth.
+// Memoized per request so the page and every server action it calls share one validation.
+export const getCurrentUser = cache(async () => {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    return user
+})
 
 export async function createAdminClient() {
     // Only works if SUPABASE_SERVICE_ROLE_KEY is set in .env.local

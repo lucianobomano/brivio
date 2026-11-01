@@ -1,11 +1,11 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export async function getServices() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return []
 
@@ -46,7 +46,7 @@ export async function addService(data: {
     project_ids?: string[];
 }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Unauthorized" }
 
@@ -102,7 +102,7 @@ export async function updateService(id: string, data: {
     project_ids?: string[];
 }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Unauthorized" }
 
@@ -142,7 +142,7 @@ export async function updateService(id: string, data: {
 
 export async function deleteService(id: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Unauthorized" }
 

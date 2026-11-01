@@ -1,6 +1,7 @@
 import React from "react"
 import { X, AlignLeft, AlignCenter, AlignRight, RotateCcw } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ColorInput } from "@/components/ui/color-input"
 
 interface MediaSettingsPanelProps {
     onClose: () => void
@@ -125,8 +126,7 @@ export const MediaSettingsPanel = ({ onClose, settings, onUpdate, className }: M
                 <div className="flex items-center justify-between">
                     <span className="text-[#888] text-xs font-medium">Cor da borda</span>
                     <div className="relative">
-                        <input
-                            type="color"
+                        <ColorInput
                             value={settings.borderColor || '#0000ff'}
                             onChange={(e) => onUpdate({ ...settings, borderColor: e.target.value })}
                             className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"

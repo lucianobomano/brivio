@@ -2,45 +2,43 @@
 
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient, getCurrentUser } from "@/lib/supabase/server"
+import { ACCESS_ERROR, canAccessStandup, canAccessStandupTeam, canAccessWorkspace, getUserWorkspaceIds } from "@/lib/brand-access"
 
-// Get current user helper
-async function getCurrentUser() {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    return user
+// standup_team_members.user_id references auth.users (not public.users), so PostgREST can't embed
+// the profile; load the public.users rows for the given ids in one extra query instead.
+async function getUsersByIds(supabase: any, ids: string[]): Promise<Map<string, any>> {
+    const unique = [...new Set(ids.filter(Boolean))]
+    if (unique.length === 0) return new Map()
+    const { data, error } = await supabase.from('users').select('*').in('id', unique)
+    if (error) throw error
+    return new Map((data || []).map((u: any) => [u.id, u]))
 }
 
 export async function getWorkspaceTeams(workspaceId: string) {
     const user = await getCurrentUser()
     if (!user) return { success: false, error: "Not authorized" }
-
-    if (!(prisma as any).standupTeam) {
-        console.error("Prisma client outdated in getWorkspaceTeams")
-        return { success: false, error: "Prisma client outdated" }
-    }
+    // SECURITY: reads use the admin client, so the caller must belong to the workspace
+    if (!(await canAccessWorkspace(workspaceId))) return { success: false, error: ACCESS_ERROR }
 
     try {
         // Fetch teams in the workspace
-        const teams = await prisma.standupTeam.findMany({
-            where: { workspace_id: workspaceId },
-            include: {
-                members: true, // Need members for counting length in some usages
-                _count: {
-                    select: { members: true }
-                }
-            }
-        })
+        // PERFORMANCE: Supabase (one HTTP round-trip) instead of Prisma; admin client keeps Prisma's access level
+        const supabase = await createAdminClient()
+        const { data: teams, error } = await supabase
+            .from('standup_teams')
+            .select('id, name, members:standup_team_members(*)')
+            .eq('workspace_id', workspaceId)
 
-        console.log(`Fetched ${teams.length} teams for workspace ${workspaceId}`)
+        if (error) throw error
 
         return {
             success: true,
-            teams: teams.map(t => ({
+            teams: (teams || []).map(t => ({
                 id: t.id,
                 name: t.name,
                 members: t.members, // Added members to match usage map in modal
-                memberCount: t._count.members
+                memberCount: t.members?.length || 0
             }))
         }
     } catch (e) {
@@ -52,20 +50,24 @@ export async function getWorkspaceTeams(workspaceId: string) {
 export async function getWorkspaceMembers(workspaceId: string) {
     const user = await getCurrentUser()
     if (!user) return []
+    if (!(await canAccessWorkspace(workspaceId))) return []
 
     try {
-        const members = await prisma.workspaceMember.findMany({
-            where: { workspace_id: workspaceId },
-            include: { user: true }
-        })
+        const supabase = await createAdminClient()
+        const { data: members, error } = await supabase
+            .from('workspace_members')
+            .select('user:users(id, name, avatar_url)')
+            .eq('workspace_id', workspaceId)
 
-        return members
-            .map(m => m.user)
-            .filter(u => u !== null)
-            .map(u => ({
-                id: u!.id,
-                name: u!.name,
-                avatar_url: u!.avatar_url
+        if (error) throw error
+
+        return (members || [])
+            .map((m: any) => (Array.isArray(m.user) ? m.user[0] : m.user))
+            .filter((u: any) => u)
+            .map((u: any) => ({
+                id: u.id,
+                name: u.name,
+                avatar_url: u.avatar_url
             }))
     } catch (e) {
         console.error("Error fetching members:", e)
@@ -76,6 +78,7 @@ export async function getWorkspaceMembers(workspaceId: string) {
 export async function createStandupTeam(data: { name: string, leaderId: string, memberIds: string[], workspaceId: string }) {
     const user = await getCurrentUser()
     if (!user) return { success: false, error: "Not authorized" }
+    if (!(await canAccessWorkspace(data.workspaceId))) return { success: false, error: ACCESS_ERROR }
 
     if (!(prisma as any).standupTeam) {
         return { success: false, error: "Server restart required (Prisma)" }
@@ -116,6 +119,7 @@ export async function createStandup(data: {
 }) {
     const user = await getCurrentUser()
     if (!user) return { success: false, error: "Not authorized" }
+    if (!(await canAccessStandupTeam(data.teamId))) return { success: false, error: ACCESS_ERROR }
 
     if (!(prisma as any).standup) {
         return { success: false, error: "Server restart required (Prisma)" }
@@ -157,37 +161,35 @@ export async function getStandups(workspaceId: string | undefined) {
     const user = await getCurrentUser()
     if (!user) return []
 
-    if (!(prisma as any).standupTeam) {
-        // Safe guard for calling findMany on undefined
-        return []
-    }
-
     try {
-        const whereClause: any = {}
+        // PERFORMANCE: one Supabase query (teams + members + standups incl. cover_url) replaces two
+        // sequential Prisma queries, one of which read cover_url for every standup in the database
+        const supabase = await createAdminClient()
+        let query = supabase
+            .from('standup_teams')
+            .select('id, name, members:standup_team_members(user_id), standups(id, name, cover_url)')
+        // SECURITY: without a workspace this used to return the teams of every workspace
         if (workspaceId) {
-            whereClause.workspace_id = workspaceId
+            if (!(await canAccessWorkspace(workspaceId))) return []
+            query = query.eq('workspace_id', workspaceId)
+        } else {
+            const workspaceIds = await getUserWorkspaceIds()
+            if (workspaceIds.length === 0) return []
+            query = query.in('workspace_id', workspaceIds)
         }
 
-        const teams = await prisma.standupTeam.findMany({
-            where: whereClause,
-            include: {
-                members: {
-                    include: { user: true }
-                },
-                standups: true
-            }
-        })
+        const { data: teams, error } = await query
+        if (error) throw error
 
-        // Fetch cover URLs purely via raw SQL to bypass stale Prisma client
-        const coverUrls = await prisma.$queryRaw<Array<{ id: string, cover_url: string | null }>>`
-            SELECT id, cover_url FROM standups
-        `
-        const coverMap = new Map(coverUrls.map((c: any) => [c.id, c.cover_url]))
+        const usersById = await getUsersByIds(supabase, (teams || []).flatMap((t: any) => (t.members || []).map((m: any) => m.user_id)))
+        for (const team of (teams || []) as any[]) {
+            team.members = (team.members || []).map((m: any) => ({ ...m, user: usersById.get(m.user_id) }))
+        }
 
         // Flatten
         const result = []
-        for (const team of teams) {
-            for (const standup of team.standups) {
+        for (const team of (teams || []) as any[]) {
+            for (const standup of team.standups || []) {
                 // Determine gradient...
                 const gradients = [
                     "bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-500",
@@ -204,8 +206,8 @@ export async function getStandups(workspaceId: string | undefined) {
                     name: standup.name,
                     subtitle: team.name,
                     gradient: gradients[hash],
-                    coverUrl: coverMap.get(standup.id) || (standup as any).cover_url, // Prefer raw fetch
-                    members: team.members.map((m: any) => m.user.avatar_url || m.user.name.charAt(0))
+                    coverUrl: standup.cover_url,
+                    members: (team.members || []).map((m: any) => m.user?.avatar_url || m.user?.name?.charAt(0))
                 })
             }
         }
@@ -219,6 +221,7 @@ export async function getStandups(workspaceId: string | undefined) {
 export async function deleteStandup(standupId: string) {
     const user = await getCurrentUser()
     if (!user) return { success: false, error: "Not authorized" }
+    if (!(await canAccessStandup(standupId))) return { success: false, error: ACCESS_ERROR }
 
     try {
         await prisma.standup.delete({
@@ -235,12 +238,16 @@ export async function deleteStandup(standupId: string) {
 export async function getStandupById(standupId: string) {
     const user = await getCurrentUser()
     if (!user) return null
+    if (!(await canAccessStandup(standupId))) return null
 
     try {
-        const standup = await prisma.standup.findUnique({
-            where: { id: standupId },
-            include: { team: true }
-        })
+        const supabase = await createAdminClient()
+        const { data: standup, error } = await supabase
+            .from('standups')
+            .select('*, team:standup_teams(*)')
+            .eq('id', standupId)
+            .maybeSingle()
+        if (error) throw error
         return standup
     } catch (error) {
         console.error("Error getting standup:", error)
@@ -260,6 +267,9 @@ export async function updateStandup(standupId: string, data: {
 }) {
     const user = await getCurrentUser()
     if (!user) return { success: false, error: "Not authorized" }
+    // The standup must be reachable now, and may only be moved to a team the user can access
+    const [canEdit, canUseTeam] = await Promise.all([canAccessStandup(standupId), canAccessStandupTeam(data.teamId)])
+    if (!canEdit || !canUseTeam) return { success: false, error: ACCESS_ERROR }
 
     try {
         await prisma.standup.update({
@@ -296,42 +306,43 @@ export async function updateStandup(standupId: string, data: {
 export async function getStandupDetails(standupId: string) {
     const user = await getCurrentUser()
     if (!user) return null
+    if (!(await canAccessStandup(standupId))) return null
 
     try {
-        const standup = await prisma.standup.findUnique({
-            where: { id: standupId },
-            include: {
-                team: {
-                    include: {
-                        members: {
-                            include: { user: true }
-                        }
-                    }
-                }
-            }
-        })
+        // PERFORMANCE: standup + updates load in parallel via Supabase (was two sequential Prisma queries)
+        const supabase = await createAdminClient()
+        const [{ data: standup, error: standupError }, { data: updates, error: updatesError }] = await Promise.all([
+            supabase
+                .from('standups')
+                .select('*, team:standup_teams(*, members:standup_team_members(*))')
+                .eq('id', standupId)
+                .maybeSingle(),
+            // Fetch updates for 'today' (mocked as recent for now, or use actual date filtering)
+            supabase
+                .from('standup_updates')
+                .select('*, user:users(name, avatar_url, role_global)')
+                .eq('standup_id', standupId)
+                .order('created_at', { ascending: false }),
+        ])
 
+        if (standupError) throw standupError
+        if (updatesError) throw updatesError
         if (!standup) return null
 
-        // Fetch updates for 'today' (mocked as recent for now, or use actual date filtering)
-        // Since Prisma Client is stale, we use raw query to fetch updates
-        const updates = await prisma.$queryRaw<Array<any>>`
-            SELECT su.*, u.name as user_name, u.avatar_url, u.role_global 
-            FROM standup_updates su
-            JOIN users u ON su.user_id = u.id
-            WHERE su.standup_id = ${standupId}::uuid
-            ORDER BY su.created_at DESC
-        `
+        if (standup.team) {
+            const usersById = await getUsersByIds(supabase, (standup.team.members || []).map((m: any) => m.user_id))
+            standup.team.members = (standup.team.members || []).map((m: any) => ({ ...m, user: usersById.get(m.user_id) }))
+        }
 
         return {
             ...standup,
-            updates: updates.map(u => ({
+            updates: (updates || []).map((u: any) => ({
                 id: u.id,
                 user: {
                     id: u.user_id,
-                    name: u.user_name,
-                    role: u.role_global,
-                    avatar: u.avatar_url
+                    name: u.user?.name,
+                    role: u.user?.role_global,
+                    avatar: u.user?.avatar_url
                 },
                 content: u.content,
                 mood: u.mood,
@@ -353,6 +364,7 @@ export async function submitStandupUpdate(standupId: string, data: {
 }) {
     const user = await getCurrentUser()
     if (!user) return { success: false, error: "Not authorized" }
+    if (!(await canAccessStandup(standupId))) return { success: false, error: ACCESS_ERROR }
 
     try {
         // Use raw SQL because Prisma Client might not have StandupUpdate yet

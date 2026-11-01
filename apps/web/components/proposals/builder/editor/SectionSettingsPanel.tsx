@@ -13,6 +13,7 @@ import {
 } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { cn } from "@/lib/utils"
+import { ColorInput } from "@/components/ui/color-input"
 
 // Define the settings shape matching our UI controls
 export interface SectionSettings {
@@ -904,7 +905,7 @@ export function SectionSettingsPanel({
                         />
                         {backgroundImage && (
                             <div className="absolute inset-0 rounded-lg overflow-hidden">
-                                <img src={backgroundImage} alt="Background" className="w-full h-full object-cover opacity-50" />
+                                <img loading="lazy" decoding="async" src={backgroundImage} alt="Background" className="w-full h-full object-cover opacity-50" />
                             </div>
                         )}
                     </div>
@@ -913,8 +914,7 @@ export function SectionSettingsPanel({
                 {selectedTab === 'color' && (
                     <div className="flex items-center gap-3">
                         <div className="w-8 h-8 rounded-full border border-[#333] overflow-hidden relative">
-                            <input
-                                type="color"
+                            <ColorInput
                                 value={backgroundColor}
                                 onChange={handleColorChange}
                                 className="absolute -top-2 -left-2 w-12 h-12 cursor-pointer p-0 border-0"

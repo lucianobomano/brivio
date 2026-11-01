@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { MoreVertical, Eye, Settings2, Pencil, Trash2, Globe, Lock, AlertCircle } from "lucide-react"
-import { useRouter } from "next/navigation"
+import { useRouter } from "nextjs-toploader/app"
 import {
     Popover,
     PopoverContent,

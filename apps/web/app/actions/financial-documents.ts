@@ -1,6 +1,6 @@
 "use server"
 
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
 export type DocumentType = 'invoice' | 'receipt' | 'billing'
@@ -43,7 +43,7 @@ export async function getDocumentsByProject(projectId: string, type: DocumentTyp
 
 export async function createDocument(type: DocumentType, data: any) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Unauthorized" }
 
     const table = type === 'invoice' ? 'invoices' : type === 'receipt' ? 'receipts' : 'project_billings'

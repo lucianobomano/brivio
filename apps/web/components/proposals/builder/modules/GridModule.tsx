@@ -2,7 +2,7 @@
 
 import React, { useState } from "react"
 import { BaseModule } from "./BaseModule"
-import { updateModuleContent, deleteModule } from "@/app/actions/brandbook"
+import { updateProposalModuleContent as updateModuleContent, deleteProposalModule as deleteModule } from "@/app/actions/proposal-builder"
 import { LayoutGrid } from "lucide-react"
 
 interface GridModuleProps {

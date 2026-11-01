@@ -2,6 +2,9 @@
 
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
+import { invalidateShareRoadmap } from "@/lib/share-cache"
+import { ACCESS_ERROR, canAccessProject } from "@/lib/brand-access"
+import { loadProjectMeetings } from "@/lib/project-data"
 
 export interface ProjectMeeting {
     id: string
@@ -26,6 +29,7 @@ export async function createProjectMeeting(
     description?: string,
     location?: string
 ) {
+    if (!(await canAccessProject(projectId))) return { success: false, error: ACCESS_ERROR }
     try {
         const result = await prisma.$queryRawUnsafe<any[]>(`
             INSERT INTO project_meetings (project_id, stage_id, title, description, meeting_date, location)
@@ -35,6 +39,7 @@ export async function createProjectMeeting(
 
         const meeting = result?.[0]
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/share/[assetId]/roadmap`, 'page')
         return { success: true, meeting }
@@ -59,6 +64,7 @@ export async function updateProjectMeeting(
         status?: string
     }
 ) {
+    if (!(await canAccessProject(projectId))) return { success: false, error: ACCESS_ERROR }
     try {
         const setClauses: string[] = []
         const values: any[] = []
@@ -97,12 +103,14 @@ export async function updateProjectMeeting(
 
         setClauses.push('updated_at = NOW()')
         values.push(meetingId)
+        values.push(projectId)
 
         await prisma.$executeRawUnsafe(
-            `UPDATE project_meetings SET ${setClauses.join(', ')} WHERE id = $${paramIndex}::uuid`,
+            `UPDATE project_meetings SET ${setClauses.join(', ')} WHERE id = $${paramIndex}::uuid AND project_id = $${paramIndex + 1}::uuid`,
             ...values
         )
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/share/[assetId]/roadmap`, 'page')
         return { success: true }
@@ -116,12 +124,15 @@ export async function updateProjectMeeting(
  * Deletes a meeting.
  */
 export async function deleteProjectMeeting(meetingId: string, projectId: string) {
+    if (!(await canAccessProject(projectId))) return { success: false, error: ACCESS_ERROR }
     try {
         await prisma.$executeRawUnsafe(
-            `DELETE FROM project_meetings WHERE id = $1::uuid`,
-            meetingId
+            `DELETE FROM project_meetings WHERE id = $1::uuid AND project_id = $2::uuid`,
+            meetingId,
+            projectId
         )
 
+        invalidateShareRoadmap()
         revalidatePath('/roadmap')
         revalidatePath(`/share/[assetId]/roadmap`, 'page')
         return { success: true }
@@ -135,20 +146,7 @@ export async function deleteProjectMeeting(meetingId: string, projectId: string)
  * Fetches all meetings for a project, ordered by date.
  */
 export async function getProjectMeetings(projectId: string): Promise<ProjectMeeting[]> {
-    try {
-        const meetings = await prisma.$queryRawUnsafe<any[]>(`
-            SELECT * FROM project_meetings
-            WHERE project_id = $1::uuid
-            ORDER BY meeting_date ASC
-        `, projectId)
-
-        return (meetings || []).map(m => ({
-            ...m,
-            meeting_date: m.meeting_date?.toISOString?.() || m.meeting_date,
-            created_at: m.created_at?.toISOString?.() || m.created_at,
-        }))
-    } catch (error) {
-        console.error("[getProjectMeetings] Error:", error)
-        return []
-    }
+    // SECURITY: callable from the browser, so members only (the public share page uses loadProjectMeetings)
+    if (!(await canAccessProject(projectId))) return []
+    return loadProjectMeetings(projectId)
 }

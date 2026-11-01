@@ -162,7 +162,7 @@ export function ProjectViewerModal({ isOpen, onClose, project, authorProjects = 
                     {/* Avatar */}
                     <div className="w-10 h-10 rounded-full bg-bg-3 overflow-hidden flex items-center justify-center">
                         {project.avatar ? (
-                            <img src={project.avatar} alt="Author" className="w-full h-full object-cover" />
+                            <img loading="lazy" decoding="async" src={project.avatar} alt="Author" className="w-full h-full object-cover" />
                         ) : (
                             <div className="w-full h-full bg-gradient-to-tr from-accent-indigo/30 to-accent-blue/30 flex items-center justify-center text-sm font-bold text-white">
                                 {project.author?.charAt(0) || 'U'}
@@ -349,7 +349,7 @@ export function ProjectViewerModal({ isOpen, onClose, project, authorProjects = 
                         <div className="flex items-center gap-4 mb-6 ml-[95px]">
                             <div className="w-12 h-12 rounded-full bg-bg-3 overflow-hidden">
                                 {project.avatar ? (
-                                    <img src={project.avatar} alt="Author" className="w-full h-full object-cover" />
+                                    <img loading="lazy" decoding="async" src={project.avatar} alt="Author" className="w-full h-full object-cover" />
                                 ) : (
                                     <div className="w-full h-full bg-gradient-to-tr from-accent-indigo/30 to-accent-blue/30 flex items-center justify-center text-sm font-bold text-white">
                                         {project.author?.charAt(0) || 'U'}
@@ -380,7 +380,7 @@ export function ProjectViewerModal({ isOpen, onClose, project, authorProjects = 
                                         className="w-[280px] h-[200px] rounded-lg bg-[#2a2a2a] overflow-hidden cursor-pointer group transition-transform hover:scale-105"
                                     >
                                         {proj.cover_url ? (
-                                            <img
+                                            <img loading="lazy" decoding="async"
                                                 src={proj.cover_url}
                                                 alt={proj.name}
                                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
@@ -477,7 +477,7 @@ function ViewerBlock({ block, onOpenViewer }: {
                             className="relative group/img overflow-hidden cursor-zoom-in"
                             onClick={() => onOpenViewer([block.content.url], 0)}
                         >
-                            <img src={block.content.url} alt={block.content.name || 'Uploaded image'} className="w-full h-auto" />
+                            <img loading="lazy" decoding="async" src={block.content.url} alt={block.content.name || 'Uploaded image'} className="w-full h-auto" />
                             <div className="absolute inset-0 bg-black/5 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
                                 <Maximize2 className="w-6 h-6 text-white drop-shadow-md" />
                             </div>
@@ -550,7 +550,7 @@ function ViewerGridBlock({
                     className="relative group/img overflow-hidden cursor-zoom-in h-full"
                     onClick={() => onOpenViewer(allImageUrls, idx)}
                 >
-                    <img
+                    <img loading="lazy" decoding="async"
                         src={image.url}
                         alt={image.name}
                         className="w-full h-full object-cover transition-transform duration-500 group-hover/img:scale-105"

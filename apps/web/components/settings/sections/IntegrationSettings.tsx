@@ -53,7 +53,7 @@ export function IntegrationSettings() {
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
                                 <div className="w-12 h-12 rounded-xl bg-white p-2 flex items-center justify-center overflow-hidden border border-bg-3 shadow-sm">
-                                    <img src={app.icon} alt={app.name} className="w-full h-full object-contain" />
+                                    <img loading="lazy" decoding="async" src={app.icon} alt={app.name} className="w-full h-full object-contain" />
                                 </div>
                                 {app.status === "connected" ? (
                                     <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest">

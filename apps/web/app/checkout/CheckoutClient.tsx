@@ -4,7 +4,8 @@ import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Upload, CheckCircle2, Building2, FileText, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
+import { useRouter } from 'nextjs-toploader/app'
 import { processSubscription } from '@/app/actions/billing' // We will create this
 
 // We no longer need these props since we extract them directly from the URL

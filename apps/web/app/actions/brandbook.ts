@@ -1,6 +1,7 @@
 "use server"
 
 import { createAdminClient } from "@/lib/supabase/server"
+import { assertBrandAccess, assertBrandbookAccess, assertBrandbookModulesAccess, denyUnlessAllowed } from "@/lib/brand-access"
 import { revalidatePath } from "next/cache"
 import { GUIDE_INTRO_TEMPLATE, DNA_TEMPLATE, HISTORY_TEMPLATE } from "@/lib/brandbook-templates"
 
@@ -12,6 +13,9 @@ function getDefaultContentForType(type: string): Record<string, any> {
 }
 
 export async function createBrandbookModule(brandbookId: string, type: string, order: number) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertBrandbookAccess(brandbookId))
+    if (denied) return denied
     // Use Admin Client to bypass RLS
     const supabase = await createAdminClient()
 
@@ -60,6 +64,9 @@ export async function createBrandbookModule(brandbookId: string, type: string, o
 }
 
 export async function updateModuleContent(moduleId: string, content: Record<string, any>, brandId?: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertBrandbookModulesAccess([moduleId]))
+    if (denied) return denied
     console.log('[Server Action] updateModuleContent called:', { moduleId, contentKeys: Object.keys(content || {}), brandId })
     const supabase = await createAdminClient()
 
@@ -89,14 +96,22 @@ export async function updateModuleContent(moduleId: string, content: Record<stri
 }
 
 export async function updateModule(moduleId: string, data: Record<string, any>, brandId?: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertBrandbookModulesAccess([moduleId]))
+    if (denied) return denied
     const supabase = await createAdminClient()
-    const { error } = await supabase.from('brandbook_modules').update(data).eq('id', moduleId)
+    // SECURITY: `data` comes from the client; never let it re-point the page to another brandbook
+    const { id: _id, brandbook_id: _brandbookId, ...safeData } = data || {}
+    const { error } = await supabase.from('brandbook_modules').update(safeData).eq('id', moduleId)
     if (error) return { success: false, error: error.message }
     if (brandId) revalidatePath(`/brand/${brandId}/brandbook`)
     return { success: true }
 }
 
 export async function deleteModule(moduleId: string, brandId?: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertBrandbookModulesAccess([moduleId]))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     const { error } = await supabase
@@ -119,6 +134,9 @@ export async function deleteModule(moduleId: string, brandId?: string) {
 }
 
 export async function duplicateModule(moduleId: string, brandId?: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertBrandbookModulesAccess([moduleId]))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     // 1. Fetch original
@@ -160,6 +178,9 @@ export async function duplicateModule(moduleId: string, brandId?: string) {
 }
 
 export async function reorderModules(items: { id: string, order: number, category?: string }[]) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertBrandbookModulesAccess(items.map(item => item.id)))
+    if (denied) return denied
     console.log('[reorderModules] Saving', items.length, 'modules:', items.map(i => ({ id: i.id.substring(0, 8), order: i.order, category: i.category })))
 
     const supabase = await createAdminClient()
@@ -222,6 +243,9 @@ function mapPageToModuleType(title: string): string {
 }
 
 export async function updateModuleCategory(moduleId: string, category: string, brandId?: string) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertBrandbookModulesAccess([moduleId]))
+    if (denied) return denied
     const supabase = await createAdminClient()
     const { error } = await supabase
         .from('brandbook_modules')
@@ -241,6 +265,9 @@ import { mapPageToCategory } from "@/lib/brandbook-utils"
 
 
 export async function addBrandbookPages(brandbookId: string, newPageTitles: string[]) {
+    // SECURITY: the admin client bypasses RLS, so verify the user may act on this data
+    const denied = await denyUnlessAllowed(() => assertBrandbookAccess(brandbookId))
+    if (denied) return denied
     const supabase = await createAdminClient()
 
     // Get current max order
@@ -311,6 +338,10 @@ export async function uploadBrandbookMedia(formData: FormData) {
         console.error('[Server Action] uploadBrandbookMedia: Missing file or brandId')
         return { success: false, error: "Missing file or brandId" }
     }
+
+    // SECURITY: the admin client bypasses storage policies, so only members of the brand may upload
+    const denied = await denyUnlessAllowed(() => assertBrandAccess(brandId))
+    if (denied) return denied
 
     try {
         const fileExt = file.name.split('.').pop()

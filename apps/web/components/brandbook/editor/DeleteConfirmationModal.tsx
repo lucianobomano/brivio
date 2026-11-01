@@ -10,12 +10,14 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import { X } from "lucide-react"
 
 interface DeleteConfirmationModalProps {
     isOpen: boolean
     onClose: () => void
-    onConfirm: () => void
+    /** May return a promise: the modal then shows a spinner and stays open until it settles */
+    onConfirm: () => void | Promise<unknown>
     title?: string
     message?: string
     confirmLabel?: string
@@ -29,8 +31,16 @@ export function DeleteConfirmationModal({
     message = "Esta ação é irreversível. Todos os arquivos, informações e configurações associadas a esta página serão eliminadas permanentemente.",
     confirmLabel = "Confirmar"
 }: DeleteConfirmationModalProps) {
+    const [confirm, isConfirming] = useAsyncAction(async () => {
+        try {
+            await onConfirm()
+        } finally {
+            onClose()
+        }
+    })
+
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={() => { if (!isConfirming) onClose() }}>
             <DialogContent
                 className="bg-[#111116] border-[#222] rounded-[16px] p-0 shadow-2xl overflow-hidden [&>button]:hidden flex flex-col"
                 style={{ width: '400px', height: '325px', maxWidth: '400px' }}
@@ -58,15 +68,14 @@ export function DeleteConfirmationModal({
                         <Button
                             variant="ghost"
                             onClick={onClose}
+                            disabled={isConfirming}
                             className="flex-1 rounded-xl h-11 text-gray-400 hover:text-white hover:bg-white/5 font-medium transition-colors"
                         >
                             Cancelar
                         </Button>
                         <Button
-                            onClick={() => {
-                                onConfirm()
-                                onClose()
-                            }}
+                            onClick={() => confirm()}
+                            loading={isConfirming}
                             className="flex-1 bg-[#FF0054] hover:bg-[#D90046] text-white rounded-xl h-11 font-medium shadow-lg shadow-[#FF0054]/20 transition-all border-none"
                         >
                             {confirmLabel}

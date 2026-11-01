@@ -1,6 +1,7 @@
 "use client"
 
 import React, { useState, useEffect } from "react"
+import { Switch } from "@/components/ui/switch"
 import { X, Save, Loader2, Globe, Lock, ShieldCheck } from "lucide-react"
 import { saveBrandbookAsTemplate } from "@/app/actions/brandbook-templates"
 import { BrandbookModule } from "./AddPagesModal"
@@ -165,7 +166,7 @@ export function SaveAsTemplateModal({
 
                     {/* Visibility Toggle */}
                     <div className="flex items-center justify-between p-4 bg-[#0A0A0D] border border-[#333] rounded-lg">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
                             {isPublic ? (
                                 <Globe className="w-5 h-5 text-[#00FF94]" />
                             ) : (
@@ -189,15 +190,12 @@ export function SaveAsTemplateModal({
                                 </p>
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => setIsPublic(!isPublic)}
-                            className={`w-12 h-7 rounded-full relative transition-colors ${isPublic ? 'bg-[#00FF94]' : 'bg-[#333]'
-                                }`}
-                        >
-                            <div className={`absolute top-1 w-5 h-5 rounded-full bg-white shadow-sm transition-all ${isPublic ? 'left-6' : 'left-1'
-                                }`} />
-                        </button>
+                        <Switch
+                            checked={isPublic}
+                            onCheckedChange={setIsPublic}
+                            aria-label="Template público"
+                            className="shrink-0 ml-4 data-[state=checked]:bg-[#00FF94] data-[state=unchecked]:bg-[#333]"
+                        />
                     </div>
 
                     {/* Module Count Info */}

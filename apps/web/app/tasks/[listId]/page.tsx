@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { getTaskList, getTasksByList } from "@/app/actions/tasks"
 import KanbanBoard from "./KanbanBoard"
@@ -10,7 +10,7 @@ interface PageProps {
 export default async function ListDetailPage({ params }: PageProps) {
     const { listId } = await params
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
         redirect('/login')

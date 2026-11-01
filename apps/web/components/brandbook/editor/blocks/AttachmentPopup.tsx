@@ -46,7 +46,7 @@ export const AttachmentPopup = ({ isOpen, onClose, imageSrc, attachment }: Attac
             >
                 {/* Image Area */}
                 <div className="flex-1 w-full flex items-center justify-center overflow-hidden mb-8">
-                    <img
+                    <img loading="lazy" decoding="async"
                         src={imageSrc}
                         alt="Preview"
                         className="max-h-full max-w-full object-contain shadow-2xl"

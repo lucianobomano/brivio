@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Pipette, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { ColorInput } from "@/components/ui/color-input"
 
 interface ProjectStageModalProps {
     isOpen: boolean
@@ -120,8 +121,7 @@ export function ProjectStageModal({ isOpen, onClose, onSuccess, initialData }: P
                                         !STANDARD_COLORS.includes(color) ? "text-white" : "text-text-tertiary group-hover:text-text-primary"
                                     )} />
                                 </button>
-                                <input
-                                    type="color"
+                                <ColorInput
                                     ref={colorInputRef}
                                     className="absolute inset-0 opacity-0 cursor-pointer pointer-events-none"
                                     value={color}

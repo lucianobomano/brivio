@@ -1,7 +1,9 @@
 "use server"
 
-import { createClient, createAdminClient } from "@/lib/supabase/server"
+import { createClient, createAdminClient, getCurrentUser } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { invalidateShareRoadmap } from "@/lib/share-cache"
+import { cache } from "react"
 
 export async function getProjectById(id: string) {
     const supabase = await createClient()
@@ -41,7 +43,7 @@ export async function getProjectById(id: string) {
 
 export async function toggleProjectLike(projectId: string): Promise<{ success: boolean; isLiked?: boolean; likesCount?: number; error?: string }> {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
         return { success: false, error: 'Você precisa estar logado para curtir' }
@@ -67,6 +69,7 @@ export async function toggleProjectLike(projectId: string): Promise<{ success: b
             .select('*', { count: 'exact', head: true })
             .eq('project_id', projectId)
 
+        invalidateShareRoadmap()
         revalidatePath('/community')
         revalidatePath('/')
         return { success: true, isLiked: false, likesCount: count || 0 }
@@ -81,6 +84,7 @@ export async function toggleProjectLike(projectId: string): Promise<{ success: b
             .select('*', { count: 'exact', head: true })
             .eq('project_id', projectId)
 
+        invalidateShareRoadmap()
         revalidatePath('/community')
         revalidatePath('/')
         return { success: true, isLiked: true, likesCount: count || 0 }
@@ -89,7 +93,7 @@ export async function toggleProjectLike(projectId: string): Promise<{ success: b
 
 export async function getProjectLikeStatus(projectId: string): Promise<{ isLiked: boolean; likesCount: number }> {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     const { count } = await supabase
         .from('project_likes')
@@ -132,7 +136,7 @@ export async function getProjectStats(projectId: string): Promise<{
     isLiked: boolean
 }> {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     // Get likes count
     const { count: likesCount } = await supabase
@@ -173,25 +177,65 @@ export async function getProjectStats(projectId: string): Promise<{
     }
 }
 
-export async function getProjectPipeline_v2() {
+// PERFORMANCE: memoized per request so pipeline/options loaders share one membership lookup
+const getUserWorkspaceIds = cache(async (userId: string): Promise<string[]> => {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-
-    if (!user) return []
-
-    let workspaceIds: string[] = []
     try {
         const { data: members, error: membersError } = await supabase
             .from('workspace_members')
             .select('workspace_id')
-            .eq('user_id', user.id)
+            .eq('user_id', userId)
 
         if (!membersError) {
-            workspaceIds = members?.map(m => m.workspace_id) || []
+            return members?.map(m => m.workspace_id) || []
         }
     } catch (e) {
         console.error("Unexpected error in workspace_members fetch:", e)
     }
+    return []
+})
+
+/**
+ * Lightweight project list (id, name, workspace_id) for selectors.
+ * Same visibility rules as getProjectPipeline_v2, without brands/tasks joins.
+ */
+export async function getProjectOptions(): Promise<{ id: string, name: string, workspace_id: string | null }[]> {
+    const supabase = await createClient()
+    const user = await getCurrentUser()
+
+    if (!user) return []
+
+    const workspaceIds = await getUserWorkspaceIds(user.id)
+
+    let query = supabase
+        .from('projects')
+        .select('id, name, workspace_id')
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: true })
+
+    if (workspaceIds.length > 0) {
+        query = query.in('workspace_id', workspaceIds)
+    } else {
+        query = query.eq('created_by', user.id)
+    }
+
+    const { data: projects, error } = await query
+
+    if (error) {
+        console.error("Error fetching project options:", error.message)
+        return []
+    }
+
+    return projects || []
+}
+
+export async function getProjectPipeline_v2() {
+    const supabase = await createClient()
+    const user = await getCurrentUser()
+
+    if (!user) return []
+
+    const workspaceIds = await getUserWorkspaceIds(user.id)
 
     let query = supabase
         .from('projects')
@@ -249,6 +293,7 @@ export async function createProjectStage(data: { workspace_id: string, name: str
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true, stage }
 }
@@ -265,6 +310,7 @@ export async function updateProjectStage(stageId: string, data: Partial<{ name: 
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
@@ -281,13 +327,14 @@ export async function deleteProjectStage(stageId: string) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
 
 export async function updateProjectStatusLabel(projectId: string, statusLabel: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Not authorized" }
 
     // SECURITY: Verify the user is a member of the project's workspace
@@ -318,13 +365,14 @@ export async function updateProjectStatusLabel(projectId: string, statusLabel: s
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
 
 export async function updateProjectStage_v2(projectId: string, status: string, isStageId: boolean = false) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Not authorized" }
 
@@ -348,6 +396,7 @@ export async function updateProjectStage_v2(projectId: string, status: string, i
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
@@ -372,7 +421,7 @@ export async function createNewProject(data: {
     currency?: string
 }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Not authorized" }
 
@@ -429,6 +478,7 @@ export async function createNewProject(data: {
         await applyRoadmapTemplate(data.workspace_id, data.template_id, project.id)
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true, data: project }
 }
@@ -436,7 +486,7 @@ export async function createNewProject(data: {
 
 export async function getWorkspaces() {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return []
 
@@ -455,7 +505,7 @@ export async function getWorkspaces() {
 
 export async function uploadProjectMedia(file: File) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Not authorized" }
 
@@ -485,7 +535,7 @@ export async function updateProjectTimeline(projectId: string, data: {
     dependency_id?: string | null
 }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Not authorized" }
 
@@ -502,13 +552,14 @@ export async function updateProjectTimeline(projectId: string, data: {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
 
 export async function updateProjectTags(projectId: string, tags: string[]) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Not authorized" }
 
@@ -525,13 +576,14 @@ export async function updateProjectTags(projectId: string, tags: string[]) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
 
 export async function updateProjectDescription(projectId: string, description: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Not authorized" }
 
@@ -548,13 +600,14 @@ export async function updateProjectDescription(projectId: string, description: s
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
 
 export async function bulkUpdateProjectCategory(oldCategory: string, newCategory: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Not authorized" }
 
@@ -578,6 +631,7 @@ export async function bulkUpdateProjectCategory(oldCategory: string, newCategory
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
@@ -601,7 +655,7 @@ export async function updateProject(id: string, data: {
     position?: number
 }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) return { success: false, error: "Not authorized" }
 
@@ -634,13 +688,14 @@ export async function updateProject(id: string, data: {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
 
 export async function archiveProject(id: string) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) return { success: false, error: "Not authorized" }
 
     // SECURITY: Verify the user is a member of the project's workspace
@@ -675,6 +730,7 @@ export async function archiveProject(id: string) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
@@ -716,6 +772,7 @@ export async function deleteProject(id: string) {
         return { success: false, error: error.message }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true }
 }
@@ -779,6 +836,7 @@ export async function duplicateProject(id: string) {
         }
     }
 
+    invalidateShareRoadmap()
     revalidatePath('/projects')
     return { success: true, data: newProject }
 }

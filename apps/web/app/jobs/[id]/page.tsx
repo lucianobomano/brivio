@@ -1,13 +1,13 @@
 import Link from "next/link"
 import { Navbar } from "@/components/layout/Navbar"
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { JobDetailClient } from "@/components/JobDetailClient"
 import { getJobById } from "@/app/actions/jobs"
 
 export default async function JobDetailPage({ params }: { params: { id: string } }) {
     const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
 
     if (!user) {
         redirect('/login')

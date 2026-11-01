@@ -1,7 +1,9 @@
-import { createAdminClient, createClient } from "@/lib/supabase/server"
+import { createAdminClient, getCurrentUser } from "@/lib/supabase/server"
 import BrandbookEditorWrapper from "@/components/brandbook/BrandbookEditorWrapper"
 import { GUIDE_INTRO_TEMPLATE, DNA_TEMPLATE, HISTORY_TEMPLATE } from "@/lib/brandbook-templates"
 import { checkIsAdmin } from "@/app/actions/admin"
+import { canAccessBrand, isPublishedBrandbook } from "@/lib/brand-access"
+import { notFound } from "next/navigation"
 
 
 export const dynamic = 'force-dynamic'
@@ -14,58 +16,72 @@ export default async function BrandbookPage({
     searchParams: Promise<{ preview?: string }>
 }) {
     const supabaseAdmin = await createAdminClient()
-    const supabase = await createClient()
 
-    // Fetch Auth User
-    const { data: { user: authUser } } = await supabase.auth.getUser()
+    const [{ brandId }, { preview }] = await Promise.all([params, searchParams])
 
     // Fetch DB User Profile & Super Admin Status
-    let userData = null
-    let isSuperAdmin = false
+    const loadUserData = async () => {
+        // Fetch Auth User
+        const authUser = await getCurrentUser()
+        if (!authUser) return { userData: null, isSuperAdmin: false }
 
-    if (authUser) {
-        const { data: dbUser } = await supabaseAdmin
-            .from('users')
-            .select('name, avatar_url')
-            .eq('id', authUser.id)
-            .single()
+        const [{ data: dbUser }, { isAdmin, role }] = await Promise.all([
+            supabaseAdmin
+                .from('users')
+                .select('name, avatar_url')
+                .eq('id', authUser.id)
+                .single(),
+            checkIsAdmin(authUser.email),
+        ])
 
-        const { isAdmin, role } = await checkIsAdmin(authUser.email)
-        isSuperAdmin = (isAdmin && role === 'superadmin') || authUser.user_metadata?.is_superadmin === true
-
-        userData = {
-            name: dbUser?.name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
-            avatar_url: dbUser?.avatar_url || authUser.user_metadata?.avatar_url
+        return {
+            isSuperAdmin: (isAdmin && role === 'superadmin') || authUser.app_metadata?.is_superadmin === true,
+            userData: {
+                name: dbUser?.name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'User',
+                avatar_url: dbUser?.avatar_url || authUser.user_metadata?.avatar_url
+            }
         }
     }
 
-    const { brandId } = await params
-    const { preview } = await searchParams
-    const isReadOnly = preview === 'true'
-
-    // Fetch brand to get the name and logo
-    const { data: brand } = await supabaseAdmin
-        .from('brands')
-        .select('name, logo_url')
-        .eq('id', brandId)
-        .single()
+    // PERFORMANCE: user, brand and brandbook lookups are independent, so they run in parallel
+    const [{ userData, isSuperAdmin }, canEdit, { data: brand }, brandbookResult] = await Promise.all([
+        loadUserData(),
+        // SECURITY: this page reads and creates data with the admin client, so check membership
+        canAccessBrand(brandId),
+        // Fetch brand to get the name and logo
+        supabaseAdmin
+            .from('brands')
+            .select('name, logo_url')
+            .eq('id', brandId)
+            .single(),
+        // 1. Fetch Brandbook - Handle potential duplicates by taking the latest one
+        // Correct table name: 'brandbooks'
+        supabaseAdmin
+            .from('brandbooks')
+            .select('*')
+            .eq('brand_id', brandId)
+            .order('is_public', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+    ])
 
     const brandName = brand?.name || ''
     const brandLogoUrl = brand?.logo_url || null
 
-    // 1. Fetch Brandbook - Handle potential duplicates by taking the latest one
-    // Correct table name: 'brandbooks'
-    let { data: brandbook } = await supabaseAdmin
-        .from('brandbooks')
-        .select('*')
-        .eq('brand_id', brandId)
-        .order('is_public', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+    let brandbook = brandbookResult.data
+
+    // SECURITY: members (and superadmins) edit; anyone else may only view a published
+    // brandbook, read-only. Private brandbooks of other workspaces are not found, and
+    // nothing is ever created in a brand the user doesn't belong to.
+    const isPublicBrandbook = isPublishedBrandbook(brandbook)
+    if (!canEdit && !isPublicBrandbook) {
+        notFound()
+    }
+    const isReadOnly = preview === 'true' || !canEdit
 
     // 2. Create if doesn't exist
-    if (!brandbook) {
+    if (!brandbook && canEdit) {
         const { data: newBook, error } = await supabaseAdmin
             .from('brandbooks')
             .insert({
@@ -102,7 +118,7 @@ export default async function BrandbookPage({
         .order('order', { ascending: true })
 
     // 4. Seed Default Modules if Empty
-    if (modules && modules.length === 0 && brandbook) {
+    if (modules && modules.length === 0 && brandbook && canEdit) {
         console.log('[BrandbookPage] Seeding default modules for:', brandbook.id)
         const DEFAULT_MODULES = [
             // 1. Visão geral

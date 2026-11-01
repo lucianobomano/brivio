@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createClient, getCurrentUser } from "@/lib/supabase/server"
 import ProposalBuilderWrapper from "@/components/proposals/builder/ProposalBuilderWrapper"
 import { redirect } from "next/navigation"
 import { getTemplateModules } from "../../builder/utils"
@@ -13,7 +13,7 @@ export default async function ProposalBuilderPage({
     const supabase = await createClient()
     const { id: proposalId } = await params
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getCurrentUser()
     if (!user) redirect('/login')
 
     // 1. Fetch Proposal

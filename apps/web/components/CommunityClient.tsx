@@ -171,7 +171,7 @@ export function CommunityClient({ initialPosts }: { initialPosts: Post[] }) {
                                 >
                                     <div className="absolute inset-0">
                                         {post.image && !post.image.includes('gradient') ? (
-                                            <img
+                                            <img loading="lazy" decoding="async"
                                                 src={post.image}
                                                 alt={post.title}
                                                 onError={(e) => {
@@ -217,7 +217,7 @@ export function CommunityClient({ initialPosts }: { initialPosts: Post[] }) {
                                         <Link href={`/creators/${post.authorId}`} className="flex items-center gap-3 group/author">
                                             <div className="w-10 h-10 rounded-full bg-bg-3 border border-bg-3 flex items-center justify-center font-bold text-text-primary text-sm overflow-hidden transition-transform group-hover/author:scale-105">
                                                 {post.avatar ? (
-                                                    <img src={post.avatar} alt={post.author} className="w-full h-full object-cover" />
+                                                    <img loading="lazy" decoding="async" src={post.avatar} alt={post.author} className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full bg-gradient-to-tr from-accent-blue/20 to-accent-indigo/20 flex items-center justify-center">
                                                         {post.author.substring(0, 2).toUpperCase()}
@@ -259,7 +259,7 @@ export function CommunityClient({ initialPosts }: { initialPosts: Post[] }) {
                                             {post.likers?.slice(0, 4).map((avatar, i) => (
                                                 <div key={i} className="w-[25px] h-[25px] rounded-full border-2 border-bg-1 bg-bg-3 shadow-sm flex items-center justify-center overflow-hidden">
                                                     {avatar ? (
-                                                        <img src={avatar} alt="Liker" className="w-full h-full object-cover" />
+                                                        <img loading="lazy" decoding="async" src={avatar} alt="Liker" className="w-full h-full object-cover" />
                                                     ) : (
                                                         <div className="w-full h-full bg-gradient-to-tr from-accent-indigo/10 to-accent-blue/10" />
                                                     )}
@@ -308,7 +308,7 @@ export function CommunityClient({ initialPosts }: { initialPosts: Post[] }) {
                             <div className="aspect-[4/3] rounded-[32px] overflow-hidden bg-bg-2 mb-6 border border-bg-3 group-hover:border-accent-indigo/30 transition-all duration-500 relative">
                                 <div className="absolute inset-0">
                                     {post.image && !post.image.includes('gradient') ? (
-                                        <img
+                                        <img loading="lazy" decoding="async"
                                             src={post.image}
                                             alt={post.title}
                                             onError={(e) => {
@@ -340,7 +340,7 @@ export function CommunityClient({ initialPosts }: { initialPosts: Post[] }) {
                                 <Link href={`/creators/${post.authorId}`} className="flex items-center gap-2 group/author">
                                     <div className="w-5 h-5 rounded-full bg-bg-3 overflow-hidden flex items-center justify-center">
                                         {post.avatar ? (
-                                            <img src={post.avatar} alt={post.author} className="w-full h-full object-cover" />
+                                            <img loading="lazy" decoding="async" src={post.avatar} alt={post.author} className="w-full h-full object-cover" />
                                         ) : (
                                             <div className="w-full h-full bg-gradient-to-tr from-accent-blue/20 to-accent-indigo/20 flex items-center justify-center text-[8px] font-bold text-text-primary">
                                                 {post.author.substring(0, 2).toUpperCase()}

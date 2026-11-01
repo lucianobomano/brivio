@@ -13,11 +13,11 @@ import {
     Package,
     Wallet
 } from "lucide-react"
-import Link from "next/link"
+import Link, { useLinkStatus } from "next/link"
 import { usePathname, useSearchParams } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
-import { useSpaNavigation } from "@/components/providers/SpaNavigationProvider"
+import { useSpaNavigation, getViewFromPath } from "@/components/providers/SpaNavigationProvider"
 
 const MENU_ITEMS = [
     { label: "Projectos", icon: FolderKanban, href: "/projects?view=padrao" },
@@ -32,6 +32,18 @@ const MENU_ITEMS = [
     { label: "Finanças", icon: Wallet, href: "/finances" },
 ]
 
+// Spinning ring around a nav item while its route is loading (must render inside the <Link>)
+function LinkPendingRing() {
+    const { pending } = useLinkStatus()
+    if (!pending) return null
+    return (
+        <span
+            aria-hidden="true"
+            className="absolute inset-0 rounded-full border-2 border-[#ff0054]/25 border-t-[#ff0054] animate-spin pointer-events-none"
+        />
+    )
+}
+
 // Routes managed by the SPA provider — kept for future use
 // const SPA_ROUTES = new Set(["/dashboard", "/projects", "/tasks", "/roadmap", "/focus", "/sprints", "/standups"])
 
@@ -39,7 +51,14 @@ export function BottomNavigation() {
     const pathname = usePathname()
     const searchParams = useSearchParams()
     const [hoveredLabel, setHoveredLabel] = React.useState<string | null>(null)
-    const { activeView, navigateTo } = useSpaNavigation()
+    const { activeView, setActiveView } = useSpaNavigation()
+
+    // PERFORMANCE: let <Link> do client-side navigation (prefetch + loading.tsx) instead of a full reload.
+    // Only highlight the target immediately; modified clicks (new tab, etc.) keep native behavior.
+    const markPending = (e: React.MouseEvent, href: string) => {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return
+        setActiveView(getViewFromPath(href.split("?")[0]))
+    }
 
     // Hide on Focus Board View
     if (activeView === "focus" && searchParams.get("projectId")) {
@@ -65,10 +84,7 @@ export function BottomNavigation() {
                 {/* Logo Circle - Redireciona para o Dashboard */}
                 <Link
                     href="/dashboard"
-                    onClick={(e) => {
-                        e.preventDefault()
-                        window.location.href = "/dashboard"
-                    }}
+                    onClick={(e) => markPending(e, "/dashboard")}
                     onMouseEnter={() => setHoveredLabel("Dashboard")}
                     onMouseLeave={() => setHoveredLabel(null)}
                     className="relative flex items-center justify-center z-10 w-[60px] h-[60px] cursor-pointer group"
@@ -98,6 +114,7 @@ export function BottomNavigation() {
                             </motion.div>
                         )}
                     </AnimatePresence>
+                    <LinkPendingRing />
                 </Link>
 
                 {MENU_ITEMS.map((item) => {
@@ -124,10 +141,7 @@ export function BottomNavigation() {
                     const isHovered = hoveredLabel === item.label
                     const showBg = isHovered || isActive
 
-                    const handleClick = (e: React.MouseEvent) => {
-                        e.preventDefault()
-                        window.location.href = item.href
-                    }
+                    const handleClick = (e: React.MouseEvent) => markPending(e, item.href)
 
                     return (
                         <Link
@@ -170,6 +184,7 @@ export function BottomNavigation() {
                                     className="w-[26px] h-[26px] shrink-0"
                                 />
                             </motion.div>
+                            <LinkPendingRing />
                         </Link>
                     )
                 })}

@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 // import { Input } from "@/components/ui/input" 
 import { hexToRgb, rgbToCmyk, getSimulatedPantone, getContrastColor, mixWithWhite } from "./ColorUtils"
 import { ColorSettingsPanel } from "./ColorSettingsPanel"
+import { TopLayer } from "../FloatingPanel"
 import { PaletteToolbar } from "./PaletteToolbar"
 import { PaletteSettingsPanel, PaletteSettings, DEFAULT_PALETTE_SETTINGS } from "./PaletteSettingsPanel"
 
@@ -41,10 +42,20 @@ interface ColorSettings {
 interface ColorData {
     id: string
     name: string
+    /** Hex used for the codes and text contrast (for a gradient: its dominant color) */
     value: string
+    /** Gradient swatch: image painted over the color (e.g. a brand mesh gradient) */
+    image?: string
+    /** Gradient swatch: the colors it blends, shown as its shades */
+    gradientStops?: string[]
     settings?: ColorSettings
     variants?: { id: string; name?: string; value: string; settings?: ColorSettings }[]
 }
+
+/** Background of a color swatch: the plain color, or a gradient image painted over it */
+const swatchBackground = (color: ColorData): React.CSSProperties => color.image
+    ? { backgroundColor: color.value, backgroundImage: `url(${color.image})`, backgroundSize: 'cover', backgroundPosition: 'center' }
+    : { backgroundColor: color.value }
 
 const CircleCopyableCodeItem = ({
     label,
@@ -151,7 +162,7 @@ const ColorCard = React.forwardRef(({
     aspectRatio?: number,
     customWidth?: number,
     onResizeStart?: (e: React.MouseEvent) => void,
-    layout?: 'grid' | 'list' | 'circles' | 'row' | 'tall' | 'horizontal' | 'mosaic',
+    layout?: PaletteSettings['layout'],
     index?: number,
     onAddAtIndex?: (index: number) => void,
     onAddVariant?: (colorId: string, afterIndex?: number) => void,
@@ -212,9 +223,9 @@ const ColorCard = React.forwardRef(({
                 <div
                     className="relative shrink-0 flex flex-col p-8 overflow-visible group/main"
                     style={{
-                        width: `${mainWidth}px`,
+                        width: `min(${mainWidth}px, 45%)`,
                         height: `${height}px`,
-                        backgroundColor: color.value,
+                        ...swatchBackground(color),
                         color: effectiveSettings?.styles?.fontColor || getContrastColor(color.value)
                     }}
                     onClick={(e) => { e.stopPropagation(); onClick?.(); }}
@@ -273,7 +284,7 @@ const ColorCard = React.forwardRef(({
                                 key={v.id}
                                 className="relative group/variant h-full flex flex-col justify-end p-6 cursor-pointer min-w-0 transition-all duration-300 hover:z-10"
                                 style={{
-                                    flex: '1 1 230px',
+                                    flex: '1 1 0',
                                     backgroundColor: variantColor,
                                     color: getContrastColor(variantColor),
                                     borderLeft: vIndex > 0 ? '1px solid rgba(0,0,0,0.05)' : 'none'
@@ -383,7 +394,7 @@ const ColorCard = React.forwardRef(({
                 <div
                     className="relative flex-1 flex flex-col p-8 overflow-hidden"
                     style={{
-                        backgroundColor: color.value,
+                        ...swatchBackground(color),
                         color: effectiveSettings?.styles?.fontColor || getContrastColor(color.value)
                     }}
                 >
@@ -553,7 +564,7 @@ const ColorCard = React.forwardRef(({
                 <div className="relative flex-1 min-h-0 pointer-events-auto">
                     <div
                         className="w-full h-full cursor-pointer shadow-none"
-                        style={{ backgroundColor: color.value }}
+                        style={swatchBackground(color)}
                     />
 
                     {/* Info Overlay for Circles Layout */}
@@ -702,7 +713,7 @@ const MosaicCard = ({ color, spanClass, isReadOnly, onUpdate, onCopyInfo, onAddA
     return (
         <div
             className={cn("relative group transition-all duration-300", spanClass)}
-            style={{ backgroundColor: color.value, color: contrastColor }}
+            style={{ ...swatchBackground(color), color: contrastColor }}
             onClick={onClick}
         >
             <div className="absolute inset-0 p-8 flex flex-col justify-between">
@@ -764,6 +775,363 @@ const MosaicCard = ({ color, spanClass, isReadOnly, onUpdate, onCopyInfo, onAddA
                         </button>
                     </div>
                 </>
+            )}
+        </div>
+    )
+}
+
+/** Shades shown inside an expanded accordion card: the color's own variants, or generated tints when it has none */
+const getAccordionShades = (color: ColorData) => {
+    if (color.gradientStops && color.gradientStops.length > 0) {
+        return color.gradientStops.map((value, i) => ({ id: `${color.id}-g${i}`, value, label: value.toUpperCase(), variantId: undefined as string | undefined }))
+    }
+    if (color.variants && color.variants.length > 0) {
+        return [
+            { id: color.id, value: color.value, label: '100', variantId: undefined as string | undefined },
+            ...color.variants.map(v => ({ id: v.id, value: v.value, label: v.name || '', variantId: v.id as string | undefined })),
+        ]
+    }
+    return [100, 80, 60, 40, 20].map(p => ({ id: `${color.id}-${p}`, value: mixWithWhite(color.value, p), label: String(p), variantId: undefined as string | undefined }))
+}
+
+/** Below this block width the accordion stacks vertically (measured on the block, so the editor's mobile preview stacks too) */
+const ACCORDION_STACK_BELOW = 640
+/** Collapsed strip thickness: width side by side, height when stacked */
+const ACCORDION_STRIP = 64
+/** Expanded card height when stacked */
+const ACCORDION_STACKED_EXPANDED = 400
+
+/**
+ * Accordion palette: one card is expanded (name, codes and shades), the others are narrow strips.
+ * Hovering (or focusing / tapping) a strip expands it and collapses the previous one.
+ */
+const AccordionPalette = ({ colors, settings, height, radius, gap, isReadOnly, onUpdateColor, onDeleteColor, onAddColor, onCopyInfo, onSelectColor, onSelectVariant }: {
+    colors: ColorData[]
+    settings: PaletteSettings
+    height: number
+    radius: number
+    gap: number
+    isReadOnly?: boolean
+    onUpdateColor: (colorId: string, updates: Partial<ColorData>) => void
+    onDeleteColor: (colorId: string) => void
+    onAddColor: () => void
+    onCopyInfo: (text: string) => void
+    onSelectColor: (colorId: string) => void
+    onSelectVariant: (colorId: string, variantId: string) => void
+}) => {
+    const [activeIndex, setActiveIndex] = useState(0)
+    const expandedIndex = Math.min(activeIndex, Math.max(0, colors.length - 1))
+
+    const containerRef = useRef<HTMLDivElement>(null)
+    const [isStacked, setIsStacked] = useState(false)
+    useEffect(() => {
+        const el = containerRef.current
+        if (!el) return
+        const update = () => setIsStacked(el.clientWidth < ACCORDION_STACK_BELOW)
+        update()
+        const observer = new ResizeObserver(update)
+        observer.observe(el)
+        return () => observer.disconnect()
+    }, [])
+
+    // Stacked, the strips grow along the height, so the container needs room for one expanded card plus the strips
+    const stripCount = Math.max(0, colors.length - 1) + (isReadOnly ? 0 : 1)
+    const stackedHeight = (colors.length > 0 ? ACCORDION_STACKED_EXPANDED : 0) + stripCount * ACCORDION_STRIP + Math.max(0, colors.length + (isReadOnly ? 0 : 1) - 1) * gap
+
+    const showRgb = settings.showRgb !== false
+    const showCmyk = settings.showCmyk !== false
+    const showPantone = settings.showPantone !== false
+
+    return (
+        <div
+            ref={containerRef}
+            className={cn("flex w-full", isStacked ? "flex-col" : "flex-row")}
+            style={{ height: `${isStacked ? stackedHeight : height}px`, gap: `${gap}px` }}
+        >
+            {colors.map((color, index) => {
+                const isExpanded = index === expandedIndex
+                const rgb = hexToRgb(color.value) || { r: 0, g: 0, b: 0 }
+                const cmyk = rgbToCmyk(rgb.r, rgb.g, rgb.b)
+                const pantone = getSimulatedPantone(color.value)
+                const textColor = color.settings?.styles?.fontColor || getContrastColor(color.value)
+                const paddedIndex = String(index + 1).padStart(2, '0')
+                const copy = (text: string) => (e: React.MouseEvent) => {
+                    if (!isReadOnly) return
+                    e.stopPropagation()
+                    onCopyInfo(text)
+                }
+                const codes = [
+                    showRgb && { label: 'RGB', value: `${rgb.r} ${rgb.g} ${rgb.b}` },
+                    showCmyk && { label: 'CMYK', value: `${cmyk.c} ${cmyk.m} ${cmyk.y} ${cmyk.k}` },
+                    showPantone && { label: 'Pantone', value: pantone },
+                ].filter(Boolean) as { label: string, value: string }[]
+
+                return (
+                    <div
+                        key={color.id}
+                        tabIndex={0}
+                        onMouseEnter={() => setActiveIndex(index)}
+                        onFocus={() => setActiveIndex(index)}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            setActiveIndex(index)
+                            if (!isReadOnly) onSelectColor(color.id)
+                        }}
+                        className={cn(
+                            "relative group/acc overflow-hidden cursor-pointer outline-none transition-[flex-grow,flex-basis] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)]",
+                            isStacked ? "min-h-[56px]" : "min-w-[56px]"
+                        )}
+                        style={{
+                            // Stacked, strips keep a fixed height and the expanded card takes the remaining space
+                            flexGrow: isExpanded ? (isStacked ? 1 : 6) : (isStacked ? 0 : 1),
+                            flexShrink: 1,
+                            flexBasis: isStacked && !isExpanded ? `${ACCORDION_STRIP}px` : 0,
+                            ...swatchBackground(color),
+                            color: textColor,
+                            borderRadius: `${radius}px`,
+                        }}
+                    >
+                        {/* Index (always visible) */}
+                        <span className={cn("absolute left-5 font-mono text-[12px] opacity-60 z-10", isStacked && !isExpanded ? "top-1/2 -translate-y-1/2" : "top-5")}>{paddedIndex}</span>
+
+                        {/* Collapsed: vertical name */}
+                        <span
+                            className={cn(
+                                "absolute font-semibold text-[18px] whitespace-nowrap transition-opacity duration-200",
+                                isStacked
+                                    ? "top-1/2 -translate-y-1/2 left-14 right-12 truncate"
+                                    : "bottom-5 left-1/2 -translate-x-1/2 [writing-mode:vertical-rl] rotate-180",
+                                isExpanded ? "opacity-0 pointer-events-none" : "opacity-100 delay-200"
+                            )}
+                        >
+                            {color.name}
+                        </span>
+
+                        {/* Expanded: details. A fixed min width keeps the text from reflowing while the card animates */}
+                        <div
+                            className={cn(
+                                "absolute inset-0 p-6 flex flex-col transition-opacity",
+                                isStacked ? "min-h-[400px]" : "min-w-[340px]",
+                                isExpanded ? "opacity-100 duration-300 delay-200" : "opacity-0 duration-150 pointer-events-none"
+                            )}
+                        >
+                            <span
+                                onClick={copy(color.value)}
+                                className={cn("self-end font-mono text-[20px] uppercase tracking-wide", isReadOnly && "hover:opacity-70 transition-opacity")}
+                            >
+                                {color.value}
+                            </span>
+
+                            <div className="mt-auto flex flex-col gap-4">
+                                <input
+                                    type="text"
+                                    value={color.name}
+                                    readOnly={isReadOnly}
+                                    tabIndex={isExpanded ? 0 : -1}
+                                    onClick={(e) => { if (!isReadOnly) e.stopPropagation() }}
+                                    onChange={(e) => onUpdateColor(color.id, { name: e.target.value })}
+                                    className={cn("bg-transparent border-none outline-none font-bold leading-tight w-full placeholder:text-inherit/40", isStacked ? "text-[26px]" : "text-[32px]")}
+                                    style={{ color: 'inherit' }}
+                                    placeholder="Nome da cor"
+                                />
+
+                                {codes.length > 0 && (
+                                    <div className="flex flex-wrap gap-x-6 gap-y-2 font-mono text-[12px]">
+                                        {codes.map(code => (
+                                            <div
+                                                key={code.label}
+                                                onClick={copy(code.value)}
+                                                className={cn("flex flex-col gap-0.5", isReadOnly && "hover:opacity-70 transition-opacity")}
+                                            >
+                                                <span className="opacity-50 uppercase text-[10px] tracking-wider">{code.label}</span>
+                                                <span>{code.value}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Shades */}
+                                <div className="flex h-[52px] rounded-md overflow-hidden ring-1 ring-black/5">
+                                    {getAccordionShades(color).map(shade => (
+                                        <div
+                                            key={shade.id}
+                                            title={shade.value.toUpperCase()}
+                                            onClick={(e) => {
+                                                if (isReadOnly) { e.stopPropagation(); onCopyInfo(shade.value); return }
+                                                if (shade.variantId) { e.stopPropagation(); onSelectVariant(color.id, shade.variantId) }
+                                            }}
+                                            className="flex-1 min-w-0 flex items-end px-2 pb-1.5 font-mono text-[10px] transition-[flex-grow] duration-200 hover:grow-[1.6]"
+                                            style={{ backgroundColor: shade.value, color: getContrastColor(shade.value) }}
+                                        >
+                                            <span className="truncate opacity-70">{shade.label}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Delete */}
+                        {!isReadOnly && (
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDeleteColor(color.id) }}
+                                className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/20 flex items-center justify-center opacity-0 group-hover/acc:opacity-100 hover:bg-[#FF0054] transition-all z-20"
+                                title="Remover cor"
+                            >
+                                <Trash2 className="w-3.5 h-3.5 text-white" />
+                            </button>
+                        )}
+                    </div>
+                )
+            })}
+
+            {/* Add color: a narrow strip at the end */}
+            {!isReadOnly && (
+                <div
+                    onClick={(e) => { e.stopPropagation(); onAddColor() }}
+                    className="shrink-0 border-dashed border-2 border-gray-200 hover:border-[#FF0054] flex items-center justify-center cursor-pointer transition-colors group bg-white"
+                    style={{
+                        borderRadius: `${radius}px`,
+                        width: isStacked ? '100%' : `${ACCORDION_STRIP}px`,
+                        height: isStacked ? `${ACCORDION_STRIP}px` : undefined,
+                    }}
+                >
+                    <div className="w-[40px] h-[40px] bg-[#FF0054] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform duration-300">
+                        <Plus className="w-6 h-6 text-white" />
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
+
+/** Lighter tone of a color for a new shade card, named after it ("Brand 100" → "Brand 80") */
+const nextShade = (base: ColorData) => {
+    const match = base.name.match(/^(.*?)(\d+)\s*$/)
+    const name = match ? `${match[1]}${Math.max(10, Number(match[2]) - 20)}` : `${base.name} claro`
+    return { name, value: mixWithWhite(base.value, 80) }
+}
+
+/**
+ * Card palette: each color is a white card with inner padding, a rounded swatch and its name / HEX below.
+ * Hovering the swatch shows "Copiar HEX"; in the editor a "+" on the left edge of a card (from the second
+ * one) or the right edge of the last one inserts a lighter shade there, and a dashed card adds a color.
+ */
+const CardPalette = ({ colors, columns, gap, rowGap, radius, aspectRatio, cardWidth, cardHeight, isReadOnly, onCopyInfo, onSelectColor, onDeleteColor, onInsertColor, onAddColor }: {
+    colors: ColorData[]
+    columns?: number
+    gap: number
+    rowGap?: number
+    radius: number
+    /** Swatch proportion (width / height) from the palette "Dimensão" ratio; none = square */
+    aspectRatio?: number
+    /** Palette "Dimensão" w / h set by the user: the card's max width and its height */
+    cardWidth?: number
+    cardHeight?: number
+    isReadOnly?: boolean
+    onCopyInfo: (text: string) => void
+    onSelectColor: (colorId: string) => void
+    onDeleteColor: (colorId: string) => void
+    onInsertColor: (index: number, color: { name: string, value: string }) => void
+    onAddColor: () => void
+}) => {
+    const [copiedId, setCopiedId] = useState<string | null>(null)
+    // The whole card keeps the "Dimensão" proportion: a ratio preset (e.g. 3:2), else w : h (500 x 500 = square).
+    // Its width comes from the columns, capped at w; the height follows the proportion, so it never stretches
+    const cardRatio = aspectRatio || (cardWidth && cardHeight ? cardWidth / cardHeight : 4 / 5)
+    const cardStyle: React.CSSProperties = { aspectRatio: String(cardRatio), maxWidth: cardWidth || undefined, width: '100%' }
+    const copy = (color: ColorData) => {
+        onCopyInfo(color.value.toUpperCase())
+        setCopiedId(color.id)
+        setTimeout(() => setCopiedId(id => id === color.id ? null : id), 1500)
+    }
+
+    const shadeButton = (index: number, side: 'left' | 'right') => (
+        <button
+            onClick={(e) => { e.stopPropagation(); onInsertColor(index, nextShade(colors[index - 1])) }}
+            className={cn(
+                "absolute top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-white shadow-lg border border-gray-200 flex items-center justify-center",
+                "opacity-0 group-hover/card:opacity-100 hover:scale-110 transition-all",
+                side === 'left' ? "-translate-x-1/2" : "translate-x-1/2"
+            )}
+            style={side === 'left' ? { left: -gap / 2 } : { right: -gap / 2 }}
+            title="Adicionar um tom desta cor"
+        >
+            <Plus className="w-3.5 h-3.5 text-gray-600" />
+        </button>
+    )
+
+    return (
+        <div
+            className="grid w-full"
+            style={{
+                columnGap: gap,
+                rowGap: rowGap ?? gap,
+                // Columns from the panel; a set width caps each card (cards then sit at the start of the row)
+                gridTemplateColumns: columns
+                    ? `repeat(${columns}, minmax(0, 1fr))`
+                    : `repeat(auto-fill, minmax(min(${cardWidth || 200}px, 100%), 1fr))`,
+            }}
+        >
+            {colors.map((color, index) => (
+                <div
+                    key={color.id}
+                    className="relative group/card bg-white p-2 shadow-sm ring-1 ring-black/5 flex flex-col"
+                    style={{ borderRadius: radius + 8, ...cardStyle }}
+                    onClick={(e) => { e.stopPropagation(); if (!isReadOnly) onSelectColor(color.id) }}
+                >
+                    {/* Swatch */}
+                    <div
+                        className="relative overflow-hidden cursor-pointer flex-1 min-h-0"
+                        style={{
+                            ...swatchBackground(color),
+                            borderRadius: radius,
+                            // Ratio from "Dimensão" (e.g. 3:2); with a set height the swatch fills the card instead; else square
+                        }}
+                        onClick={(e) => { if (isReadOnly) { e.stopPropagation(); copy(color) } }}
+                    >
+                        <button
+                            onClick={(e) => { e.stopPropagation(); copy(color) }}
+                            className="absolute bottom-2.5 right-2.5 px-2.5 h-7 rounded-lg border-2 text-[12px] font-semibold opacity-0 group-hover/card:opacity-100 transition-opacity backdrop-blur-[2px]"
+                            style={{ borderColor: getContrastColor(color.value), color: getContrastColor(color.value) }}
+                        >
+                            {copiedId === color.id ? 'Copiado!' : 'Copiar HEX'}
+                        </button>
+                    </div>
+
+                    {/* Name and HEX */}
+                    <div className="px-2 pt-2.5 pb-1.5 flex flex-col gap-0.5 min-w-0">
+                        <span className="font-semibold italic text-[15px] leading-tight text-[#111] truncate">{color.name}</span>
+                        <span className="font-semibold italic text-[15px] leading-tight text-[#8A8A8A] uppercase truncate">{color.value}</span>
+                    </div>
+
+                    {/* Editor: remove, and add a shade on the edges */}
+                    {!isReadOnly && (
+                        <>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDeleteColor(color.id) }}
+                                className="absolute top-3.5 right-3.5 w-7 h-7 rounded-full bg-black/25 hover:bg-[#FF0054] flex items-center justify-center opacity-0 group-hover/card:opacity-100 transition-all"
+                                title="Remover cor"
+                            >
+                                <Trash2 className="w-3.5 h-3.5 text-white" />
+                            </button>
+                            {index > 0 && shadeButton(index, 'left')}
+                            {index === colors.length - 1 && shadeButton(index + 1, 'right')}
+                        </>
+                    )}
+                </div>
+            ))}
+
+            {!isReadOnly && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); onAddColor() }}
+                    className="group border-2 border-dashed border-gray-300 hover:border-[#FF0054] flex items-center justify-center transition-colors bg-white/40 min-h-[120px]"
+                    style={{ borderRadius: radius + 8, ...cardStyle }}
+                    title="Adicionar cor"
+                >
+                    <span className="w-[44px] h-[44px] bg-[#FF0054] rounded-full flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                        <Plus className="w-6 h-6 text-white" />
+                    </span>
+                </button>
             )}
         </div>
     )
@@ -993,12 +1361,13 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
         1: "grid-cols-1",
         2: "grid-cols-1 md:grid-cols-2",
         3: "grid-cols-1 md:grid-cols-2 lg:grid-cols-3",
-        4: "grid-cols-1 md:grid-cols-2 lg:grid-cols-4"
-    }[globalSettings.columns as 1 | 2 | 3 | 4 || 3]
+        4: "grid-cols-1 md:grid-cols-2 lg:grid-cols-4",
+        5: "grid-cols-1 md:grid-cols-3 lg:grid-cols-5"
+    }[globalSettings.columns as 1 | 2 | 3 | 4 | 5 || 3]
 
     return (
         <div
-            className="w-full relative group/palette"
+            className="w-full min-w-0 max-w-full relative group/palette"
             onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}
             style={{
                 marginTop: globalSettings.margin?.top ? `${globalSettings.margin.top}px` : undefined,
@@ -1040,20 +1409,69 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
                 className={cn(
                     "w-full transition-all duration-300",
                     globalSettings.layout === 'row' ? "flex flex-row overflow-x-auto pb-4 hide-scrollbar" : "grid",
-                    (globalSettings.layout === 'list' || globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic') ? "grid-cols-1" : (globalSettings.layout !== 'row' && gridCols),
-                    !globalSettings.fullWidth && (globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic' ? "max-w-[1465px]" : "max-w-[1080px]") + " mx-auto"
+                    (globalSettings.layout === 'list' || globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic' || globalSettings.layout === 'accordion' || globalSettings.layout === 'card') ? "grid-cols-1" : (globalSettings.layout !== 'row' && gridCols),
+                    !globalSettings.fullWidth && (globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic' || globalSettings.layout === 'accordion' ? "max-w-[1465px]" : "max-w-[1080px]") + " mx-auto"
                 )}
                 style={{
                     display: globalSettings.layout === 'row' ? 'flex' : 'grid',
                     gridTemplateColumns: (globalSettings.layout === 'grid' || !globalSettings.layout || globalSettings.layout === 'circles' || globalSettings.layout === 'tall')
                         ? `repeat(${globalSettings.columns || 3}, minmax(0, 1fr))`
-                        : (globalSettings.layout === 'list' || globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic' ? 'repeat(1, minmax(0, 1fr))' : undefined),
+                        : (globalSettings.layout === 'list' || globalSettings.layout === 'horizontal' || globalSettings.layout === 'mosaic' || globalSettings.layout === 'accordion' || globalSettings.layout === 'card' ? 'repeat(1, minmax(0, 1fr))' : undefined),
                     columnGap: `${globalSettings.gapHorizontal ?? DEFAULT_PALETTE_SETTINGS.gapHorizontal ?? 32}px`,
                     rowGap: `${globalSettings.gapVertical ?? DEFAULT_PALETTE_SETTINGS.gapVertical ?? 32}px`,
                 }}
             >
                 {/* Color Cards */}
-                {globalSettings.layout === 'mosaic' ? (
+                {globalSettings.layout === 'card' ? (
+                    <CardPalette
+                        colors={colors}
+                        columns={globalSettings.columns}
+                        gap={globalSettings.gapHorizontal ?? 24}
+                        rowGap={globalSettings.gapVertical}
+                        aspectRatio={aspectRatio}
+                        cardWidth={block.content.settings?.customWidth}
+                        cardHeight={block.content.settings?.customHeight}
+                        radius={globalSettings.styles?.radius ?? globalSettings.radius ?? 12}
+                        isReadOnly={isReadOnly}
+                        onCopyInfo={handleCopy}
+                        onSelectColor={(colorId) => {
+                            onSelect?.(block.id)
+                            setActiveColorId(colorId)
+                            setActiveVariantId(null)
+                        }}
+                        onDeleteColor={handleDeleteColor}
+                        onAddColor={handleAddColor}
+                        onInsertColor={(index, color) => {
+                            const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7)
+                            const next = [...colors]
+                            next.splice(index, 0, { id, ...color, settings: { ...globalSettings } })
+                            onUpdate(block.id, { ...block.content, colors: next })
+                        }}
+                    />
+                ) : globalSettings.layout === 'accordion' ? (
+                    <AccordionPalette
+                        colors={colors}
+                        settings={globalSettings}
+                        height={Math.max(360, currentHeight)}
+                        radius={globalSettings.styles?.radius ?? globalSettings.radius ?? 8}
+                        gap={globalSettings.gapHorizontal ?? 12}
+                        isReadOnly={isReadOnly}
+                        onUpdateColor={handleUpdateColor}
+                        onDeleteColor={handleDeleteColor}
+                        onAddColor={handleAddColor}
+                        onCopyInfo={handleCopy}
+                        onSelectColor={(colorId) => {
+                            onSelect?.(block.id)
+                            setActiveColorId(colorId)
+                            setActiveVariantId(null)
+                        }}
+                        onSelectVariant={(colorId, variantId) => {
+                            onSelect?.(block.id)
+                            setActiveColorId(colorId)
+                            setActiveVariantId(variantId)
+                        }}
+                    />
+                ) : globalSettings.layout === 'mosaic' ? (
                     <div
                         className="w-full grid grid-cols-4 gap-4 overflow-hidden"
                         style={{
@@ -1154,7 +1572,7 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
                 )}
 
                 {/* Add Card - Positioned at end */}
-                {!isReadOnly && (
+                {!isReadOnly && globalSettings.layout !== 'accordion' && globalSettings.layout !== 'card' && (
                     <div
                         className={cn(
                             "w-full border-dashed border-2 border-gray-200 flex items-center justify-center cursor-pointer transition-all duration-300 group shrink-0",
@@ -1218,7 +1636,9 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
                         }
                     }
 
+                    // Top layer: a fixed panel inside a block is still painted under later content
                     return (
+                        <TopLayer>
                         <ColorSettingsPanel
                             color={activeItem}
                             settings={{ ...globalSettings, styles: block.content.styles }}
@@ -1229,6 +1649,7 @@ export const PaletteBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBloc
                                 setActiveVariantId(null)
                             }}
                         />
+                        </TopLayer>
                     )
                 })()
             )}

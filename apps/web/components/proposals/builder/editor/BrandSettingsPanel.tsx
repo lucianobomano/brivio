@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils"
 import { Lock, Gem, ChevronRight, Plus, Trash2, Upload } from "lucide-react"
 import { useBrandDesign, FontStyle, BrandSettingsState } from "./BrandDesignContext"
 import { UploadAssetPopup } from "./UploadAssetPopup"
+import { ColorInput as PickerInput } from "@/components/ui/color-input"
 
 // Sidebar Items
 const SIDEBAR_ITEMS = [
@@ -167,7 +168,7 @@ const SettingsView = ({ t, brandId }: { t: ThemeStyles, brandId: string }) => {
                     <div className="w-[80px] h-[80px] rounded-full p-[2px] bg-gradient-to-b from-[#FF0054] to-[#00F0FF]">
                         <div className={cn("w-full h-full rounded-full border-4 relative flex items-center justify-center overflow-hidden", t.bg, t.bg === "bg-white" ? "border-white" : "border-[#15161B]")}>
                             {brandInfo.logo_url ? (
-                                <img src={brandInfo.logo_url} alt="Logo" className="w-full h-full object-cover" />
+                                <img loading="lazy" decoding="async" src={brandInfo.logo_url} alt="Logo" className="w-full h-full object-cover" />
                             ) : (
                                 <div className="w-full h-full bg-gradient-to-tr from-[#FF0054] to-[#00F0FF] opacity-20" />
                             )}
@@ -507,9 +508,8 @@ const ColorPickerCircle = ({ color, onChange, className }: { color: string, onCh
             style={{ backgroundColor: color }}
             onClick={() => inputRef.current?.click()}
         >
-            <input
+            <PickerInput
                 ref={inputRef}
-                type="color"
                 className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
                 value={color}
                 onChange={(e) => onChange(e.target.value)}

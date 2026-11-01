@@ -1,8 +1,9 @@
 "use client"
 
 import { useState } from "react"
-import { useRouter } from "next/navigation"
-import JSZip from "jszip"
+import { useRouter } from "nextjs-toploader/app"
+// PERFORMANCE: jszip is only needed when downloading, so it is loaded on demand
+const loadJSZip = () => import("jszip").then(m => m.default)
 import { getPublicSharedItem, verifySharedItemPasscode, getAllFolderContentsRecursive, type Asset, type AssetFolder } from "@/app/actions/assets"
 import { LockKeyhole, File as FileIcon, Download, AlertCircle, Folder, MoreHorizontal, ArrowDownAZ, ChevronRight, Loader2, Check, Minus, X, Key, Clock } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -153,6 +154,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
         let zipName = asset?.name ? `${asset.name}_selection.zip` : "Brivio_selection.zip"
         const toastId = toast.loading(`Preparing download...`)
         try {
+            const JSZip = await loadJSZip()
             const zip = new JSZip()
             await Promise.all(assetsToDownload.map(async (asset: any) => {
                 if (!asset.file_url) return
@@ -192,6 +194,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
         try {
             const result: any = await getAllFolderContentsRecursive(assetId)
             if (!result.success || !result.files) throw new Error("Failed")
+            const JSZip = await loadJSZip()
             const zip = new JSZip()
             for (const file of result.files) {
                 const response = await fetch(file.file_url)
@@ -218,6 +221,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
         try {
             const result = await getAllFolderContentsRecursive(folderId)
             if (!result.success) return
+            const JSZip = await loadJSZip()
             const zip = new JSZip()
             const rootFolderName = result.rootName || folderName
             if (result.files) {
@@ -607,7 +611,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                                             )}
                                         >
                                             {isImage ? (
-                                                <img src={f.file_url} alt={f.name} className="w-full h-auto block group-hover:scale-[1.02] transition-transform duration-300" />
+                                                <img loading="lazy" decoding="async" src={f.file_url} alt={f.name} className="w-full h-auto block group-hover:scale-[1.02] transition-transform duration-300" />
                                             ) : (
                                                 <div className="flex h-full w-full items-center justify-center bg-gray-50">
                                                     <FileIcon className="h-12 w-12 text-gray-300" />
@@ -737,7 +741,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                         {/* Preview Container */}
                         <div className="relative w-full bg-[#F7F8FA] rounded-xl flex items-center justify-center overflow-hidden mb-6 min-h-[400px]" style={{ minHeight: isImage || isVideo ? 'auto' : '400px' }}>
                             {isImage ? (
-                                <img
+                                <img loading="lazy" decoding="async"
                                     src={currentItem.file_url}
                                     alt={currentItem.name || currentItem.file_name}
                                     className="max-w-full max-h-[60vh] object-contain shadow-sm rounded-lg"
