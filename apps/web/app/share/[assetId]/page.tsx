@@ -39,10 +39,25 @@ async function sharedFolderLook(result: any): Promise<{ style: string | null, pr
 }
 
 
+/** The file style the workspace owner picked in their Asset Hub (files without a preview) */
+async function ownerFileStyle(result: any): Promise<string | null> {
+    try {
+        const workspaceId: string | undefined = result?.item?.workspace_id
+        if (!workspaceId) return null
+        const admin = await createAdminClient()
+        const { data: ws } = await admin.from("workspaces").select("created_by").eq("id", workspaceId).maybeSingle()
+        if (!ws?.created_by) return null
+        const { data } = await admin.auth.admin.getUserById(ws.created_by)
+        return (data?.user?.user_metadata as { asset_file_style?: string } | undefined)?.asset_file_style ?? null
+    } catch {
+        return null
+    }
+}
+
 export default async function PublicSharePage({ params }: { params: Promise<{ assetId: string }> }) {
     const { assetId } = await params
     const result = await getPublicSharedItem(assetId)
-    const look = await sharedFolderLook(result)
+    const [look, fileStyle] = await Promise.all([sharedFolderLook(result), ownerFileStyle(result)])
 
 
     return (
@@ -62,6 +77,7 @@ export default async function PublicSharePage({ params }: { params: Promise<{ as
                     expirationDate={result.expirationDate as string}
                     folderStyle={look.style}
                     folderPreviews={look.previews}
+                    fileStyle={fileStyle}
                 />
             </div>
         </main>

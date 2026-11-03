@@ -1,11 +1,15 @@
 "use client"
 import { StorageMeter } from "@/components/billing/StorageMeter"
+import { uploadAssetDirect } from "@/lib/upload/resumable-upload"
+import { UploadProgressRing } from "@/components/assets/UploadProgressRing"
 import { AssetPreview } from "@/components/assets/AssetPreview"
 
 import { AssetDndContext, MoveItemsDialog, dropRing, useAssetDnd, useAssetDndState, type MoveRequest } from "@/components/assets/assetMove"
 import { DeleteConfirmationModal } from "./DeleteConfirmationModal"
 import { GlassFolderThumb, useFolderPreviews } from "@/components/assets/GlassFolderThumb"
 import { useFolderStyle } from "@/lib/hooks/use-folder-style"
+import { useFileStyle } from "@/lib/hooks/use-file-style"
+import { FileTypeTile } from "@/components/assets/FileTypeTile"
 import React, { useState, useEffect } from "react"
 import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import {
@@ -102,6 +106,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
     const [folders, setFolders] = useState<AssetFolder[]>([]) // Current view folders (flat list for grid)
     // Folder style picked in the Asset Hub (classic icon or a glass folder) and what each folder holds
     const { style: folderStyle } = useFolderStyle()
+    const { style: fileStyle } = useFileStyle()
     const glassFolders = folderStyle !== "classic"
     const folderPreviews = useFolderPreviews(folders.map(f => f.id), glassFolders)
     const [assets, setAssets] = useState<Asset[]>([])
@@ -114,7 +119,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
     const [isCreateFolderModalOpen, setIsCreateFolderModalOpen] = useState(false)
     const [isUploading, setIsUploading] = useState(false)
-    const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
+    const [uploadProgress, setUploadProgress] = useState<{ current: number, total: number, percent?: number, name?: string }>({ current: 0, total: 0 })
     const [newFolderName, setNewFolderName] = useState("")
 
     // Context Menu State
@@ -315,7 +320,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             }
 
             try {
-                const result = await uploadAsset(formData)
+                const result = await uploadAssetDirect(formData, (p) => setUploadProgress(prev => ({ ...prev, name: file.name, percent: ((Math.max(1, prev.current) - 1 + p) / Math.max(1, prev.total)) * 100 })))
                 if (result.success && result.asset) {
                     const newAsset = {
                         ...result.asset,
@@ -1293,9 +1298,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                 <img loading="lazy" decoding="async" src={asset.file_url} alt={asset.name} className="w-full h-auto block" />
                                                             )}
                                                             {asset.type !== 'image' && (
-                                                                <div className="w-full h-full flex items-center justify-center bg-[#1a1a1a]">
-                                                                    <span className="text-xs text-[#666] uppercase">{asset.type}</span>
-                                                                </div>
+                                                                <FileTypeTile name={asset.name} url={asset.file_url} type={asset.type} style={fileStyle} />
                                                             )}
                                                             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-2 min-[1500px]:p-4 pointer-events-none z-20">
                                                                 {/* Overlay card: as tall as its content, the actions wrap below the details on narrow cards */}
@@ -1665,7 +1668,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                                                 <div className="mb-2">
                                                     {isUploading ? (
-                                                        <div className="w-12 h-12 border-3 border-[#ff0054] border-t-transparent rounded-full animate-spin" />
+                                                        <UploadProgressRing percent={uploadProgress.percent || 0} current={uploadProgress.current} total={uploadProgress.total} fileName={uploadProgress.name} />
                                                     ) : (
                                                         <Upload className="w-8 h-8 text-[#666] group-hover:text-[#ff0054] transition-colors" />
                                                     )}
@@ -1673,21 +1676,11 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                                                 <div className="flex flex-col items-center gap-1">
                                                     <span className="text-white font-medium text-[16px]">
-                                                        {isUploading
-                                                            ? `A carregar ${uploadProgress.current} de ${uploadProgress.total} arquivo${uploadProgress.total > 1 ? 's' : ''}...`
-                                                            : "Arraste e solte os seus arquivos aqui"
+                                                        {isUploading ? null : "Arraste e solte os seus arquivos aqui"
                                                         }
                                                     </span>
                                                     {!isUploading && (
                                                         <span className="text-[#666] text-[14px]">ou clique para carregar do computador (múltiplos arquivos)</span>
-                                                    )}
-                                                    {isUploading && uploadProgress.total > 1 && (
-                                                        <div className="w-48 h-1.5 bg-[#222] rounded-full mt-3 overflow-hidden">
-                                                            <div
-                                                                className="h-full bg-[#ff0054] transition-all duration-300"
-                                                                style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-                                                            />
-                                                        </div>
                                                     )}
                                                 </div>
 

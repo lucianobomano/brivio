@@ -326,6 +326,69 @@ export async function uploadAsset(formData: FormData) {
     }
 }
 
+/**
+ * Records a file the browser already sent straight to Storage (resumable upload, any size): the path must be
+ * inside the brand / workspace it is recorded in, and the file must be there. The row is written with the
+ * user's client, so the same rules as before decide who may add files where.
+ */
+export async function registerUploadedAsset(input: {
+    path: string
+    name: string
+    mimeType?: string
+    bytes: number
+    size?: string
+    dimensions?: string
+    brandId?: string
+    workspaceId?: string
+    folderId?: string
+}) {
+    const supabase = await createClient()
+    const user = await getCurrentUser()
+    if (!user) return { success: false as const, error: "Unauthorized" }
+    const { path, name, brandId, workspaceId } = input
+    if (!brandId && !workspaceId) return { success: false as const, error: "Missing scope (brandId/workspaceId)" }
+    const prefix = brandId ? `brand_${brandId}/` : `ws_${workspaceId}/`
+    if (!path.startsWith(prefix) || path.includes("..") || path.slice(prefix.length).includes("/")) {
+        return { success: false as const, error: "Invalid upload path" }
+    }
+
+    try {
+        // The file must really be in Storage
+        const fileName = path.slice(prefix.length)
+        const { data: found, error: listError } = await supabase.storage.from('assets').list(prefix.slice(0, -1), { search: fileName, limit: 1 })
+        if (listError) throw listError
+        if (!found?.some(o => o.name === fileName)) return { success: false as const, error: "O ficheiro não chegou ao armazenamento" }
+
+        const { data: { publicUrl } } = supabase.storage.from('assets').getPublicUrl(path)
+        const { data: asset, error: dbError } = await supabase
+            .from('assets')
+            .insert({
+                brand_id: brandId || null,
+                workspace_id: workspaceId || null,
+                folder_id: input.folderId || null,
+                uploader_id: user.id,
+                name,
+                type: mapMimeTypeToAssetType(input.mimeType || ''),
+                file_url: publicUrl,
+                thumbnail_url: null,
+                is_downloadable: true,
+                metadata: { size: input.size, bytes: input.bytes, dimensions: input.dimensions },
+            })
+            .select()
+            .single()
+        if (dbError) {
+            // Not recorded: do not leave the file behind
+            await supabase.storage.from('assets').remove([path])
+            throw dbError
+        }
+        revalidatePath('/brand/[slug]')
+        return { success: true as const, asset }
+    } catch (error) {
+        console.error("Register asset error:", error)
+        return { success: false as const, error: (error as Error).message || "Failed to record the file" }
+    }
+}
+
 function mapMimeTypeToAssetType(mimeType: string): string {
     if (mimeType.startsWith('image/')) return 'image'
     if (mimeType.startsWith('video/')) return 'video'

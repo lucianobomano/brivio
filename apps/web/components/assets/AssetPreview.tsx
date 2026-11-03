@@ -3,9 +3,11 @@
 import React from "react"
 import { createPortal } from "react-dom"
 import { AnimatePresence, motion } from "framer-motion"
-import { ChevronLeft, ChevronRight, Download, FileIcon, Minus, Plus, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Download, Minus, Plus, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { FileTypeTile } from "./FileTypeTile"
+import { useFileStyle } from "@/lib/hooks/use-file-style"
 
 /** What the viewer needs from an asset (the libraries' Asset type fits) */
 export interface PreviewAsset {
@@ -54,6 +56,7 @@ export function AssetPreview({ assets, index, onIndexChange, onClose }: {
     const [pan, setPan] = React.useState({ x: 0, y: 0 })
     const drag = React.useRef<{ x: number, y: number, px: number, py: number } | null>(null)
     const count = assets.length
+    const { style: fileStyle } = useFileStyle()
 
     const go = React.useCallback((d: number) => {
         if (index === null || count < 2) return
@@ -150,7 +153,7 @@ export function AssetPreview({ assets, index, onIndexChange, onClose }: {
                             <video key={asset.id} src={asset.file_url || ""} controls autoPlay className="max-w-full max-h-full rounded-lg shadow-2xl bg-black" />
                         ) : (
                             <div className="flex flex-col items-center gap-4 text-center">
-                                <div className="w-28 h-28 rounded-3xl bg-white/5 border border-white/10 flex items-center justify-center"><FileIcon className="w-10 h-10 text-white/50" /></div>
+                                <div className="w-44 h-44 rounded-3xl overflow-hidden shadow-2xl"><FileTypeTile name={asset.name} url={asset.file_url} type={asset.type} style={fileStyle} /></div>
                                 <p className="text-[13px] text-white/60">Pré-visualização indisponível para este tipo de ficheiro.</p>
                                 <button type="button" onClick={() => downloadAsset(asset)} className="h-10 px-5 rounded-full bg-[#ff0054] hover:bg-[#e6004c] text-[13px] font-bold flex items-center gap-2"><Download className="w-4 h-4" /> Descarregar</button>
                             </div>
@@ -175,7 +178,7 @@ export function AssetPreview({ assets, index, onIndexChange, onClose }: {
                                     onClick={() => onIndexChange(i)}
                                     className={cn("w-12 h-12 shrink-0 rounded-lg overflow-hidden border-2 transition-all bg-white/5", i === index ? "border-[#ff0054] opacity-100" : "border-transparent opacity-50 hover:opacity-90")}
                                 >
-                                    {isImage(a) && a.file_url ? <img src={a.file_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : <span className="text-[9px] uppercase text-white/60">{(a.name?.split(".").pop() || a.type || "").slice(0, 4)}</span>}
+                                    {isImage(a) && a.file_url ? <img src={a.file_url} alt="" loading="lazy" className="w-full h-full object-cover" /> : <FileTypeTile name={a.name} url={a.file_url} type={a.type} style={fileStyle} />}
                                 </button>
                             ))}
                         </div>

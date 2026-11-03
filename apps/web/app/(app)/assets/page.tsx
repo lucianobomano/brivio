@@ -23,5 +23,6 @@ export default async function AssetsPage() {
     // The folder style the user picked (kept in their account), so the page is drawn with it straight away
     const initialFolderStyle = (user.user_metadata as { asset_folder_style?: string } | undefined)?.asset_folder_style ?? null
 
-    return <AssetsClient initialData={initialData} initialFolderStyle={initialFolderStyle} />
+    const initialFileStyle = (user.user_metadata as { asset_file_style?: string } | undefined)?.asset_file_style ?? null
+    return <AssetsClient initialData={initialData} initialFolderStyle={initialFolderStyle} initialFileStyle={initialFileStyle} />
 }

@@ -4,6 +4,8 @@ import type { FolderPreview } from "@/app/actions/assets"
 import { GlassFolderThumb } from "@/components/assets/GlassFolderThumb"
 import { AssetPreview } from "@/components/assets/AssetPreview"
 import { SharePoweredBy } from "@/components/share/SharePageChrome"
+import { FileTypeTile } from "@/components/assets/FileTypeTile"
+import { isFileStyle } from "@/lib/hooks/use-file-style"
 import { useState } from "react"
 import { useRouter } from "nextjs-toploader/app"
 // PERFORMANCE: jszip is only needed when downloading, so it is loaded on demand
@@ -108,11 +110,14 @@ interface ShareViewerProps {
     /** Folder style the owner picked in their Asset Hub, and what the shared folders hold */
     folderStyle?: string | null
     folderPreviews?: Record<string, FolderPreview>
+    /** How the owner shows files without a preview */
+    fileStyle?: string | null
     initialBreadcrumbs?: { id: string; name: string }[]
     expirationDate?: string
 }
 
-export function ShareViewer({ assetId, initialAsset, isProtected, initialError, initialType = 'asset', initialChildren = [], initialBreadcrumbs = [], expirationDate: initialExpirationDate, folderStyle: ownerFolderStyle, folderPreviews: sharedPreviews = {} }: ShareViewerProps) {
+export function ShareViewer({ assetId, initialAsset, isProtected, initialError, initialType = 'asset', initialChildren = [], initialBreadcrumbs = [], expirationDate: initialExpirationDate, folderStyle: ownerFolderStyle, folderPreviews: sharedPreviews = {}, fileStyle: ownerFileStyle }: ShareViewerProps) {
+    const tileStyle = isFileStyle(ownerFileStyle) ? ownerFileStyle : "solid"
     const shareGlass = ownerFolderStyle === "milk" || ownerFolderStyle === "archive" || ownerFolderStyle === "smoked" ? ownerFolderStyle : null
     const [asset, setAsset] = useState(initialAsset)
     const [expirationDate] = useState(initialExpirationDate)
@@ -624,9 +629,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                                             {isImage ? (
                                                 <img loading="lazy" decoding="async" src={f.file_url} alt={f.name} className="w-full h-auto block group-hover:scale-[1.02] transition-transform duration-300" />
                                             ) : (
-                                                <div className="flex h-full w-full items-center justify-center bg-gray-50">
-                                                    <FileIcon className="h-12 w-12 text-gray-300" />
-                                                </div>
+                                                <FileTypeTile name={f.name} url={f.file_url} type={f.type} style={tileStyle} />
                                             )}
 
                                             {/* Selection Checkbox */}
@@ -721,10 +724,10 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                             <video src={a.file_url} controls className="max-w-full max-h-[calc(100dvh_-_388px)] rounded-lg shadow-md bg-black" />
                         ) : (
                             <div className="flex flex-col items-center gap-4 py-12 text-center">
-                                <div className="w-24 h-24 rounded-2xl bg-white border border-gray-200 flex items-center justify-center shadow-sm">
-                                    <FileIcon className="w-10 h-10 text-gray-300" />
+                                <div className="w-[min(240px,50vw)] aspect-square rounded-3xl overflow-hidden shadow-xl">
+                                    <FileTypeTile name={a.name} url={a.file_url} type={a.type} style={tileStyle} />
                                 </div>
-                                <p className="text-sm text-gray-500">Este ficheiro não tem pré-visualização. Descarregue-o para o abrir.</p>
+                                <p className="text-sm text-gray-500">Este formato não tem pré-visualização no navegador. Descarregue-o para o abrir.</p>
                             </div>
                         )}
                     </div>
@@ -804,8 +807,8 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                                 <video controls className="max-w-full max-h-[60vh] object-contain rounded-lg shadow-sm" src={currentItem.file_url} />
                             ) : (
                                 <div className="flex flex-col items-center gap-4 py-20">
-                                    <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center">
-                                        <FileIcon className="w-10 h-10 text-gray-400" />
+                                    <div className="w-40 h-40 rounded-3xl overflow-hidden shadow-lg">
+                                        <FileTypeTile name={currentItem.name} url={currentItem.file_url} type={currentItem.type} style={tileStyle} />
                                     </div>
                                     <p className="text-gray-600 font-medium">{currentItem.name}</p>
                                 </div>

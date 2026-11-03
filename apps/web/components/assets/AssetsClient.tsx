@@ -29,6 +29,11 @@ import { DeleteConfirmationModal } from '@/components/brandbook/editor/DeleteCon
 import { GlassFolderCard } from './GlassFolderCard'
 import { FolderStylePicker } from './FolderStylePicker'
 import { useFolderStyle } from '@/lib/hooks/use-folder-style'
+import { useFileStyle } from '@/lib/hooks/use-file-style'
+import { FileStylePicker } from './FileStylePicker'
+import { FileTypeTile } from './FileTypeTile'
+import { uploadAssetDirect } from "@/lib/upload/resumable-upload"
+import { UploadProgressRing } from "@/components/assets/UploadProgressRing"
 import { getFolderPreviews, type FolderPreview } from '@/app/actions/assets'
 import { toast } from 'sonner'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -40,10 +45,11 @@ interface AssetsInitialData {
     assets: Asset[]
 }
 
-export function AssetsClient({ initialData, initialFolderStyle }: { initialData?: AssetsInitialData | null, initialFolderStyle?: string | null } = {}) {
+export function AssetsClient({ initialData, initialFolderStyle, initialFileStyle }: { initialData?: AssetsInitialData | null, initialFolderStyle?: string | null, initialFileStyle?: string | null } = {}) {
     const { theme } = useTheme()
     // Folder style of the Asset Hub (classic icon or a glass folder), saved in the user's account
     const { style: folderStyle, setStyle: setFolderStyle } = useFolderStyle(initialFolderStyle)
+    const { style: fileStyle, setStyle: setFileStyle } = useFileStyle(initialFileStyle)
     const { workspace } = useWorkspace()
     const workspaceId = workspace?.id
 
@@ -98,7 +104,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
     // Upload State
     const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
     const [isUploading, setIsUploading] = useState(false)
-    const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 })
+    const [uploadProgress, setUploadProgress] = useState<{ current: number, total: number, percent?: number, name?: string }>({ current: 0, total: 0 })
 
     const loadData = React.useCallback(async () => {
         if (!workspaceId) return
@@ -232,7 +238,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
             // Optional: Get dimensions for images if possible (skipping for simplicity now)
 
             try {
-                const res = await uploadAsset(formData)
+                const res = await uploadAssetDirect(formData, (p) => setUploadProgress(prev => ({ ...prev, name: file.name, percent: ((Math.max(1, prev.current) - 1 + p) / Math.max(1, prev.total)) * 100 })))
                 if (res.success) successCount++
                 else errorCount++
             } catch (err) {
@@ -245,8 +251,8 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
         setIsUploadModalOpen(false)
         loadData()
 
-        if (errorCount === 0) toast.success(`Uploaded ${successCount} files`)
-        else toast.warning(`Uploaded ${successCount} files, ${errorCount} failed`)
+        if (errorCount === 0) toast.success(`${successCount} ficheiro${successCount === 1 ? "" : "s"} carregado${successCount === 1 ? "" : "s"}`)
+        else if (successCount > 0) toast.warning(`${successCount} carregado${successCount === 1 ? "" : "s"}, ${errorCount} falhou`)
     }
 
 
@@ -357,7 +363,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
 
                                         <div className="mb-2">
                                             {isUploading ? (
-                                                <div className="w-12 h-12 border-3 border-[#ff0054] border-t-transparent rounded-full animate-spin" />
+                                                <UploadProgressRing percent={uploadProgress.percent || 0} current={uploadProgress.current} total={uploadProgress.total} fileName={uploadProgress.name} />
                                             ) : (
                                                 <Upload className="w-8 h-8 text-[#666] group-hover:text-[#ff0054] transition-colors" />
                                             )}
@@ -368,21 +374,10 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                                                 "font-medium text-[16px]",
                                                 theme === 'light' ? "text-text-primary" : "text-white"
                                             )}>
-                                                {isUploading
-                                                    ? `A carregar ${uploadProgress.current} de ${uploadProgress.total} arquivo${uploadProgress.total > 1 ? 's' : ''}...`
-                                                    : "Arraste e solte os seus arquivos aqui"
-                                                }
+                                                {isUploading ? null : "Arraste e solte os seus arquivos aqui"}
                                             </span>
                                             {!isUploading && (
                                                 <span className="text-[#666] text-[14px]">ou clique para carregar do computador (múltiplos arquivos)</span>
-                                            )}
-                                            {isUploading && uploadProgress.total > 1 && (
-                                                <div className="w-48 h-1.5 bg-[#222] rounded-full mt-3 overflow-hidden">
-                                                    <div
-                                                        className="h-full bg-[#ff0054] transition-all duration-300"
-                                                        style={{ width: `${(uploadProgress.current / uploadProgress.total) * 100}%` }}
-                                                    />
-                                                </div>
                                             )}
                                         </div>
 
@@ -505,6 +500,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                                 <span className="text-sm font-bold">Filtrar por</span>
                             </button>
                             <FolderStylePicker value={folderStyle} onChange={setFolderStyle} light={theme === 'light'} />
+                            <FileStylePicker value={fileStyle} onChange={setFileStyle} light={theme === 'light'} />
                             <button className="flex items-center gap-2 hover:text-text-primary transition-colors">
                                 <List className="w-4 h-4" />
                                 <span className="text-sm font-bold">Lista</span>
@@ -725,7 +721,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                                                 className="w-full h-full object-cover"
                                             />
                                         ) : (
-                                            <div className="text-4xl text-text-secondary">FILE</div>
+                                            <FileTypeTile name={asset.name} url={asset.file_url} type={asset.type} style={fileStyle} />
                                         )}
                                     </div>
 
