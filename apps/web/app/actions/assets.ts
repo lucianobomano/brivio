@@ -536,6 +536,38 @@ export async function moveAsset(assetId: string, destFolderId: string | null) {
     return { success: true }
 }
 
+/**
+ * Moves several folders and files at once into `destFolderId` (null = the top level). A folder never goes inside
+ * itself or one of its own subfolders. RLS limits the changes to the user's own folders and files.
+ */
+export async function moveAssetItems(folderIds: string[], assetIds: string[], destFolderId: string | null) {
+    const supabase = await createClient()
+    const user = await getCurrentUser()
+    if (!user) return { success: false as const, error: "Sessão expirada. Volte a entrar." }
+    const fids = [...new Set(folderIds)].filter(Boolean)
+    const aids = [...new Set(assetIds)].filter(Boolean)
+    if (!fids.length && !aids.length) return { success: false as const, error: "Nada para mover." }
+
+    if (destFolderId && fids.length) {
+        // Walk up from the destination: reaching a moved folder means it would end up inside itself
+        let at: string | null = destFolderId
+        for (let guard = 0; at && guard < 200; guard++) {
+            if (fids.includes(at)) return { success: false as const, error: "Não pode mover uma pasta para dentro de si própria ou de uma subpasta dela." }
+            const { data }: { data: { parent_id: string | null } | null } = await supabase.from("asset_folders").select("parent_id").eq("id", at).maybeSingle()
+            at = (data?.parent_id as string | null) ?? null
+        }
+    }
+
+    const [foldersRes, assetsRes] = await Promise.all([
+        fids.length ? supabase.from("asset_folders").update({ parent_id: destFolderId }).in("id", fids).select("id") : Promise.resolve({ data: [], error: null }),
+        aids.length ? supabase.from("assets").update({ folder_id: destFolderId }).in("id", aids).select("id") : Promise.resolve({ data: [], error: null }),
+    ])
+    const error = foldersRes.error || assetsRes.error
+    if (error) return { success: false as const, error: error.message }
+    revalidatePath("/assets")
+    return { success: true as const, moved: (foldersRes.data?.length || 0) + (assetsRes.data?.length || 0) }
+}
+
 export async function updateFolderAccess(folderId: string, isPublic: boolean, allowViewers: boolean) {
     const supabase = await createClient()
     const user = await getCurrentUser()

@@ -18,9 +18,11 @@ import {
     deleteAsset,
     deleteFolder,
     toggleFavorite,
+    getAllFolders,
     AssetFolder,
     Asset
 } from '@/app/actions/assets'
+import { MoveItemsDialog, dropRing, useAssetDndState, type MoveRequest } from './assetMove'
 import { AssetLibraryModal } from './AssetLibraryModal'
 import { DeleteConfirmationModal } from '@/components/brandbook/editor/DeleteConfirmationModal'
 import { GlassFolderCard } from './GlassFolderCard'
@@ -65,6 +67,23 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
     // Selection State
     const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set())
     const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set())
+    // Moving: «Move» in the selection bar, and drag & drop onto a folder card
+    const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null)
+    const [allFolders, setAllFolders] = useState<AssetFolder[]>([])
+    const afterMove = () => { setSelectedFolderIds(new Set()); setSelectedAssetIds(new Set()); loadData() }
+    const assetDnd = useAssetDndState({
+        selectedFolderIds,
+        selectedAssetIds,
+        folderName: (id) => id ? (allFolders.find(f => f.id === id)?.name || folders.find(f => f.id === id)?.name || "pasta") : "Asset Hub",
+        onMoved: () => afterMove(),
+    })
+    const openMove = async (req: MoveRequest) => {
+        if (workspaceId) {
+            const r = await getAllFolders({ workspaceId })
+            if (r.success) setAllFolders(r.folders || [])
+        }
+        setMoveRequest(req)
+    }
 
     // Actions State
     const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false)
@@ -451,7 +470,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                                     onSelectAll={handleSelectAll}
                                     onInvertSelection={handleInvertSelection}
                                     onDelete={(...args: any[]) => runAction(() => (handleDeleteSelected as any)(...args))}
-                                    onMove={() => toast.info("Move not implemented yet")} // Placeholder
+                                    onMove={() => openMove({ folderIds: [...selectedFolderIds], assetIds: [...selectedAssetIds] })}
                                 />
                             </div>
                         </div>
@@ -548,6 +567,8 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                                 return (
                                     <GlassFolderCard
                                         key={folder.id}
+                                        boxProps={{ ...assetDnd.dragProps("folder", folder.id), ...assetDnd.dropProps(folder.id) }}
+                                        highlighted={assetDnd.isOver(folder.id)}
                                         folder={folder}
                                         style={folderStyle}
                                         preview={folderPreviews[folder.id]}
@@ -563,12 +584,15 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                             return (
                                 <div
                                     key={folder.id}
+                                    {...assetDnd.dragProps("folder", folder.id)}
+                                    {...assetDnd.dropProps(folder.id)}
                                     onClick={() => {
                                         setLibraryInitialFolder(folder.id)
                                         setIsLibraryOpen(true)
                                     }}
                                     className={cn(
                                         "w-full h-[320px] xl:h-[400px] rounded-[12px] relative flex flex-col items-center justify-between p-6 xl:p-8 transition-colors group cursor-pointer border",
+                                        assetDnd.isOver(folder.id) && dropRing,
                                         isSelected
                                             ? "border-[#FF0054] bg-[#FF0054]/5"
                                             : "border-transparent hover:border-white/5",
@@ -642,6 +666,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                             return (
                                 <div
                                     key={asset.id}
+                                    {...assetDnd.dragProps("asset", asset.id)}
                                     onClick={() => handleToggleAssetSelection(asset.id)}
                                     className={cn(
                                         "w-full h-[320px] xl:h-[400px] rounded-[12px] relative flex flex-col items-center justify-between p-6 xl:p-8 transition-colors group cursor-pointer border",
@@ -719,6 +744,15 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                     </div>
                 </div>
             </main>
+
+            <MoveItemsDialog
+                request={moveRequest}
+                folders={allFolders}
+                rootLabel="Asset Hub"
+                currentFolderId={currentFolderId ?? null}
+                onClose={() => setMoveRequest(null)}
+                onMoved={afterMove}
+            />
 
             <DeleteConfirmationModal
                 isOpen={confirmBulkDelete}

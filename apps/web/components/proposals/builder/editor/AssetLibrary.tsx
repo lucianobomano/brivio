@@ -1,5 +1,6 @@
 "use client"
 
+import { AssetDndContext, MoveItemsDialog, dropRing, useAssetDnd, useAssetDndState, type MoveRequest } from "@/components/assets/assetMove"
 import { GlassFolderThumb, useFolderPreviews } from "@/components/assets/GlassFolderThumb"
 import { useFolderStyle } from "@/lib/hooks/use-folder-style"
 import React, { useState, useEffect } from "react"
@@ -106,6 +107,15 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
     const [folderToManageAccess, setFolderToManageAccess] = useState<AssetFolder | null>(null)
     const [selectedFolderIds, setSelectedFolderIds] = useState<Set<string>>(new Set())
     const [selectedAssetIds, setSelectedAssetIds] = useState<Set<string>>(new Set())
+    // Moving: «Mover para» (one item or the selection) and drag & drop onto a folder
+    const [moveRequest, setMoveRequest] = useState<MoveRequest | null>(null)
+    const afterMove = () => { setSelectedFolderIds(new Set()); setSelectedAssetIds(new Set()); loadData() }
+    const assetDnd = useAssetDndState({
+        selectedFolderIds,
+        selectedAssetIds,
+        folderName: (id) => id ? (allFolders.find(f => f.id === id)?.name || "pasta") : brandName,
+        onMoved: () => afterMove(),
+    })
 
     const [destinationFolderId, setDestinationFolderId] = useState<string>("root")
 
@@ -516,6 +526,15 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
     }
 
     return (
+        <AssetDndContext.Provider value={assetDnd}>
+            <MoveItemsDialog
+                request={moveRequest}
+                folders={allFolders}
+                rootLabel={brandName}
+                currentFolderId={currentFolderId ?? null}
+                onClose={() => setMoveRequest(null)}
+                onMoved={afterMove}
+            />
         <AnimatePresence>
             {isOpen && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-hidden text-[14px]">
@@ -622,8 +641,10 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                     <div className="space-y-1">
                                         {/* Root "Brand Assets" Item */}
                                         <div
+                                            {...assetDnd.dropProps(null)}
                                             className={cn(
                                                 "group flex items-center py-2 px-3 rounded-xl cursor-pointer transition-all duration-300",
+                                                assetDnd.isOver(null) && dropRing,
                                                 currentFolderId === undefined ? "bg-white/[0.03] border border-white/10 shadow-inner" : "hover:bg-white/[0.02]"
                                             )}
                                         >
@@ -784,20 +805,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 })
                                             }
                                         }}
-                                        onMove={() => {
-                                            // Open move modal for first selected item as starting point
-                                            if (selectedFolderIds.size > 0) {
-                                                const firstFolderId = Array.from(selectedFolderIds)[0]
-                                                const folder = folders.find(f => f.id === firstFolderId)
-                                                if (folder) {
-                                                    setFolderToMove(folder)
-                                                    setDestinationFolderId("root")
-                                                }
-                                            } else if (selectedAssetIds.size > 0) {
-                                                // For assets, we'd need similar logic but assets.ts needs a moveAsset function
-                                                toast.info("Mover múltiplos assets ainda não está implementado")
-                                            }
-                                        }}
+                                        onMove={() => setMoveRequest({ folderIds: [...selectedFolderIds], assetIds: [...selectedAssetIds] })}
                                     />
                                 )}
                             </AnimatePresence>
@@ -817,6 +825,8 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                 return (
                                                     <div
                                                         key={folder.id}
+                                                        {...assetDnd.dragProps("folder", folder.id)}
+                                                        {...assetDnd.dropProps(folder.id)}
                                                         onClick={() => {
                                                             if (isSelectionMode) handleToggleSelection(folder.id)
                                                             else setCurrentFolderId(folder.id)
@@ -825,6 +835,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                             glassFolders
                                                                 ? "relative rounded-xl pt-6 pb-2 px-2 flex items-center justify-center cursor-pointer transition-all group/folder border bg-white/[0.02]"
                                                                 : "bg-[#1a1a1a] rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all group/folder border h-[88px]",
+                                                            assetDnd.isOver(folder.id) && dropRing,
                                                             isSelected
                                                                 ? "border-[#ff0054] border-[3px]"
                                                                 : isSelectionMode
@@ -884,7 +895,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                     </DropdownMenuItem>
                                                                     <DropdownMenuItem
                                                                         onClick={() => {
-                                                                            setFolderToMove(folder)
+                                                                            setMoveRequest({ folderIds: [folder.id], assetIds: [] })
                                                                             setDestinationFolderId("root")
                                                                         }}
                                                                         className="hover:bg-white/10 hover:text-white cursor-pointer rounded-lg py-2 px-2.5 text-[13px] font-medium transition-colors"
@@ -980,6 +991,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                     return (
                                                         <div
                                                             key={asset.id}
+                                                            {...assetDnd.dragProps("asset", asset.id)}
                                                             onClick={() => {
                                                                 if (isSelectionMode) handleToggleAssetSelection(asset.id)
                                                                 // else maybe open asset preview? For now just select logic or nothing.
@@ -1063,7 +1075,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                                         <span>Rename</span>
                                                                                     </DropdownMenuItem>
                                                                                     <DropdownMenuItem
-                                                                                        // onClick={() => ... handle move ...}
+                                                                                        onClick={() => setMoveRequest({ folderIds: [], assetIds: [asset.id] })}
                                                                                         className="hover:bg-white/10 hover:text-white cursor-pointer rounded-lg py-2 px-2.5 text-[13px] font-medium transition-colors"
                                                                                     >
                                                                                         <Move className="mr-2 h-4 w-4 text-[#666]" />
@@ -1875,6 +1887,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
             )
             }
         </AnimatePresence >
+        </AssetDndContext.Provider>
     )
 }
 
@@ -1888,6 +1901,7 @@ interface FolderTreeItemProps {
 }
 
 function FolderTreeItem({ node, level, currentFolderId, expandedIds, onToggleExpand, onSelectFolder }: FolderTreeItemProps) {
+    const dnd = useAssetDnd()
     const isExpanded = expandedIds.has(node.id)
     const isActive = currentFolderId === node.id
     const hasChildren = node.children && node.children.length > 0
@@ -1897,9 +1911,11 @@ function FolderTreeItem({ node, level, currentFolderId, expandedIds, onToggleExp
             <div
                 className={cn(
                     "group flex items-center py-2 px-3 rounded-xl cursor-pointer transition-all duration-300",
-                    isActive ? "bg-white/[0.03] border border-white/10 shadow-inner" : "hover:bg-white/[0.02]"
+                    isActive ? "bg-white/[0.03] border border-white/10 shadow-inner" : "hover:bg-white/[0.02]",
+                    dnd?.isOver(node.id) && dropRing
                 )}
                 style={{ paddingLeft: `${(level * 12) + 12}px` }}
+                {...(dnd ? dnd.dropProps(node.id) : {})}
                 onClick={() => onSelectFolder(node.id)}
             >
                 {/* Arrow / Spacer */}

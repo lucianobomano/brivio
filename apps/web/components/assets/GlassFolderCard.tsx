@@ -28,7 +28,10 @@ const toSheet = (f: FolderPreview["files"][number]): FolderFile => ({
  * A folder of the Asset Hub drawn as a glass folder. Clicking it fans out its newest files; clicking a file
  * (or «Abrir na biblioteca» in its menu, or an empty folder) opens the folder in the library.
  */
-export function GlassFolderCard({ folder, style, preview, index, isSelectionMode, isSelected, onOpen, onToggleSelect, onToggleFavorite }: {
+export function GlassFolderCard({ folder, style, preview, index, isSelectionMode, isSelected, onOpen, onToggleSelect, onToggleFavorite, boxProps, highlighted }: {
+    /** Drag & drop handlers for the card (move it, or drop files / folders into it) */
+    boxProps?: React.HTMLAttributes<HTMLDivElement> & { draggable?: boolean }
+    highlighted?: boolean
     folder: AssetFolder
     style: Exclude<FolderStyle, "classic">
     preview?: FolderPreview
@@ -57,9 +60,11 @@ export function GlassFolderCard({ folder, style, preview, index, isSelectionMode
     return (
         <div
             ref={ref}
+            {...boxProps}
             className={cn(
                 "w-full h-[320px] xl:h-[400px] rounded-[12px] relative flex items-center justify-center border transition-colors",
-                isSelected ? "border-[#FF0054] bg-[#FF0054]/5" : "border-transparent"
+                isSelected ? "border-[#FF0054] bg-[#FF0054]/5" : "border-transparent",
+                highlighted && "ring-2 ring-[#FF0054] bg-[#FF0054]/10"
             )}
         >
             {/* Remount when the files arrive: the folder keeps its sheets from the first render */}
