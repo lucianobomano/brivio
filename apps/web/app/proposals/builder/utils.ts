@@ -1,4 +1,5 @@
 import { Block } from "@/components/proposals/builder/editor/types"
+import { corporateModules } from "./templates/corporate"
 
 const sections = [
     { title: '01. Capa', type: 'intro' },
@@ -12,7 +13,46 @@ const sections = [
     { title: '09. Assinatura', type: 'signature' }
 ]
 
-export const getTemplateModules = (proposalId: string, templateId?: string, templateName?: string) => {
+/**
+ * Pages of a template saved by a team (proposal_templates.content_json): its theme and every page, with new block
+ * ids and the template fields ({{Nome_Projeto}}, {{Nome_Cliente}}, {{Nome_Decisor}}, {{Data}}) filled in.
+ */
+export const savedTemplateModules = (proposalId: string, content: any, ctx: { projectName?: string | null, clientName?: string | null } = {}) => {
+    const date = new Date().toLocaleDateString("pt-PT", { day: "numeric", month: "long", year: "numeric" })
+    const fresh = () => Math.random().toString(36).slice(2, 11)
+    const fill = (s: string) => s
+        .replace(/\{\{Nome_Projeto\}\}/g, ctx.projectName || "Nome do projeto")
+        .replace(/\{\{Nome_Cliente\}\}/g, ctx.clientName || "o cliente")
+        .replace(/\{\{Nome_Decisor\}\}/g, ctx.clientName || "Cliente")
+        .replace(/\{\{Data\}\}/g, date)
+    const walk = (value: unknown): unknown => {
+        if (typeof value === "string") return fill(value)
+        if (Array.isArray(value)) return value.map(walk)
+        if (value && typeof value === "object") {
+            const o: Record<string, unknown> = {}
+            for (const [k, v] of Object.entries(value)) o[k] = k === "id" && typeof v === "string" ? fresh() : walk(v)
+            return o
+        }
+        return value
+    }
+    const modules: any[] = []
+    if (content?.settings) modules.push({ proposal_id: proposalId, order: -1, title: "Settings", type: "settings", content_json: content.settings })
+    ;(content?.pages || []).forEach((p: any, i: number) => modules.push({
+        proposal_id: proposalId,
+        order: i,
+        title: fill(String(p.title || `${String(i + 1).padStart(2, "0")}. Página`)),
+        type: p.type || "custom",
+        content_json: walk(p.content_json || {}),
+        is_hidden: !!p.is_hidden,
+        is_locked: !!p.is_locked,
+        is_fullscreen: !!p.is_fullscreen,
+    }))
+    return modules
+}
+
+export const getTemplateModules = (proposalId: string, templateId?: string, templateName?: string, saved?: { content?: any, projectName?: string | null, clientName?: string | null }) => {
+    // A template saved from a proposal brings its own pages and theme
+    if (saved?.content?.pages?.length) return savedTemplateModules(proposalId, saved.content, saved)
     const normalizedId = templateId?.toLowerCase() || "";
     const name = templateName?.toLowerCase() || "";
 
@@ -21,6 +61,8 @@ export const getTemplateModules = (proposalId: string, templateId?: string, temp
     const isSphere = normalizedId === '00194458-124b-4a58-8671-50e5088f1dc3' || name.includes('sphere')
     const isHorizon = normalizedId === '11294abd-724d-4a18-9671-50e5088f1dc3' || name.includes('horizon')
     const isAec = normalizedId === 'aec_standard_v1' || name.includes('aec') || name.includes('arquitetura')
+    // «Corporativo»: 15 A4 pages in navy and lime
+    if (name.includes('corporativo')) return corporateModules(proposalId)
 
     const settingsModule = (styles: any) => ({
         proposal_id: proposalId,

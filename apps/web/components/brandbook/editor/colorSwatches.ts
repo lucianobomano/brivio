@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useSyncExternalStore } from "react"
-import { useBrandDesign } from "./BrandDesignContext"
+import { useBrandDesignOptional } from "./BrandDesignContext"
 
 /**
  * Small colour squares of the editor panels: the brand palette (Settings → Colors → Brand color palette) first,
@@ -70,7 +70,10 @@ const subscribe = (listener: () => void) => {
 
 /** Swatches for a panel grid (`count` squares) and a function to record a colour that was just used */
 export const useSwatchColors = (count = 16) => {
-    const { brandId, settings } = useBrandDesign()
+    // Outside a brandbook (the proposal editor reuses these panels) there is no brand palette: recent + defaults
+    const design = useBrandDesignOptional()
+    const brandId = design?.brandId || ""
+    const settings = design?.settings
     const recent = useSyncExternalStore(subscribe, () => read(brandId), () => EMPTY)
     const palette = settings?.color_palette
 

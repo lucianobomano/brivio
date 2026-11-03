@@ -651,3 +651,10 @@ button[aria-busy="true"]:not([data-spinner])::after {
 .lp .lp-logo-on-dark { display: none; }
 .lp[data-theme="dark"] .lp-logo-on-light { display: none; }
 .lp[data-theme="dark"] .lp-logo-on-dark { display: block; }
+
+/* Roadmap infographics: a thin scrollbar right under them, in the brand pink */
+.roadmap-scroll { scrollbar-width: thin; scrollbar-color: #ff0054 transparent; padding-bottom: 10px; }
+.roadmap-scroll::-webkit-scrollbar { height: 6px; }
+.roadmap-scroll::-webkit-scrollbar-track { background: rgba(127, 127, 127, 0.12); border-radius: 999px; margin: 0 24px; }
+.roadmap-scroll::-webkit-scrollbar-thumb { background: #ff0054; border-radius: 999px; }
+.roadmap-scroll::-webkit-scrollbar-thumb:hover { background: #e0004a; }

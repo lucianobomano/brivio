@@ -1,5 +1,6 @@
 "use client"
 
+import { CollapsibleBar } from "../CollapsibleBar"
 import React from "react"
 import { Settings, ArrowUp, ArrowDown, Copy, CopyPlus, Check, Trash2, Zap } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -34,7 +35,7 @@ export const useHoverIntent = (delay = 220) => {
 }
 
 /** Context bar of a block: name, settings (gear), animate, move, copy, duplicate, delete */
-export const BlockContextBar = ({ label, onSettings, onAnimate, onMove, onCopy, onDuplicate, onDelete }: BlockActions & {
+const BlockContextBarBar = ({ label, onSettings, onAnimate, onMove, onCopy, onDuplicate, onDelete }: BlockActions & {
     label: string
     onSettings?: () => void
     onAnimate?: () => void
@@ -102,3 +103,8 @@ export const PanelActions = ({ onMove, onCopy, onDuplicate, onDelete }: BlockAct
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const BlockContextBar = (props: React.ComponentProps<typeof BlockContextBarBar>) => (
+    <CollapsibleBar><BlockContextBarBar {...props} /></CollapsibleBar>
+)

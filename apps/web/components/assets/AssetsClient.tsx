@@ -22,6 +22,11 @@ import {
     Asset
 } from '@/app/actions/assets'
 import { AssetLibraryModal } from './AssetLibraryModal'
+import { DeleteConfirmationModal } from '@/components/brandbook/editor/DeleteConfirmationModal'
+import { GlassFolderCard } from './GlassFolderCard'
+import { FolderStylePicker } from './FolderStylePicker'
+import { useFolderStyle } from '@/lib/hooks/use-folder-style'
+import { getFolderPreviews, type FolderPreview } from '@/app/actions/assets'
 import { toast } from 'sonner'
 import { AnimatePresence, motion } from 'framer-motion'
 import { format } from 'date-fns'
@@ -32,8 +37,10 @@ interface AssetsInitialData {
     assets: Asset[]
 }
 
-export function AssetsClient({ initialData }: { initialData?: AssetsInitialData | null } = {}) {
+export function AssetsClient({ initialData, initialFolderStyle }: { initialData?: AssetsInitialData | null, initialFolderStyle?: string | null } = {}) {
     const { theme } = useTheme()
+    // Folder style of the Asset Hub (classic icon or a glass folder), saved in the user's account
+    const { style: folderStyle, setStyle: setFolderStyle } = useFolderStyle(initialFolderStyle)
     const { workspace } = useWorkspace()
     const workspaceId = workspace?.id
 
@@ -41,6 +48,15 @@ export function AssetsClient({ initialData }: { initialData?: AssetsInitialData 
     // PERFORMANCE: root folder contents arrive with the page (server-rendered) instead of
     // being fetched after hydration, which was a second round-trip before anything showed
     const [folders, setFolders] = useState<AssetFolder[]>(initialData?.folders || [])
+    // What each folder holds (count + newest files), for the glass folders; loaded only when a glass style is on
+    const [folderPreviews, setFolderPreviews] = useState<Record<string, FolderPreview>>({})
+    const folderKey = folders.map(f => f.id).join(",")
+    useEffect(() => {
+        if (folderStyle === 'classic' || !folderKey) return
+        let alive = true
+        getFolderPreviews(folderKey.split(",")).then(p => { if (alive) setFolderPreviews(prev => ({ ...prev, ...p })) }).catch(() => { })
+        return () => { alive = false }
+    }, [folderKey, folderStyle])
     const [assets, setAssets] = useState<Asset[]>(initialData?.assets || [])
     const usedInitialDataRef = React.useRef(false)
     const [breadcrumbs, setBreadcrumbs] = useState<AssetFolder[]>([])
@@ -213,8 +229,10 @@ export function AssetsClient({ initialData }: { initialData?: AssetsInitialData 
     }
 
 
-    const handleDeleteSelected = async () => {
-        if (!confirm("Are you sure you want to delete selected items?")) return
+    // Deleting the selection asks first, in the app's own dialog
+    const [confirmBulkDelete, setConfirmBulkDelete] = useState(false)
+    const handleDeleteSelected = () => setConfirmBulkDelete(true)
+    const performDeleteSelected = async () => {
 
         let successCount = 0
         let errorCount = 0
@@ -465,6 +483,7 @@ export function AssetsClient({ initialData }: { initialData?: AssetsInitialData 
                                 <Filter className="w-4 h-4" />
                                 <span className="text-sm font-bold">Filtrar por</span>
                             </button>
+                            <FolderStylePicker value={folderStyle} onChange={setFolderStyle} light={theme === 'light'} />
                             <button className="flex items-center gap-2 hover:text-text-primary transition-colors">
                                 <List className="w-4 h-4" />
                                 <span className="text-sm font-bold">Lista</span>
@@ -523,8 +542,24 @@ export function AssetsClient({ initialData }: { initialData?: AssetsInitialData 
                         </button>
 
                         {/* Folder Cards */}
-                        {folders.map(folder => {
+                        {folders.map((folder, folderIndex) => {
                             const isSelected = selectedFolderIds.has(folder.id)
+                            if (folderStyle !== 'classic') {
+                                return (
+                                    <GlassFolderCard
+                                        key={folder.id}
+                                        folder={folder}
+                                        style={folderStyle}
+                                        preview={folderPreviews[folder.id]}
+                                        index={folderIndex}
+                                        isSelectionMode={isSelectionMode}
+                                        isSelected={isSelected}
+                                        onOpen={() => { setLibraryInitialFolder(folder.id); setIsLibraryOpen(true) }}
+                                        onToggleSelect={() => handleToggleFolderSelection(folder.id)}
+                                        onToggleFavorite={() => handleToggleFavorite(folder.id, 'folder', folder.is_favorite || false)}
+                                    />
+                                )
+                            }
                             return (
                                 <div
                                     key={folder.id}
@@ -684,6 +719,17 @@ export function AssetsClient({ initialData }: { initialData?: AssetsInitialData 
                     </div>
                 </div>
             </main>
+
+            <DeleteConfirmationModal
+                isOpen={confirmBulkDelete}
+                onClose={() => setConfirmBulkDelete(false)}
+                onConfirm={performDeleteSelected}
+                title={selectedFolderIds.size && !selectedAssetIds.size ? (selectedFolderIds.size === 1 ? "Eliminar pasta" : `Eliminar ${selectedFolderIds.size} pastas`) : `Eliminar ${selectedFolderIds.size + selectedAssetIds.size} itens`}
+                message={selectedFolderIds.size
+                    ? "As pastas selecionadas e tudo o que têm dentro vão para o Lixo. Pode restaurá-las a partir do Lixo."
+                    : "Os ficheiros selecionados vão para o Lixo. Pode restaurá-los a partir do Lixo."}
+                confirmLabel="Eliminar"
+            />
 
             <AssetLibraryModal
                 isOpen={isLibraryOpen}

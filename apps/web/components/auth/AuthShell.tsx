@@ -133,7 +133,8 @@ export const AuthButton = ({ loading, children, variant = 'primary', ...props }:
     <button
         {...props}
         disabled={loading || props.disabled}
-        aria-busy={loading || undefined}
+        // Not aria-busy: the global `button[aria-busy]` rule would add a second spinner next to this one
+        data-loading={loading || undefined}
         className={cn(
             'w-full h-12 rounded-full text-[15px] font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed',
             variant === 'primary'

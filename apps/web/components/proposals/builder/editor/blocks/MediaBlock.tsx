@@ -1,18 +1,20 @@
 "use client"
 
 import React from "react"
+import { ImageLookControls, ImageTint, imageLookStyle, type ImageLook } from "@/components/brandbook/editor/backgroundFill"
 import { Block } from "../types"
 import { cn } from "@/lib/utils"
 import { Trash2, Link as LinkIcon, Image as ImageIcon, Search, ArrowLeft, ArrowRight, X, Plus, Video, Mic, Grid, Play, Pause, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ImageToolbar } from "./ImageToolbar"
+import { ImageToolbar } from "@/components/brandbook/editor/blocks/ImageToolbar"
 import { EmptyBlockActions } from "./EmptyBlockActions"
 import { UploadAssetDialog } from "../UploadAssetDialog"
-import { MediaToolbar } from "../MediaToolbar"
+import { MediaToolbar } from "@/components/brandbook/editor/MediaToolbar"
 import { MediaSettingsPanel } from "../MediaSettingsPanel"
+import { FloatingPanel } from "@/components/brandbook/editor/FloatingPanel"
 import { VideoFocalGroup } from "./VideoFocalGroup"
 import { VideoSettingsPanel } from "./VideoSettingsPanel"
-import { AudioToolbar } from "./AudioToolbar"
+import { AudioToolbar } from "@/components/brandbook/editor/blocks/AudioToolbar"
 import { AudioSettingsPanel } from "./AudioSettingsPanel"
 import { AttachmentPopup } from "./AttachmentPopup"
 import { useBrandDesign } from "../BrandDesignContext"
@@ -564,12 +566,15 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                     <img loading="lazy" decoding="async"
                         src={url}
                         alt={caption || "Block Image"}
+                        // A box with a ratio or a height: the picture fills it and is cut evenly around its centre
                         className={cn(
                             "w-full h-auto object-cover",
-                            style?.aspectRatio && "h-full w-full absolute inset-0"
+                            (style?.aspectRatio || style?.height) && "h-full w-full absolute inset-0"
                         )}
-                        style={{ objectPosition: 'top' }}
+                        style={{ objectPosition: style?.objectPosition || 'center', ...imageLookStyle(style?.look) }}
                     />
+                    {/* Colour filter over the picture (Editar imagem → Cor do filtro) */}
+                    <ImageTint look={style?.look} />
                     {caption && <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white p-2 text-sm">{caption}</div>}
                 </div>
             )}
@@ -996,7 +1001,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                 !isReadOnly && (
                     <>
                         {!isSettingsOpen && (
-                            <div className="opacity-0 group-hover/media-filled:opacity-100 transition-opacity duration-200 z-[100] absolute top-0 left-0 w-full flex justify-center h-0">
+                            <div className={cn("opacity-0 group-hover/media-filled:opacity-100 transition-opacity duration-200 z-[100] absolute top-0 left-0 w-full flex justify-center h-0", isActive && "opacity-100")}>
                                 {block.type === 'video' ? (
                                     <div
                                         className="absolute -top-12 z-50"
@@ -1014,7 +1019,7 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 ) : (
                                     <MediaToolbar
                                         onUpload={() => setIsUploadOpen(true)}
-                                        onDelete={onDelete ? () => onDelete(block.id) : undefined}
+                                        onDelete={onDelete ? () => onDelete(block.id) : () => { }}
                                         onLink={handleLink}
                                         onSelect={() => onSelect?.(block.id)}
                                         onMoveUp={() => handleMove('up')}
@@ -1025,8 +1030,9 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                             </div>
                         )}
 
+                        {/* On the top layer next to the block: a panel inside the page is cut by the sheet edge */}
                         {isSettingsOpen && (
-                            <>
+                            <FloatingPanel placement="right-start" offset={16} panelProps={{ onClick: (e) => e.stopPropagation() }}>
                                 {block.type === 'video' ? (
                                     <VideoSettingsPanel
                                         onClose={() => setIsSettingsOpen(false)}
@@ -1034,15 +1040,13 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         onUpdate={handleSettingsUpdate}
                                     />
                                 ) : (
-                                    <div className="absolute top-12 left-1/2 -translate-x-1/2 z-[200]">
-                                        <MediaSettingsPanel
-                                            onClose={() => setIsSettingsOpen(false)}
-                                            settings={style || {}}
-                                            onUpdate={handleSettingsUpdate}
-                                        />
-                                    </div>
+                                    <MediaSettingsPanel
+                                        onClose={() => setIsSettingsOpen(false)}
+                                        settings={style || {}}
+                                        onUpdate={handleSettingsUpdate}
+                                    />
                                 )}
-                            </>
+                            </FloatingPanel>
                         )}
                     </>
                 )

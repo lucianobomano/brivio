@@ -38,6 +38,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { CustomDateRangePicker } from "@/components/ui/custom-date-range-picker"
 import { format, parseISO } from "date-fns"
 import { pt } from "date-fns/locale"
+import { useRouter } from "nextjs-toploader/app"
+import { Map as MapIcon, ListChecks, ArrowRight } from "lucide-react"
 
 
 interface Brand {
@@ -74,6 +76,9 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
     const { currencyCode } = useCurrency()
     const [step, setStep] = React.useState<Step>(1)
     const [isLoading, setIsLoading] = React.useState(false)
+    const router = useRouter()
+    // After «Lançar»: the next step (see the generated roadmap, or create it)
+    const [created, setCreated] = React.useState<{ id: string, name: string, roadmap: { stages: number, tasks: number, templateName: string } | null } | null>(null)
     const [brands, setBrands] = React.useState<Brand[]>([])
     const [workspaces, setWorkspaces] = React.useState<Workspace[]>([])
     const [isCreateBrandOpen, setIsCreateBrandOpen] = React.useState(false)
@@ -233,10 +238,10 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
                     tags: formattedTags
                 })
 
-                if (res.success) {
+                if (res.success && res.data) {
                     toast.success("Projeto criado com sucesso!")
                     onSuccess()
-                    handleClose()
+                    setCreated({ id: res.data.id, name: res.data.name, roadmap: ('roadmap' in res ? res.roadmap : null) ?? null })
                 } else {
                     toast.error(res.error || "Erro ao criar projeto")
                 }
@@ -250,6 +255,7 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
     }
 
     const handleClose = () => {
+        setCreated(null)
         setStep(1)
         setFormData({
             name: "",
@@ -353,7 +359,35 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
 
                 {/* Body Content: h=690px, padding lateral 40px, padding superior e inferior de 36px, bg color=#EFF0F2 */}
                 <div className="flex-1 overflow-y-auto px-[40px] py-[36px] bg-[#EFF0F2] dark:bg-[#15161B] custom-scrollbar">
-                    <AnimatePresence mode="wait">
+                    {created && (
+                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="h-full flex flex-col items-center justify-center text-center max-w-[560px] mx-auto">
+                            <div className="w-[72px] h-[72px] rounded-full bg-[#ff0054] text-white flex items-center justify-center mb-8 shadow-lg shadow-[#ff0054]/20">
+                                <CheckCircle2 className="w-9 h-9" />
+                            </div>
+                            <h3 className="text-[32px] font-medium text-zinc-900 dark:text-white">Projeto criado</h3>
+                            <p className="text-[18px] text-[#97A1B3] mt-3">«{created.name}» está pronto.</p>
+
+                            <div className="w-full mt-10 rounded-[8px] border border-[#ff0054]/40 bg-white dark:bg-[#191A1F] p-6 text-left">
+                                <span className="text-[12px] font-medium uppercase tracking-tight text-[#ff0054]">Próximo passo</span>
+                                {created.roadmap && created.roadmap.tasks > 0 ? (
+                                    <>
+                                        <h4 className="text-[20px] font-bold text-zinc-900 dark:text-white mt-2">O roadmap já foi gerado</h4>
+                                        <p className="text-[15px] text-[#97A1B3] mt-2 leading-relaxed">A partir do template «{created.roadmap.templateName}», o projeto começa com <b className="text-zinc-900 dark:text-white">{created.roadmap.stages} fases</b> e <b className="text-zinc-900 dark:text-white">{created.roadmap.tasks} tarefas</b>. Revê as datas, ajusta as fases e partilha-o com o cliente.</p>
+                                        <div className="mt-5 flex items-center gap-6 text-[14px] text-[#97A1B3]">
+                                            <span className="flex items-center gap-2"><MapIcon className="w-4 h-4 text-[#ff0054]" /> {created.roadmap.stages} fases</span>
+                                            <span className="flex items-center gap-2"><ListChecks className="w-4 h-4 text-[#ff0054]" /> {created.roadmap.tasks} tarefas</span>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <>
+                                        <h4 className="text-[20px] font-bold text-zinc-900 dark:text-white mt-2">Cria o roadmap do projeto</h4>
+                                        <p className="text-[15px] text-[#97A1B3] mt-2 leading-relaxed">Define as fases e as tarefas para acompanhares o progresso e partilhares o andamento com o cliente. Podes partir de um template de branding, editorial, naming e outros.</p>
+                                    </>
+                                )}
+                            </div>
+                        </motion.div>
+                    )}
+                    {!created && <AnimatePresence mode="wait">
                         {step === 1 && (
                             <motion.div
                                 key="step1"
@@ -771,11 +805,25 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
                                 </div>
                             </motion.div>
                         )}
-                    </AnimatePresence>
+                    </AnimatePresence>}
                 </div>
 
                 {/* Footer */}
                 <div className="px-[40px] h-[90px] bg-[#EFF0F2] dark:bg-[#15161B] border-t border-gray-100 dark:border-[#373737] flex items-center justify-between shrink-0">
+                    {created ? (
+                        <>
+                            <button onClick={handleClose} className="text-[#97A1B3] hover:text-zinc-900 dark:hover:text-white font-medium transition-colors">
+                                Fazer isto mais tarde
+                            </button>
+                            <button
+                                onClick={() => { const id = created.id; handleClose(); router.push(`/roadmap?projectId=${id}`) }}
+                                className="h-[45px] px-6 rounded-[4px] bg-[#ff0054] text-white text-[16px] font-bold transition-all active:scale-95 flex items-center justify-center gap-3"
+                            >
+                                {created.roadmap && created.roadmap.tasks > 0 ? 'Ver roadmap' : 'Criar roadmap'}
+                                <ArrowRight className="w-5 h-5" />
+                            </button>
+                        </>
+                    ) : (<>
                     <button
                         onClick={prevStep}
                         disabled={step === 1 || isLoading}
@@ -801,6 +849,7 @@ export function ProjectCreateModal({ isOpen, onClose, onSuccess, stages, workspa
                             <ChevronRight className="w-5 h-5" />
                         </button>
                     </div>
+                    </>)}
                 </div>
             </motion.div>
 

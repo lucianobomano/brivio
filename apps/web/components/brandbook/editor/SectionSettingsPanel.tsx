@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { uploadBrandbookMedia } from "@/app/actions/brandbook"
 import { SmoothColorInput } from "./SmoothColorInput"
+import { BorderControl, type BorderSettings } from "./BorderControl"
 import { TOP_BAR_CLEARANCE } from "./editorLayout"
 
 export interface GradientStop {
@@ -413,6 +414,10 @@ export interface SectionSettings {
     sectionMargin?: SectionSides
     /** Corner rounding (px): top = top-left, right = top-right, bottom = bottom-right, left = bottom-left */
     sectionRadius?: SectionSides
+    /** Border of the section, per side */
+    sectionBorder?: BorderSettings
+    /** 'fit': the section is as wide as its content (placed by the horizontal alignment) · 'fill'/none: full width */
+    widthMode?: 'fit' | 'fill'
 }
 
 export interface SectionSides {
@@ -552,15 +557,20 @@ interface SectionSettingsPanelProps {
     onUpdate: (newSettings: SectionSettings) => void
     onClose: () => void
     // Actions
-    onCut: () => void
-    onSaveAsComponent: () => void
+    // Cut / save as component / copy only show when the host editor supports them
+    onCut?: () => void
+    onSaveAsComponent?: () => void
     onDuplicate: () => void
-    onCopy: () => void
+    onCopy?: () => void
     onDelete: () => void
     initialTop?: number
     initialLeft?: number
     brandId: string
     moduleId: string
+    /** Another editor (proposals) stores section images its own way; default: the brandbook's media */
+    uploadImage?: (file: File) => Promise<{ success: boolean, url?: string, error?: string }>
+    /** Options the host editor can't render (proposals: no scroll effects nor free movement) */
+    hiddenFeatures?: Array<'scrollEffect' | 'freeFlow'>
 }
 
 export function SectionSettingsPanel({
@@ -575,7 +585,9 @@ export function SectionSettingsPanel({
     initialTop = 100,
     initialLeft = 100,
     brandId,
-    moduleId
+    moduleId,
+    uploadImage,
+    hiddenFeatures = []
 }: SectionSettingsPanelProps) {
     const [selectedTab, setSelectedTab] = useState<'image' | 'color' | 'gradient'>(settings?.backgroundType || 'color')
     const [isSectionCopied, setIsSectionCopied] = useState(false)
@@ -815,15 +827,19 @@ export function SectionSettingsPanel({
 
     const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
-        if (file && brandId) {
+        if (file && (brandId || uploadImage)) {
             setIsUploading(true)
             try {
-                const formData = new FormData()
-                formData.append('file', file)
-                formData.append('brandId', brandId)
-                formData.append('moduleId', moduleId)
-
-                const result = await uploadBrandbookMedia(formData)
+                let result: { success: boolean, url?: string, error?: string }
+                if (uploadImage) {
+                    result = await uploadImage(file)
+                } else {
+                    const formData = new FormData()
+                    formData.append('file', file)
+                    formData.append('brandId', brandId)
+                    formData.append('moduleId', moduleId)
+                    result = await uploadBrandbookMedia(formData)
+                }
                 if (result.success && result.url) {
                     setBackgroundImage(result.url)
                     emitUpdate({ backgroundImage: result.url })
@@ -1313,7 +1329,7 @@ export function SectionSettingsPanel({
                 </div>
 
                 {/* 2.58 Scroll effect */}
-                <div className="flex flex-col gap-2 mt-5">
+                {!hiddenFeatures.includes('scrollEffect') && <div className="flex flex-col gap-2 mt-5">
                     <Label className="mb-0 text-[#97A1B3]">Efeito de scroll</Label>
                     <div className="grid grid-cols-3 gap-1 bg-[#15161B] p-1 rounded-md">
                         {([['none', 'Nenhum'], ['rail', 'Faixa horizontal'], ['stages', 'Etapas fixas']] as const).map(([id, label]) => (
@@ -1341,7 +1357,7 @@ export function SectionSettingsPanel({
                             : scrollEffect === 'stages' ? 'A secção fica fixa e percorre os blocos da primeira coluna, um por ecrã. As outras colunas mostram o bloco da etapa atual (ex.: um texto por etapa à esquerda, uma imagem por etapa à direita). Veja em Preview.'
                                 : 'A secção desce normalmente.'}
                     </span>
-                </div>
+                </div>}
 
                 {/* 2.6 Altura Total */}
                 <div className="flex items-center justify-between mt-4">
@@ -1445,6 +1461,11 @@ export function SectionSettingsPanel({
                     value={settings?.sectionRadius}
                     onChange={(sectionRadius) => emitUpdate({ sectionRadius })}
                 />
+                <BorderControl
+                    label="Borda section"
+                    value={settings?.sectionBorder}
+                    onChange={(sectionBorder) => emitUpdate({ sectionBorder })}
+                />
 
                 {/* 3.6 Espaçamento entre colunas */}
                 <div className="flex flex-col gap-3 py-4 border-b border-[#333]">
@@ -1488,6 +1509,34 @@ export function SectionSettingsPanel({
 
                 {/* 8. Row Padding (Should also be disabled?) */}
                 {/* Skipping replace for now, need to target correctly. I will target up to line 568 first. */}
+
+                {/* 3.9 Largura: fit to content / fill the width */}
+                <div>
+                    <div className="flex justify-between items-center mb-3">
+                        <Label className="mb-0 text-[#97A1B3]">Largura</Label>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1 bg-[#15161B] rounded-[4px] p-1 mb-[6px]">
+                        {([
+                            { id: 'fit', label: 'Ajustar ao conteúdo', title: 'Fit to content — a secção tem só a largura do seu conteúdo' },
+                            { id: 'fill', label: 'Preencher', title: 'Fill container — a secção ocupa toda a largura disponível' },
+                        ] as const).map(option => {
+                            const active = (settings?.widthMode || 'fill') === option.id
+                            return (
+                                <button
+                                    key={option.id}
+                                    title={option.title}
+                                    onClick={() => emitUpdate({ widthMode: option.id })}
+                                    className={cn(
+                                        "h-[28px] rounded-[2px] text-[11px] font-medium transition-colors",
+                                        active ? "bg-[#FF0054] text-white" : "text-[#97A1B3] hover:text-white hover:bg-[#2A2B35]"
+                                    )}
+                                >
+                                    {option.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+                </div>
 
                 {/* 4. Altura */}
                 <div>
@@ -1669,7 +1718,7 @@ export function SectionSettingsPanel({
                     )}
 
                     {/* Movimento livre Toggle */}
-                    <div className={cn("flex items-center justify-between py-1", selectedCol !== 1 && "border-t border-[#333]/30 pt-2")}>
+                    {!hiddenFeatures.includes('freeFlow') && <div className={cn("flex items-center justify-between py-1", selectedCol !== 1 && "border-t border-[#333]/30 pt-2")}>
                         <Label className="mb-0 text-[#97A1B3]">Movimento livre</Label>
                         <button
                             type="button"
@@ -1685,7 +1734,7 @@ export function SectionSettingsPanel({
                                 isFreeFlow ? "translate-x-[22px]" : "translate-x-[2px]"
                             )} />
                         </button>
-                    </div>
+                    </div>}
                 </div>
 
                 {/* 8. Row Padding */}
@@ -1950,22 +1999,28 @@ export function SectionSettingsPanel({
 
             {/* Footer Toolbar */}
             < div className="h-[60px] border-t border-[#333] bg-[#15161B] flex items-center justify-around shrink-0" >
-                <button onClick={onCut} className="text-[#97A1B3] hover:text-white" title="Cortar Seção"><Scissors className="w-5 h-5" /></button>
-                <div className="w-[1px] h-[20px] bg-[#333]" />
-                <button onClick={onSaveAsComponent} className="text-[#97A1B3] hover:text-white" title="Salvar como Componente"><LayoutGrid className="w-5 h-5" /></button>
-                <div className="w-[1px] h-[20px] bg-[#333]" />
-                <button
-                    onClick={() => {
-                        onCopy()
-                        setIsSectionCopied(true)
-                        setTimeout(() => setIsSectionCopied(false), 2000)
-                    }}
-                    className={cn("transition-colors", isSectionCopied ? "text-green-400" : "text-[#97A1B3] hover:text-white")}
-                    title={isSectionCopied ? "Seção copiada!" : "Copiar Seção"}
-                >
-                    {isSectionCopied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
-                </button>
-                <div className="w-[1px] h-[20px] bg-[#333]" />
+                {onCut && <>
+                    <button onClick={onCut} className="text-[#97A1B3] hover:text-white" title="Cortar Seção"><Scissors className="w-5 h-5" /></button>
+                    <div className="w-[1px] h-[20px] bg-[#333]" />
+                </>}
+                {onSaveAsComponent && <>
+                    <button onClick={onSaveAsComponent} className="text-[#97A1B3] hover:text-white" title="Salvar como Componente"><LayoutGrid className="w-5 h-5" /></button>
+                    <div className="w-[1px] h-[20px] bg-[#333]" />
+                </>}
+                {onCopy && <>
+                    <button
+                        onClick={() => {
+                            onCopy()
+                            setIsSectionCopied(true)
+                            setTimeout(() => setIsSectionCopied(false), 2000)
+                        }}
+                        className={cn("transition-colors", isSectionCopied ? "text-green-400" : "text-[#97A1B3] hover:text-white")}
+                        title={isSectionCopied ? "Seção copiada!" : "Copiar Seção"}
+                    >
+                        {isSectionCopied ? <Check className="w-5 h-5 text-green-400" /> : <Copy className="w-5 h-5" />}
+                    </button>
+                    <div className="w-[1px] h-[20px] bg-[#333]" />
+                </>}
                 <button onClick={onDuplicate} className="text-[#97A1B3] hover:text-white" title="Duplicar Seção"><RotateCcw className="w-5 h-5" /></button>
                 <div className="w-[1px] h-[20px] bg-[#333]" />
                 <button onClick={onDelete} className="text-[#97A1B3] hover:text-[#FF0054]" title="Deletar Seção"><Trash2 className="w-5 h-5" /></button>

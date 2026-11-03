@@ -297,6 +297,19 @@ export function ProjectsClient({ initialProjects, initialStages, workspaceId, in
     const [selectedDateForProject, setSelectedDateForProject] = React.useState<string | undefined>(undefined)
     const [isSettingsOpen, setIsSettingsOpen] = React.useState(false)
 
+    // Direct link to a project tab (e.g. from Finanças: ?project=<id>&tab=cobrancas), opened once the projects are here
+    const deepLinkDone = React.useRef(false)
+    React.useEffect(() => {
+        if (deepLinkDone.current) return
+        const id = searchParams.get("project")
+        if (!id) { deepLinkDone.current = true; return }
+        const found = projects.find(p => p.id === id)
+        if (!found) return
+        deepLinkDone.current = true
+        setActiveProject(found)
+        setActiveProjectTab(searchParams.get("tab") || "overview")
+    }, [projects, searchParams])
+
     // Sync state with props when router refreshes
     React.useEffect(() => {
         setProjects(initialProjects)

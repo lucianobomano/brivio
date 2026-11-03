@@ -23,7 +23,9 @@ import {
     SeparatorVertical,
     Images,
     GalleryHorizontal,
-    PanelLeft
+    PanelLeft,
+    ClipboardPaste,
+    X as XIcon
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -32,6 +34,10 @@ interface AddSectionDialogProps {
     onOpenChange: (open: boolean) => void
     onSelectBlock: (type: string, variant?: string) => void
     title?: string
+    /** Puts the copied (or cut) section here */
+    onPaste?: () => void
+    hasClipboard?: boolean
+    onClearClipboard?: () => void
 }
 
 const SECTION_CATEGORIES = [
@@ -80,12 +86,13 @@ const BLOCK_OPTIONS: Record<string, { id: string, label: string, icon: any, type
     ]
 }
 
-export function AddSectionDialog({ isOpen, onOpenChange, onSelectBlock, title }: AddSectionDialogProps) {
+export function AddSectionDialog({ isOpen, onOpenChange, onSelectBlock, title, onPaste, hasClipboard, onClearClipboard }: AddSectionDialogProps) {
+    const canPaste = !!(hasClipboard && onPaste)
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             {/* Added [&>button]:hidden to remove default close icon */}
-            <DialogContent className="max-w-[732px] h-[335px] p-0 bg-[#15161B] border-none text-white overflow-hidden shadow-2xl gap-0 [&>button]:hidden flex flex-col">
-                <DialogDescription className="sr-only">Add a new section to your brandbook</DialogDescription>
+            <DialogContent className={cn("max-w-[732px] p-0", canPaste ? "h-[405px]" : "h-[335px]", "bg-[#15161B] border-none text-white overflow-hidden shadow-2xl gap-0 [&>button]:hidden flex flex-col")}>
+                <DialogDescription className="sr-only">Adicionar uma secção à página da proposta</DialogDescription>
                 {/* 1. Custom Header: 60px height, #FF0054 bg, 30px padding */}
                 <div className="bg-[#FF0054] h-[60px] px-[30px] flex items-center justify-between shrink-0">
                     <DialogTitle className="text-xl font-bold text-white">{title || "Add Section"}</DialogTitle>
@@ -94,6 +101,26 @@ export function AddSectionDialog({ isOpen, onOpenChange, onSelectBlock, title }:
                         <div className="bg-white rounded-full w-[20px] h-[20px]" />
                     </DialogClose>
                 </div>
+
+                {/* Paste the copied / cut section */}
+                {canPaste && (
+                    <div className="px-[30px] pt-[20px] flex gap-2 shrink-0">
+                        <button
+                            onClick={() => { onPaste!(); onOpenChange(false) }}
+                            className="flex-1 bg-[#1A1A20] border border-dashed border-[#FF0054]/50 rounded-[5px] h-[50px] flex items-center justify-center gap-3 hover:bg-[#2A2A35] transition-all text-[#FF0054] font-semibold"
+                        >
+                            <ClipboardPaste className="w-5 h-5" />
+                            <span>Colar a secção copiada</span>
+                        </button>
+                        <button
+                            onClick={() => onClearClipboard?.()}
+                            className="w-[50px] h-[50px] bg-[#1A1A20] border border-[#333] rounded-[5px] flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#2A2A35] transition-all"
+                            title="Esquecer a secção copiada"
+                        >
+                            <XIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
 
                 {/* Tabs Content - Fill remaining height */}
                 <div className="flex flex-col flex-1 overflow-hidden">

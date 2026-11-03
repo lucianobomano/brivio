@@ -54,6 +54,33 @@ export interface ShareSettings {
 
 // --- ACTIONS ---
 
+export interface FolderPreview {
+    /** Files and subfolders right inside the folder */
+    count: number
+    /** The newest files (up to 4), for the sheets of the glass folders */
+    files: { name: string, type: string, url: string | null }[]
+}
+
+/** What is inside several folders at once (one query for files, one for subfolders); RLS limits it to the user's folders */
+export async function getFolderPreviews(folderIds: string[]): Promise<Record<string, FolderPreview>> {
+    const ids = [...new Set(folderIds)].filter(id => /^[0-9a-f-]{36}$/i.test(id)).slice(0, 200)
+    if (!ids.length) return {}
+    const supabase = await createClient()
+    const [{ data: files }, { data: subfolders }] = await Promise.all([
+        supabase.from("assets").select("folder_id, name, type, file_url, thumbnail_url, created_at").in("folder_id", ids).is("deleted_at", null).order("created_at", { ascending: false }).limit(2000),
+        supabase.from("asset_folders").select("parent_id").in("parent_id", ids).is("deleted_at", null).limit(2000),
+    ])
+    const out: Record<string, FolderPreview> = Object.fromEntries(ids.map(id => [id, { count: 0, files: [] }]))
+    for (const f of files || []) {
+        const p = out[f.folder_id as string]
+        if (!p) continue
+        p.count++
+        if (p.files.length < 4) p.files.push({ name: f.name, type: f.type, url: (f.thumbnail_url || f.file_url) ?? null })
+    }
+    for (const sf of subfolders || []) { const p = out[sf.parent_id as string]; if (p) p.count++ }
+    return out
+}
+
 export async function getAssets(scope: { brandId?: string, workspaceId?: string }, folderId?: string) {
     const supabase = await createClient()
     const { brandId, workspaceId } = scope

@@ -1,5 +1,7 @@
 "use client"
 
+import { GlassFolderThumb, useFolderPreviews } from "@/components/assets/GlassFolderThumb"
+import { useFolderStyle } from "@/lib/hooks/use-folder-style"
 import React, { useState, useEffect } from "react"
 import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import {
@@ -66,7 +68,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { AnimatePresence, motion } from "framer-motion"
 import { Toaster, toast } from "sonner"
 import { CustomDatePicker } from "../brandbook/editor/CustomDatePicker"
-// PERFORMANCE: jszip is only needed when downloading, so it is loaded on demand
+// PERFORMANCE: jszip is only needed when downloading, so it is loaded on demand
 const loadJSZip = () => import("jszip").then(m => m.default)
 import { format } from "date-fns"
 import {
@@ -89,6 +91,10 @@ interface AssetLibraryProps {
 export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brandName = "Assets", initialFolderId }: AssetLibraryProps) {
     const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined)
     const [folders, setFolders] = useState<AssetFolder[]>([]) // Current view folders (flat list for grid)
+    // Folder style picked in the Asset Hub (classic icon or a glass folder) and what each folder holds
+    const { style: folderStyle } = useFolderStyle()
+    const glassFolders = folderStyle !== "classic"
+    const folderPreviews = useFolderPreviews(folders.map(f => f.id), glassFolders)
     const [assets, setAssets] = useState<Asset[]>([])
     const [breadcrumbs, setBreadcrumbs] = useState<AssetFolder[]>([])
     const [allFolders, setAllFolders] = useState<AssetFolder[]>([]) // For sidebar tree
@@ -986,7 +992,7 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
                                 {folders.length > 0 && (
                                     <div className="w-full mb-8">
                                         <h4 className="text-[12px] font-bold text-[#444] uppercase tracking-wider mb-4 px-1">Folders</h4>
-                                        <div className="grid grid-cols-4 gap-4">
+                                        <div className={glassFolders ? "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4" : "grid grid-cols-4 gap-4"}>
                                             {folders.map(folder => {
                                                 const isSelected = selectedFolderIds.has(folder.id)
                                                 const isSelectionMode = selectedFolderIds.size > 0 || selectedAssetIds.size > 0
@@ -999,7 +1005,9 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
                                                             else setCurrentFolderId(folder.id)
                                                         }}
                                                         className={cn(
-                                                            "bg-[#1a1a1a] rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all group/folder border h-[88px]",
+                                                            glassFolders
+                                                                ? "relative rounded-xl pt-6 pb-2 px-2 flex items-center justify-center cursor-pointer transition-all group/folder border bg-white/[0.02]"
+                                                                : "bg-[#1a1a1a] rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all group/folder border h-[88px]",
                                                             isSelected
                                                                 ? "border-[#ff0054] border-[3px]"
                                                                 : isSelectionMode
@@ -1007,7 +1015,10 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
                                                                     : "border-transparent hover:bg-[#222] hover:border-[#333]"
                                                         )}
                                                     >
-                                                        <div className="flex items-center gap-3 overflow-hidden">
+                                                        {glassFolders && (
+                                                            <GlassFolderThumb id={folder.id} name={folder.name} style={folderStyle as Exclude<typeof folderStyle, "classic">} preview={folderPreviews[folder.id]} />
+                                                        )}
+                                                        <div className={glassFolders ? "absolute top-2 left-2 z-10 flex items-center [&>span]:hidden" : "flex items-center gap-3 overflow-hidden"}>
                                                             <div
                                                                 className="shrink-0"
                                                                 onClick={(e) => {
@@ -1034,7 +1045,7 @@ export function AssetLibraryModal({ isOpen, onClose, brandId, workspaceId, brand
                                                                 {folder.name}
                                                             </span>
                                                         </div>
-                                                        <div onClick={(e) => e.stopPropagation()}>
+                                                        <div onClick={(e) => e.stopPropagation()} className={glassFolders ? "absolute top-2 right-2 z-10" : undefined}>
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
                                                                     <button

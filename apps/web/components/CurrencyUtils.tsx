@@ -3,9 +3,16 @@
 import * as React from "react"
 import { useWorkspace } from "./providers/WorkspaceProvider"
 
+/** Pages outside the app (e.g. a proposal shared with a client) have no workspace loaded: they set the currency here */
+const CurrencyOverride = React.createContext<string | null>(null)
+export function CurrencyProvider({ currency, children }: { currency: string, children: React.ReactNode }) {
+    return <CurrencyOverride.Provider value={currency}>{children}</CurrencyOverride.Provider>
+}
+
 export function useCurrency() {
     const { workspace } = useWorkspace()
-    const currencyCode = workspace?.default_currency || "EUR"
+    const override = React.useContext(CurrencyOverride)
+    const currencyCode = override || workspace?.default_currency || "EUR"
 
     const formatPrice = React.useCallback((amount: number | string) => {
         const value = typeof amount === 'string' ? parseFloat(amount.replace(',', '.')) : amount

@@ -37,6 +37,8 @@ interface ClientRoadmapViewProps {
     initialBg?: string
     initialNotes?: any[]
     initialMeetings?: any[]
+    /** The client's real name (brand, or the name on the project's invoices) */
+    clientName?: string | null
 }
 
 type LayoutStyle = 'default' | 'numbered' | 'minimal' | 'cards' | 'timeline' | JourneyLayoutStyle
@@ -51,10 +53,10 @@ const LAYOUT_OPTIONS: { id: LayoutStyle; name: string; icon: string; description
     { id: 'minimal', name: 'Minimal', icon: '✨', description: 'Design clean' },
     { id: 'cards', name: 'Cards', icon: '🃏', description: 'Glassmorphism' },
     { id: 'timeline', name: 'Horizontal', icon: '⏳', description: 'Linha do tempo' },
-    { id: 'winding-road', name: 'Estrada', icon: '🛣️', description: 'Percurso sinuoso' },
-    { id: 'angular-path', name: 'Angular', icon: '🚩', description: 'Caminho com viragens' },
-    { id: 'ribbon-path', name: 'Fita', icon: '🎗️', description: 'Percurso fluido' },
-    { id: 'stair-path', name: 'Escadaria', icon: '🪜', description: 'Evolução por níveis' },
+    { id: 'winding-road', name: 'Percurso', icon: '', description: 'Passos na horizontal' },
+    { id: 'angular-path', name: 'Marcos', icon: '', description: 'Linha do tempo vertical' },
+    { id: 'ribbon-path', name: 'Faixas', icon: '', description: 'Uma faixa por fase' },
+    { id: 'stair-path', name: 'Cascata', icon: '', description: 'Fases em escada' },
 ]
 
 const formatDate = (dateStr: string | null | undefined) => {
@@ -104,6 +106,7 @@ const getRelativeTimelineString = (stage: any, projectStartDateStr: string | nul
 
 export function ClientRoadmapView({
     project,
+    clientName,
     roadmap,
     globalProgress,
     currentPhaseName,
@@ -255,7 +258,7 @@ export function ClientRoadmapView({
 
                     <h1 className="text-[42px] md:text-[56px] font-bold tracking-tight mb-6 leading-[1.1]">
                         <span className="bg-gradient-to-r from-[#1D1D1F] via-[#3d3d3f] to-[#1D1D1F] bg-clip-text text-transparent">
-                            Olá. {brand?.name || "Cliente"}
+                            {clientName ? `Olá, ${clientName}.` : "Olá."}
                         </span>
                         <br />
                         <span className="text-[#86868B] text-[32px] md:text-[42px]">Acompanhe o progresso em tempo real.</span>

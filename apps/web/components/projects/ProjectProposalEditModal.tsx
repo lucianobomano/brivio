@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Project } from "./ProjectsClient"
 import { motion, AnimatePresence } from "framer-motion"
-import { Plus, ChevronRight, Trash2, ArrowLeft, ArrowRight, Check } from "lucide-react"
+import { Plus, ChevronRight, Trash2, ArrowLeft, ArrowRight, Check , LayoutTemplate } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getProposalTemplates, updateProposal, saveProposalTemplate } from "@/app/actions/proposals"
 import { toast } from "sonner"
@@ -52,8 +52,8 @@ export function ProjectProposalEditModal({ isOpen, onClose, project, proposal }:
         if (isOpen && proposal) {
             setFormData({
                 id: proposal.id,
-                client_name: (project as any)?.brand_name || "Cliente",
-                client_email: (project as any)?.brand_email || "cliente@email.com",
+                client_name: proposal.brand_name || (project as any)?.brand?.name || "",
+                client_email: "",
                 project_name: proposal.project_name || project?.name || "",
                 proposal_id: proposal.identifier,
                 cover_image: proposal.cover_image || "",
@@ -281,10 +281,12 @@ export function ProjectProposalEditModal({ isOpen, onClose, project, proposal }:
                                         <label className="text-[14px] font-bold text-white uppercase tracking-tight">Cliente</label>
                                     </div>
                                     <div className="flex-1 flex items-center gap-4">
-                                        <div className="w-16 h-16 rounded-full bg-[#D9D9D9] shrink-0" />
+                                        <div className="w-16 h-16 rounded-full bg-[#2A2B32] text-white text-[20px] font-bold flex items-center justify-center shrink-0">
+                                            {(formData.client_name || "?").charAt(0).toUpperCase()}
+                                        </div>
                                         <div className="space-y-1">
-                                            <p className="text-[16px] font-bold text-white">{formData.client_name}</p>
-                                            <p className="text-[14px] text-[#97A1B3]">{formData.client_email}</p>
+                                            <p className="text-[16px] font-bold text-white">{formData.client_name || "Sem cliente associado"}</p>
+                                            {formData.client_email && <p className="text-[14px] text-[#97A1B3]">{formData.client_email}</p>}
                                         </div>
                                     </div>
                                 </div>
@@ -377,7 +379,7 @@ export function ProjectProposalEditModal({ isOpen, onClose, project, proposal }:
                                     <div className="w-[30%] space-y-2">
                                         <label className="text-[14px] font-bold text-white uppercase tracking-tight">Prazo de validade (opcional)</label>
                                         <p className="text-[11px] text-[#97A1B3] leading-relaxed">
-                                            Quantidade de dias úteis para a proposta perder a validade. Após o período, a proposta será arquivada automaticamente.
+                                            Quantidade de dias úteis, a contar da criação, em que a proposta é válida. Depois desse prazo, uma proposta enviada passa a aparecer como expirada.
                                         </p>
                                     </div>
                                     <div className="flex-1 flex items-end gap-10">
@@ -725,11 +727,22 @@ export function ProjectProposalEditModal({ isOpen, onClose, project, proposal }:
                                         >
                                             {/* Background Image */}
                                             <div className="absolute inset-0">
-                                                <img loading="lazy" decoding="async"
-                                                    src={template.preview_image}
-                                                    alt={template.name}
-                                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                                                />
+                                                {template.preview_image ? (
+                                                    <img loading="lazy" decoding="async"
+                                                        src={template.preview_image}
+                                                        alt={template.name}
+                                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                                    />
+                                                ) : (
+                                                    // A template saved by the team (Guardar como template): no picture, its own card
+                                                    <div className="w-full h-full bg-[radial-gradient(circle_at_30%_20%,#EF0050_0%,transparent_45%),radial-gradient(circle_at_80%_70%,#390099_0%,transparent_50%),#111116] flex items-center justify-center transition-transform duration-700 group-hover:scale-110">
+                                                        <div className="flex flex-col items-center gap-3 text-white/80">
+                                                            <LayoutTemplate className="w-14 h-14" strokeWidth={1.2} />
+                                                            <span className="text-[11px] font-bold uppercase tracking-[0.25em]">Template da equipa</span>
+                                                            {template.page_count ? <span className="text-[12px] text-white/50">{template.page_count} páginas</span> : null}
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/20 to-black/90" />
                                             </div>
 
@@ -804,7 +817,7 @@ export function ProjectProposalEditModal({ isOpen, onClose, project, proposal }:
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-[24px] font-bold text-white uppercase tracking-tight">{template.name}</p>
-                                                        <p className="text-[14px] text-white/60">Template de proposta comercial</p>
+                                                        <p className="text-[14px] text-white/60 line-clamp-2">{template.workspace_id ? (template.description || `Template da equipa · ${template.page_count ?? "?"} páginas`) : "Template de proposta comercial"}</p>
                                                     </div>
                                                 </div>
                                             </div>

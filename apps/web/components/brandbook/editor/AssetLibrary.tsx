@@ -1,5 +1,8 @@
 "use client"
 
+import { DeleteConfirmationModal } from "./DeleteConfirmationModal"
+import { GlassFolderThumb, useFolderPreviews } from "@/components/assets/GlassFolderThumb"
+import { useFolderStyle } from "@/lib/hooks/use-folder-style"
 import React, { useState, useEffect } from "react"
 import { useAsyncAction } from "@/lib/hooks/use-async-action"
 import {
@@ -94,6 +97,10 @@ interface AssetLibraryProps {
 export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Assets" }: AssetLibraryProps) {
     const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined)
     const [folders, setFolders] = useState<AssetFolder[]>([]) // Current view folders (flat list for grid)
+    // Folder style picked in the Asset Hub (classic icon or a glass folder) and what each folder holds
+    const { style: folderStyle } = useFolderStyle()
+    const glassFolders = folderStyle !== "classic"
+    const folderPreviews = useFolderPreviews(folders.map(f => f.id), glassFolders)
     const [assets, setAssets] = useState<Asset[]>([])
     const [breadcrumbs, setBreadcrumbs] = useState<AssetFolder[]>([])
     const [allFolders, setAllFolders] = useState<AssetFolder[]>([]) // For sidebar tree
@@ -672,8 +679,10 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
         }
     }
 
-    const handlePermanentDelete = async (id: string, type: 'asset' | 'folder') => {
-        if (!confirm(`Tem certeza que deseja excluir este ${type === 'asset' ? 'arquivo' : 'pasta'} permanentemente? Esta ação não pode ser desfeita.`)) return
+    // Deleting for good asks first, in the app's own dialog
+    const [permanentToDelete, setPermanentToDelete] = useState<{ id: string, type: 'asset' | 'folder' } | null>(null)
+    const handlePermanentDelete = (id: string, type: 'asset' | 'folder') => setPermanentToDelete({ id, type })
+    const performPermanentDelete = async (id: string, type: 'asset' | 'folder') => {
 
         const res = await permanentlyDeleteItem(id, type)
         if (res.success) {
@@ -1019,7 +1028,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                 {folders.length > 0 && (
                                     <div className="w-full mb-8">
                                         <h4 className="text-[12px] font-bold text-[#444] uppercase tracking-wider mb-4 px-1">Folders</h4>
-                                        <div className="grid grid-cols-4 gap-4">
+                                        <div className={glassFolders ? "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4" : "grid grid-cols-4 gap-4"}>
                                             {folders.map(folder => {
                                                 const isSelected = selectedFolderIds.has(folder.id)
                                                 const isSelectionMode = selectedFolderIds.size > 0 || selectedAssetIds.size > 0
@@ -1032,7 +1041,9 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                             else setCurrentFolderId(folder.id)
                                                         }}
                                                         className={cn(
-                                                            "bg-[#1a1a1a] rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all group/folder border h-[88px]",
+                                                            glassFolders
+                                                                ? "relative rounded-xl pt-6 pb-2 px-2 flex items-center justify-center cursor-pointer transition-all group/folder border bg-white/[0.02]"
+                                                                : "bg-[#1a1a1a] rounded-xl p-4 flex items-center justify-between cursor-pointer transition-all group/folder border h-[88px]",
                                                             isSelected
                                                                 ? "border-[#ff0054] border-[3px]"
                                                                 : isSelectionMode
@@ -1040,7 +1051,10 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                     : "border-transparent hover:bg-[#222] hover:border-[#333]"
                                                         )}
                                                     >
-                                                        <div className="flex items-center gap-3 overflow-hidden">
+                                                        {glassFolders && (
+                                                            <GlassFolderThumb id={folder.id} name={folder.name} style={folderStyle as Exclude<typeof folderStyle, "classic">} preview={folderPreviews[folder.id]} />
+                                                        )}
+                                                        <div className={glassFolders ? "absolute top-2 left-2 z-10 flex items-center [&>span]:hidden" : "flex items-center gap-3 overflow-hidden"}>
                                                             <div
                                                                 className="shrink-0"
                                                                 onClick={(e) => {
@@ -1072,7 +1086,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        <div onClick={(e) => e.stopPropagation()}>
+                                                        <div onClick={(e) => e.stopPropagation()} className={glassFolders ? "absolute top-2 right-2 z-10" : undefined}>
                                                             <DropdownMenu>
                                                                 <DropdownMenuTrigger asChild>
                                                                     <button
@@ -1539,6 +1553,16 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                             )
                         }
                     </AnimatePresence >
+
+                    {/* Delete for good (Lixo): the app's own dialog */}
+                    <DeleteConfirmationModal
+                        isOpen={!!permanentToDelete}
+                        onClose={() => setPermanentToDelete(null)}
+                        onConfirm={() => permanentToDelete ? performPermanentDelete(permanentToDelete.id, permanentToDelete.type) : undefined}
+                        title={permanentToDelete?.type === "folder" ? "Eliminar pasta permanentemente" : "Eliminar ficheiro permanentemente"}
+                        message={permanentToDelete?.type === "folder" ? "Esta pasta e tudo o que tem dentro serão eliminados para sempre. Esta ação não pode ser desfeita." : "Este ficheiro será eliminado para sempre. Esta ação não pode ser desfeita."}
+                        confirmLabel="Eliminar para sempre"
+                    />
 
                     {/* Delete Confirmation Modal */}
                     <AnimatePresence>

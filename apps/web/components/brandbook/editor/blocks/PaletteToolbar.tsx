@@ -1,3 +1,4 @@
+import { CollapsibleBar } from "../CollapsibleBar"
 import React, { useState } from "react"
 import { Plus, Copy, Trash2, ArrowUp, ArrowDown, Settings, Zap, RotateCcw, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -14,7 +15,7 @@ interface PaletteToolbarProps {
     className?: string
 }
 
-export const PaletteToolbar = ({
+const PaletteToolbarBar = ({
     onAddColor,
     onDelete,
     onDuplicate,
@@ -117,3 +118,8 @@ export const PaletteToolbar = ({
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const PaletteToolbar = (props: React.ComponentProps<typeof PaletteToolbarBar>) => (
+    <CollapsibleBar><PaletteToolbarBar {...props} /></CollapsibleBar>
+)

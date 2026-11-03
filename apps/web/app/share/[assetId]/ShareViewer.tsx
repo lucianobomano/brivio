@@ -1,8 +1,10 @@
 "use client"
 
+import type { FolderPreview } from "@/app/actions/assets"
+import { GlassFolderThumb } from "@/components/assets/GlassFolderThumb"
 import { useState } from "react"
 import { useRouter } from "nextjs-toploader/app"
-// PERFORMANCE: jszip is only needed when downloading, so it is loaded on demand
+// PERFORMANCE: jszip is only needed when downloading, so it is loaded on demand
 const loadJSZip = () => import("jszip").then(m => m.default)
 import { getPublicSharedItem, verifySharedItemPasscode, getAllFolderContentsRecursive, type Asset, type AssetFolder } from "@/app/actions/assets"
 import { LockKeyhole, File as FileIcon, Download, AlertCircle, Folder, MoreHorizontal, ArrowDownAZ, ChevronRight, Loader2, Check, Minus, X, Key, Clock } from "lucide-react"
@@ -102,11 +104,15 @@ interface ShareViewerProps {
     initialError?: string
     initialType?: 'asset' | 'folder'
     initialChildren?: (Asset | (AssetFolder & { file_url: null }))[]
+    /** Folder style the owner picked in their Asset Hub, and what the shared folders hold */
+    folderStyle?: string | null
+    folderPreviews?: Record<string, FolderPreview>
     initialBreadcrumbs?: { id: string; name: string }[]
     expirationDate?: string
 }
 
-export function ShareViewer({ assetId, initialAsset, isProtected, initialError, initialType = 'asset', initialChildren = [], initialBreadcrumbs = [], expirationDate: initialExpirationDate }: ShareViewerProps) {
+export function ShareViewer({ assetId, initialAsset, isProtected, initialError, initialType = 'asset', initialChildren = [], initialBreadcrumbs = [], expirationDate: initialExpirationDate, folderStyle: ownerFolderStyle, folderPreviews: sharedPreviews = {} }: ShareViewerProps) {
+    const shareGlass = ownerFolderStyle === "milk" || ownerFolderStyle === "archive" || ownerFolderStyle === "smoked" ? ownerFolderStyle : null
     const [asset, setAsset] = useState(initialAsset)
     const [expirationDate] = useState(initialExpirationDate)
     const [passcode, setPasscode] = useState("")
@@ -494,7 +500,9 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                                                 router.push(`/share/${f.id}`)
                                             }}
                                             className={cn(
-                                                "relative flex items-center justify-between p-4 bg-[#F7F8FA] rounded-xl cursor-pointer transition-all group border h-[88px]",
+                                                shareGlass
+                                                    ? "relative flex items-center justify-center pt-7 pb-2 px-2 bg-[#F7F8FA] rounded-xl cursor-pointer transition-all group border"
+                                                    : "relative flex items-center justify-between p-4 bg-[#F7F8FA] rounded-xl cursor-pointer transition-all group border h-[88px]",
                                                 isSelected
                                                     ? "border-[#ff0054] border-[2px] bg-[#ff0054]/5"
                                                     : isSelectionMode
@@ -502,7 +510,8 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                                                         : "border-transparent hover:border-gray-300 hover:bg-gray-200/70"
                                             )}
                                         >
-                                            <div className="flex items-center gap-3 overflow-hidden flex-1">
+                                            {shareGlass && <GlassFolderThumb id={f.id} name={f.name} style={shareGlass} preview={sharedPreviews[f.id]} />}
+                                            <div className={shareGlass ? "absolute top-2 left-2 z-10 flex items-center [&>span]:hidden" : "flex items-center gap-3 overflow-hidden flex-1"}>
                                                 <div
                                                     className="shrink-0"
                                                     onClick={(e) => {
@@ -533,6 +542,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                                             {/* More menu button */}
                                             {!isSelectionMode && (
                                                 <button
+                                                    data-glass={shareGlass ? "" : undefined}
                                                     onClick={(e) => {
                                                         e.stopPropagation()
                                                         setOpenFolderMenu(openFolderMenu === f.id ? null : f.id)

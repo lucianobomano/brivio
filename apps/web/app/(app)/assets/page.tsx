@@ -20,5 +20,8 @@ export default async function AssetsPage() {
         ? { workspaceId: workspace.id, folders: result.folders || [], assets: result.assets || [] }
         : null
 
-    return <AssetsClient initialData={initialData} />
+    // The folder style the user picked (kept in their account), so the page is drawn with it straight away
+    const initialFolderStyle = (user.user_metadata as { asset_folder_style?: string } | undefined)?.asset_folder_style ?? null
+
+    return <AssetsClient initialData={initialData} initialFolderStyle={initialFolderStyle} />
 }

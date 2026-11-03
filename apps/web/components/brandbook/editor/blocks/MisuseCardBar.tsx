@@ -1,5 +1,6 @@
 "use client"
 
+import { CollapsibleBar } from "../CollapsibleBar"
 import React, { useRef } from "react"
 import { ArrowLeft, ArrowRight, Check, CopyPlus, ImageOff, RotateCcw, SlidersHorizontal, Trash2, Upload, X } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -43,7 +44,7 @@ const Swatch = ({ title, value, onChange }: { title: string, value: string, onCh
 )
 
 /** Context bar of one card: kind, what it shows, its colours, its own look, order, duplicate, delete */
-export const MisuseCardBar = ({ card, index, count, s, open, onOpenChange, onChange, onMove, onDuplicate, onDelete, onUpload }: Props) => {
+const MisuseCardBarBar = ({ card, index, count, s, open, onOpenChange, onChange, onMove, onDuplicate, onDelete, onUpload }: Props) => {
     const fileRef = useRef<HTMLInputElement>(null)
     const style = card.style || {}
     const setStyle = (patch: Partial<MisuseCardStyle>) => onChange({ style: { ...style, ...patch } })
@@ -148,3 +149,8 @@ export const MisuseCardBar = ({ card, index, count, s, open, onOpenChange, onCha
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const MisuseCardBar = (props: React.ComponentProps<typeof MisuseCardBarBar>) => (
+    <CollapsibleBar><MisuseCardBarBar {...props} /></CollapsibleBar>
+)

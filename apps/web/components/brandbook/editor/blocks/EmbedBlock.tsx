@@ -217,7 +217,7 @@ export const EmbedBlock = ({ block, isReadOnly, onUpdate, onAnimate, onSelect, a
         >
             <div
                 className={cn(
-                    "mb-4 group/block relative w-full",
+                    "group/block relative w-full",
                     activeBlockId === block.id && "z-50"
                 )}
                 onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}

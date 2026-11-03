@@ -1,8 +1,7 @@
-import { StandupHeader } from "@/components/standups/StandupHeader"
 import { getCurrentUser } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import { RoadmapClient } from "./RoadmapClient"
-import { getProjectRoadmap, RoadmapStage } from "@/app/actions/roadmap"
+import { getProjectRoadmap, getRoadmapsSummary, RoadmapStage } from "@/app/actions/roadmap"
 import { getProjectOptions } from "@/app/actions/projects"
 import { getProjectNotes } from "@/app/actions/notes"
 import { getProjectMeetings } from "@/app/actions/meetings"
@@ -38,6 +37,9 @@ export default async function RoadmapPage({
         params.projectId ? fetchProjectData(params.projectId) : Promise.resolve(null),
     ])
 
+    // Summary of every roadmap for the table (the detail opens in a full-screen modal)
+    const summariesPromise = getRoadmapsSummary(projects.map(p => p.id))
+
     // Select the first project if none specified
     const selectedProjectId = params.projectId || (projects.length > 0 ? projects[0].id : null)
 
@@ -60,21 +62,17 @@ export default async function RoadmapPage({
         avatar: user.user_metadata?.avatar_url,
     }
 
+    // The page draws its own shell (side menu + breadcrumb bar), like Projects
     return (
-        <>
-            <div className="flex flex-col min-h-screen bg-bg-0">
-                <StandupHeader />
-                <div className="flex-1">
-                    <RoadmapClient
-                        initialProjects={projects}
-                        initialRoadmap={roadmapData}
-                        selectedProjectId={selectedProjectId}
-                        selectedProject={selectedProject}
-                        initialNotes={initialNotes}
-                        initialMeetings={initialMeetings}
-                    />
-                </div>
-            </div>
-        </>
+        <RoadmapClient
+            initialProjects={projects}
+            initialRoadmap={roadmapData}
+            selectedProjectId={selectedProjectId}
+            selectedProject={selectedProject}
+            initialNotes={initialNotes}
+            initialMeetings={initialMeetings}
+            summaries={await summariesPromise}
+            openOnLoad={!!params.projectId}
+        />
     )
 }

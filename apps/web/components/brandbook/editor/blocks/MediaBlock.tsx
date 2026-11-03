@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { ImageLookControls, ImageTint, imageLookStyle, type ImageLook } from "@/components/brandbook/editor/backgroundFill"
 import { Block } from "../types"
 import { cn } from "@/lib/utils"
 import { ImageIcon, ArrowLeft, ArrowRight, X, Plus, Video, Mic, Grid, Play, Pause, ChevronLeft, ChevronRight, Download } from 'lucide-react'
@@ -888,6 +889,8 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                 borderRadius: style?.radius ? `${style.radius}px` : (block.type === 'video' ? '12px' : undefined),
                                 width: style?.width ? `${style.width}px` : (style?.align ? 'auto' : '100%'),
                                 height: style?.height ? `${style.height}px` : 'auto',
+                                // A zoomed picture stays inside its box
+                                overflow: block.type === 'image' && (style?.look?.scale ?? 100) > 100 ? 'hidden' : undefined,
                                 backgroundColor: block.type === 'video' ? 'black' : undefined,
                                 display: block.type === 'video' ? 'flex' : undefined,
                                 alignItems: block.type === 'video' ? 'center' : undefined,
@@ -903,12 +906,16 @@ export const MediaBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         style?.aspectRatio && !style?.width && !style?.height && "absolute inset-0"
                                     )}
                                     style={{
-                                        objectPosition: 'top',
-                                        borderRadius: style?.radius ? `${style.radius}px` : undefined
+                                        // Cut evenly around the centre when the ratio or the size changes
+                                        objectPosition: style?.objectPosition || 'center',
+                                        borderRadius: style?.radius ? `${style.radius}px` : undefined,
+                                        ...imageLookStyle(style?.look),
                                     }}
                                     draggable={false}
                                 />
-                            ) : (
+                            ) : null}
+                            {block.type === 'image' && <ImageTint look={style?.look} style={{ borderRadius: style?.radius ? `${style.radius}px` : undefined }} />}
+                            {block.type === 'image' ? null : (
                                 <video
                                     ref={videoRef}
                                     src={url}

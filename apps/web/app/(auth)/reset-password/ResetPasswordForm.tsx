@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/client"
 import { authErrorMessage, MIN_PASSWORD } from "@/lib/auth-helpers"
 import { AuthAlert, AuthButton, AuthShell, AuthTitle, PasswordField } from "@/components/auth/AuthShell"
 
-export default function ResetPasswordForm() {
+export default function ResetPasswordForm({ invite = false }: { invite?: boolean }) {
     const router = useRouter()
     const [loading, setLoading] = React.useState(false)
     const [error, setError] = React.useState<string | null>(null)
@@ -30,9 +30,9 @@ export default function ResetPasswordForm() {
 
     return (
         <AuthShell>
-            <AuthTitle title="Cria uma nova palavra-passe" text="Escolhe uma palavra-passe que não uses noutros sítios." />
+            <AuthTitle title={invite ? "Bem-vindo ao Brivio" : "Cria uma nova palavra-passe"} text={invite ? "Foste convidado para um estúdio. Define a tua palavra-passe para entrar." : "Escolhe uma palavra-passe que não uses noutros sítios."} />
             <form onSubmit={onSubmit} className="space-y-4">
-                <PasswordField label="Nova palavra-passe" name="password" autoComplete="new-password" required minLength={MIN_PASSWORD} autoFocus />
+                <PasswordField label={invite ? "Palavra-passe" : "Nova palavra-passe"} name="password" autoComplete="new-password" required minLength={MIN_PASSWORD} autoFocus />
                 <PasswordField label="Repetir a palavra-passe" name="confirm" autoComplete="new-password" required minLength={MIN_PASSWORD} />
                 {error && <AuthAlert>{error}</AuthAlert>}
                 <AuthButton type="submit" loading={loading}>Guardar e entrar</AuthButton>

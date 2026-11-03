@@ -1,5 +1,6 @@
 "use client"
 
+import { CollapsibleBar } from "../CollapsibleBar"
 import React, { useState } from "react"
 import { ArrowLeft, ArrowRight, Blend, CopyPlus, Settings2, Trash2 } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -39,7 +40,7 @@ const HexField = ({ value, onChange }: { value: string, onChange: (hex: string) 
 }
 
 /** Context bar of one colour card: its colour(s), hex, gradient on/off, settings, order, duplicate, delete */
-export const AccordionCardBar = ({ color, index, count, onChange, onSettings, onMove, onDuplicate, onDelete }: {
+const AccordionCardBarBar = ({ color, index, count, onChange, onSettings, onMove, onDuplicate, onDelete }: {
     color: AccordionColor
     index: number
     count: number
@@ -92,3 +93,8 @@ export const AccordionCardBar = ({ color, index, count, onChange, onSettings, on
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const AccordionCardBar = (props: React.ComponentProps<typeof AccordionCardBarBar>) => (
+    <CollapsibleBar><AccordionCardBarBar {...props} /></CollapsibleBar>
+)

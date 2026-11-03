@@ -8,6 +8,7 @@ import { EDITOR_COLLISION_PADDING } from "../editorLayout"
 import { HoverTab } from "../AnimationPanel"
 import type { HoverEffect } from "../hoverEffects"
 import { SmoothColorInput } from "../SmoothColorInput"
+import { BorderControl, type BorderSettings } from "../BorderControl"
 
 interface ColumnSettingsPanelProps {
     isOpen: boolean
@@ -41,6 +42,10 @@ interface ColumnSettingsPanelProps {
     alignVertical?: 'top' | 'middle' | 'bottom'
     onAlignVerticalChange?: (align: 'top' | 'middle' | 'bottom') => void
 
+    /** Border per side (top, right, bottom, left); replaces the single width when given */
+    border?: BorderSettings
+    onBorderChange?: (border: BorderSettings) => void
+
     padding?: { isLocked: boolean; top: number; right: number; bottom: number; left: number }
     onPaddingChange?: (padding: { isLocked: boolean; top: number; right: number; bottom: number; left: number }) => void
 
@@ -71,6 +76,9 @@ interface ColumnSettingsPanelProps {
     onFullHeightChange?: (val: boolean) => void
     /** 'fit': as tall as its content · 'fill': fills the room it has (row / section) · none: default sizing */
     heightMode?: 'fit' | 'fill'
+    /** 'fit': as wide as its content · 'fill': takes the room the other columns leave · none: its share of the grid */
+    widthMode?: 'fit' | 'fill'
+    onWidthModeChange?: (mode: 'fit' | 'fill' | undefined) => void
     onHeightModeChange?: (mode: 'fit' | 'fill' | undefined) => void
 
     onReset: () => void
@@ -106,6 +114,8 @@ export function ColumnSettingsPanel({
     onAlignVerticalChange,
     padding = { isLocked: true, top: 0, right: 0, bottom: 0, left: 0 },
     onPaddingChange,
+    border,
+    onBorderChange,
     blockGap = 16,
     onBlockGapChange,
     subColumns = 1,
@@ -125,6 +135,8 @@ export function ColumnSettingsPanel({
     isFullHeight = false,
     onFullHeightChange,
     heightMode,
+    widthMode,
+    onWidthModeChange,
     onHeightModeChange,
     onReset,
     onCopyColumn,
@@ -349,6 +361,35 @@ export function ColumnSettingsPanel({
                                 )} />
                             </button>
                         </div>
+
+                        {/* Width mode: fit to content / fill the room left by the other columns */}
+                        {onWidthModeChange && (
+                            <div className="flex flex-col gap-1.5 mt-3">
+                                <span className="text-gray-400 text-sm">Largura</span>
+                                <div className="grid grid-cols-2 gap-1 bg-[#1A1A20] rounded-[4px] p-1">
+                                    {([
+                                        { id: 'fit', label: 'Ajustar ao conteúdo', title: 'Fit to content — a coluna tem só a largura do seu conteúdo' },
+                                        { id: 'fill', label: 'Preencher', title: 'Fill container — a coluna ocupa a largura que as outras colunas deixam' },
+                                    ] as const).map(option => {
+                                        const active = widthMode === option.id
+                                        return (
+                                            <button
+                                                key={option.id}
+                                                title={option.title}
+                                                // Clicking the active mode again goes back to the default sizing
+                                                onClick={() => onWidthModeChange(active ? undefined : option.id)}
+                                                className={cn(
+                                                    "h-[28px] rounded-[2px] text-[11px] font-medium transition-colors",
+                                                    active ? "bg-[#FF0054] text-white" : "text-gray-400 hover:text-white hover:bg-[#2A2B35]"
+                                                )}
+                                            >
+                                                {option.label}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Height mode: fit to content / fill container ("Altura total" columns read as fill) */}
                         <div className="flex flex-col gap-1.5 mt-3">
@@ -575,8 +616,8 @@ export function ColumnSettingsPanel({
                         />
                     </div>
 
-                    {/* Border */}
-                    <div className="mt-2.5 h-[50px] pb-2.5 flex items-center justify-between border-b border-[#333]">
+                    {/* Border: per side when the editor supports it */}
+                    {onBorderChange ? <BorderControl value={border} onChange={onBorderChange} /> : <div className="mt-2.5 h-[50px] pb-2.5 flex items-center justify-between border-b border-[#333]">
                         <span className="font-light text-gray-400">Border</span>
                         <div className="flex items-center gap-3">
                             <input
@@ -605,10 +646,10 @@ export function ColumnSettingsPanel({
                                 />
                             </div>
                         </div>
-                    </div>
+                    </div>}
 
-                    {/* Free Flow Toggle */}
-                    <div className="mt-2.5 h-[50px] pb-2.5 flex items-center justify-between border-b border-[#333]">
+                    {/* Free Flow Toggle (only where the editor supports it) */}
+                    {onFreeFlowChange && <div className="mt-2.5 h-[50px] pb-2.5 flex items-center justify-between border-b border-[#333]">
                         <span className="font-light text-gray-400">Movimento livre</span>
                         <button
                             type="button"
@@ -623,7 +664,7 @@ export function ColumnSettingsPanel({
                                 isFreeFlow ? "translate-x-[22px]" : "translate-x-[2px]"
                             )} />
                         </button>
-                    </div>
+                    </div>}
 
                     {/* Fixed position */}
                     <div className="mt-2.5 h-[50px] pb-2.5 flex items-center justify-between border-b border-[#333]">
@@ -754,9 +795,9 @@ export function ColumnSettingsPanel({
                         <span className="text-[10px] font-medium leading-none tracking-tight">Resetar</span>
                     </button>
 
+                    {/* 2. Copiar coluna (only where the editor can paste it) */}
+                    {onCopyColumn && <>
                     <div className="w-[1px] h-6 bg-[#2A2B35]" />
-
-                    {/* 2. Copiar coluna */}
                     <button
                         type="button"
                         onClick={(e) => {
@@ -778,6 +819,7 @@ export function ColumnSettingsPanel({
                         )}
                         <span className="text-[10px] font-medium leading-none tracking-tight">Copiar</span>
                     </button>
+                    </>}
 
                     <div className="w-[1px] h-6 bg-[#2A2B35]" />
 

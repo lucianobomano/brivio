@@ -21,6 +21,7 @@ const toCssSize = (value: unknown): string | undefined => {
 }
 import { Button } from "@/components/ui/button"
 import { ColumnSettingsPanel } from "./ColumnSettingsPanel"
+import { borderCss, hasBorder, resolveBorder } from "../BorderControl"
 import { useState, useRef, useEffect } from "react"
 import { ColumnSplitter } from "./ColumnSplitter"
 import { useBrandDesign } from "../BrandDesignContext"
@@ -621,6 +622,17 @@ export const LayoutBlock = ({
     // 'between' / 'around' / 'evenly': the free room goes between / around them. The gap is always the minimum spacing.
     const distribution = block.content.settings?.columnDistribution || (isVertical ? 'packed' : 'fill')
     const isFill = distribution === 'fill'
+    // Column widths: «Ajustar ao conteúdo» columns take their content's width (never more than the row),
+    // «Preencher» columns share what the others leave; the rest keep their share of the grid
+    const hasWidthModes = columns.some((c: any) => c.settings?.widthMode)
+    const columnTracks = (() => {
+        const base = appliedTemplate || `repeat(${Math.max(1, colCount)}, 1fr)`
+        const m = /^repeat\((\d+),\s*([^)]+)\)$/.exec(base.trim())
+        const list: string[] = m ? Array(Number(m[1])).fill(m[2].trim()) : base.trim().split(/\s+/)
+        return columns.map((c: any, i: number) => c.settings?.widthMode === 'fit' ? 'fit-content(100%)'
+            : c.settings?.widthMode === 'fill' ? 'minmax(0, 1fr)'
+            : (list[i] || '1fr').replace(/^(\d*\.?\d+)fr$/, 'minmax(0, $1fr)')).join(' ')
+    })()
     const packedAlign = isVertical
         ? (sectionAlignVertical === 'middle' ? 'center' : sectionAlignVertical === 'bottom' ? 'end' : 'start')
         : (sectionAlignHorizontal === 'left' ? 'start' : sectionAlignHorizontal === 'right' ? 'end' : 'center')
@@ -670,7 +682,7 @@ export const LayoutBlock = ({
                 gap: `${gapValue}px`,
                 // A plain `fr` track grows to its content's min width (e.g. a wide palette) and pushes the columns past the section;
                 // minmax(0, fr) keeps every column at its share of the section's inner width
-                gridTemplateColumns: isVertical ? 'minmax(0, 1fr)' : (isFill ? toTracks('0') : `repeat(${colCount}, auto)`),
+                gridTemplateColumns: isVertical ? 'minmax(0, 1fr)' : (isFill ? (hasWidthModes ? columnTracks : toTracks('0')) : `repeat(${colCount}, auto)`),
                 // Stacked + fill: the rows share the section height; otherwise each row is as tall as its content
                 gridTemplateRows: isVertical && isFill && hasSectionHeight ? toTracks('min-content') : undefined,
                 justifyContent: !isVertical ? contentAlign : undefined,
@@ -754,9 +766,9 @@ export const LayoutBlock = ({
                             col.blocks && col.blocks.length > 0 ? "min-h-0" : `min-h-[32px] ${!isReadOnly ? "border border-dashed border-gray-200 hover:border-[#FF0054]" : ""}`,
                             // Editor: columns with content show the same pink dashed line on hover (transparent until then,
                             // so nothing moves). Columns with a border of their own keep theirs
-                            !isReadOnly && col.blocks?.length > 0 && !col.settings?.borderWidth && "border border-dashed border-transparent hover:border-[#FF0054]",
+                            !isReadOnly && col.blocks?.length > 0 && !hasBorder(resolveBorder(col.settings)) && "border border-dashed border-transparent hover:border-[#FF0054]",
                             // ...and keep it while this column's settings panel is open
-                            !isReadOnly && !col.settings?.borderWidth && openSettingsColId === col.id && "!border-[#FF0054]",
+                            !isReadOnly && !hasBorder(resolveBorder(col.settings)) && openSettingsColId === col.id && "!border-[#FF0054]",
                             isSectionFreeFlow && !isReadOnly && "cursor-grab active:cursor-grabbing z-20"
                         )}
                         style={{
@@ -785,15 +797,14 @@ export const LayoutBlock = ({
                             backgroundSize: 'cover',
                             backgroundPosition: 'center',
                             borderRadius: `${col.settings?.radius || 0}px`,
-                            borderWidth: col.settings?.borderWidth ? `${col.settings.borderWidth}px` : undefined,
+                            // Border per side (or the single width saved before)
+                            ...borderCss(resolveBorder(col.settings)),
                             // The saved border color only applies to a real border (it used to paint the editor's hover line black)
-                            borderColor: col.settings?.borderWidth ? (col.settings?.borderColor || undefined) : undefined,
-                            borderStyle: col.settings?.borderWidth ? (col.settings?.borderStyle || 'dashed') : undefined,
                             position: col.settings?.isFixed ? 'sticky' : undefined, // Assuming fixed -> sticky for now + top 0
                             top: col.settings?.isFixed ? 0 : undefined,
                             zIndex: col.settings?.isFixed ? 10 : undefined,
                             // Individual column width/height settings
-                            width: isRail ? `max(260px, ${railCardWidth}vw)` : col.settings?.isFullWidth ? '100%' : (colWidth || (!isVertical && !isFill ? 'fit-content' : undefined)),
+                            width: isRail ? `max(260px, ${railCardWidth}vw)` : col.settings?.isFullWidth || col.settings?.widthMode === 'fill' ? '100%' : col.settings?.widthMode === 'fit' ? 'fit-content' : (colWidth || (!isVertical && !isFill ? 'fit-content' : undefined)),
                             flexShrink: isRail ? 0 : undefined,
                             maxWidth: '100%',
                             height: heightMode === 'fill' ? '100%' : (heightMode === 'fit' || colHeight || alignColumnsVertically ? 'auto' : '100%'),
@@ -826,6 +837,8 @@ export const LayoutBlock = ({
                                     onUploadBackground={() => document.getElementById(`upload-bg-${col.id}`)?.click()}
                                     radius={col.settings?.radius || 0}
                                     onRadiusChange={(val) => handleColumnSettingsChange(col.id, { radius: val })}
+                                    border={resolveBorder(col.settings)}
+                                    onBorderChange={(b) => handleColumnSettingsChange(col.id, { border: b, borderWidth: b.isLocked ? b.top : 0, borderColor: b.color, borderStyle: b.style })}
                                     borderWidth={col.settings?.borderWidth || 0}
                                     onBorderWidthChange={(val) => handleColumnSettingsChange(col.id, { borderWidth: val })}
                                     borderColor={col.settings?.borderColor || '#000000'}
@@ -860,6 +873,8 @@ export const LayoutBlock = ({
                                     isFullHeight={col.settings?.isFullHeight || false}
                                     onFullHeightChange={(val) => handleColumnSettingsChange(col.id, { isFullHeight: val })}
                                     heightMode={heightMode}
+                                    widthMode={col.settings?.widthMode}
+                                    onWidthModeChange={(mode) => handleColumnSettingsChange(col.id, { widthMode: mode, ...(mode ? { columnWidth: 'auto', isFullWidth: false } : {}) })}
                                     onHeightModeChange={(mode) => handleColumnSettingsChange(col.id, { heightMode: mode, isFullHeight: false, columnHeight: 'auto' })}
                                     onReset={() => handleColumnSettingsChange(col.id, {
                                         minHeight: 'auto',
@@ -868,6 +883,7 @@ export const LayoutBlock = ({
                                         backgroundImage: null,
                                         radius: 0,
                                         borderWidth: 0,
+                                        border: null,
                                         borderColor: null,
                                         borderStyle: 'dashed',
                                         isFixed: false,

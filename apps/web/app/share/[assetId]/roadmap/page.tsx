@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/server"
 import { notFound } from "next/navigation"
 import { unstable_cache } from "next/cache"
 import { SHARE_ROADMAP_TAG } from "@/lib/share-cache"
+import { projectStages } from "@/lib/roadmap-stages"
 import { loadProjectMeetings, loadProjectNotes } from "@/lib/project-data"
 import { ClientRoadmapView } from "./ClientRoadmapView"
 
@@ -42,8 +43,8 @@ async function getPublicRoadmapStats(projectId: string) {
 
     const { data: tasks } = await tasksPromise
 
-    // 4. Group tasks by stage and filter stages without tasks
-    const roadmap = stages
+    // 4. The project's phases (with tasks, plus the rest of their template) and their tasks
+    const roadmap = projectStages(stages, tasks || [])
         .map(stage => {
             const stageTasks = (tasks || [])
                 .filter(t => t.stage_id === stage.id)
@@ -78,7 +79,6 @@ async function getPublicRoadmapStats(projectId: string) {
                 progress
             }
         })
-        .filter(stage => stage.tasks.length > 0)
 
     if (roadmap.length === 0) {
         return null
@@ -87,7 +87,7 @@ async function getPublicRoadmapStats(projectId: string) {
     const totalTasks = roadmap.reduce((acc, stage) => acc + stage.tasks.length, 0)
     const completedTasks = roadmap.reduce((acc, stage) => acc + stage.tasks.filter(t => t.completed).length, 0)
     const globalProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
-    const currentPhase = roadmap.find(stage => stage.progress < 100) || roadmap[roadmap.length - 1]
+    const currentPhase = roadmap.find(stage => stage.progress < 100) || (completedTasks === totalTasks ? { name: 'Concluído' } : roadmap[roadmap.length - 1])
     const currentPhaseName = currentPhase?.name || 'Início'
 
     return {
@@ -111,7 +111,7 @@ const getShareRoadmapData = unstable_cache(
 
         // Everything here is keyed by assetId, so it loads in parallel.
         // Notes/meetings are only rendered after the project is confirmed to exist.
-        const [{ data: project, error: pError }, roadmapStats, { notes }, meetings] = await Promise.all([
+        const [{ data: project, error: pError }, roadmapStats, { notes }, meetings, { data: invoices }] = await Promise.all([
             // Fetch project details
             supabase
                 .from('projects')
@@ -121,9 +121,20 @@ const getShareRoadmapData = unstable_cache(
             getPublicRoadmapStats(assetId),
             loadProjectNotes(assetId),
             loadProjectMeetings(assetId),
+            // The client's real name: projects have no client field, invoices do
+            supabase
+                .from('invoices')
+                .select('client_name')
+                .eq('project_id', assetId)
+                .not('client_name', 'is', null)
+                .order('created_at', { ascending: false })
+                .limit(1),
         ])
 
-        return { project: pError ? null : project, roadmapStats, notes, meetings }
+        const brand = project ? (Array.isArray(project.brands) ? project.brands[0] : project.brands) : null
+        const clientName: string | null = (brand?.name as string | undefined)?.trim() || (invoices?.[0]?.client_name as string | undefined)?.trim() || null
+
+        return { project: pError ? null : project, roadmapStats, notes, meetings, clientName }
     },
     ['share-roadmap-data'],
     { tags: [SHARE_ROADMAP_TAG], revalidate: 60 }
@@ -141,7 +152,7 @@ export default async function ClientRoadmapPage({
     const initialLayout = typeof resolvedSearchParams.layout === 'string' ? resolvedSearchParams.layout : 'default'
     const initialBg = typeof resolvedSearchParams.bg === 'string' ? resolvedSearchParams.bg : 'default'
     
-    const { project, roadmapStats, notes, meetings } = await getShareRoadmapData(assetId)
+    const { project, roadmapStats, notes, meetings, clientName } = await getShareRoadmapData(assetId)
 
     if (!project) {
         return notFound()
@@ -161,6 +172,7 @@ export default async function ClientRoadmapPage({
     return (
         <ClientRoadmapView
             project={project}
+            clientName={clientName}
             roadmap={stats.phases}
             globalProgress={stats.globalProgress}
             currentPhaseName={stats.currentPhaseName}

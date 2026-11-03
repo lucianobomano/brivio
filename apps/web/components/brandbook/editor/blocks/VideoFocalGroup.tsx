@@ -1,3 +1,4 @@
+import { CollapsibleBar } from "../CollapsibleBar"
 import React, { useState } from "react"
 import { Paperclip, Link, MousePointer2, Settings, Trash2, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -15,7 +16,7 @@ interface VideoFocalGroupProps {
     className?: string
 }
 
-export function VideoFocalGroup({
+function VideoFocalGroupBar({
     onChange,
     onUpload,
     onLink,
@@ -137,3 +138,8 @@ export function VideoFocalGroup({
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const VideoFocalGroup = (props: React.ComponentProps<typeof VideoFocalGroupBar>) => (
+    <CollapsibleBar><VideoFocalGroupBar {...props} /></CollapsibleBar>
+)

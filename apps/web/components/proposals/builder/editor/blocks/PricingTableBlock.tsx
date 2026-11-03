@@ -2,6 +2,8 @@
 
 import React, { useMemo } from "react"
 import { Plus, Trash2 } from "lucide-react"
+import { useCurrency } from "@/components/CurrencyUtils"
+import { useProposalPricing } from "@/components/proposals/ProposalPricingContext"
 
 interface PricingTableBlockProps {
     block: any
@@ -16,14 +18,23 @@ export const PricingTableBlock = ({ block, isReadOnly, onUpdate, onDelete }: Pri
         { description: "Gestão Social Media", quantity: 1, price: 1200 }
     ], [])
 
-    const items = block.content.items || defaultItems
+    // Lines written in the editor; else the services of «Editar detalhes»; else (editor only) an example
+    const pricing = useProposalPricing()
+    const ownItems = Array.isArray(block.content?.items) ? block.content.items : null
+    const fromProposal = !ownItems && !!pricing?.items.length
+    const items = ownItems || (fromProposal ? pricing!.items : isReadOnly ? null : defaultItems)
 
-    const total = useMemo(() => {
-        return items.reduce((acc: number, item: any) => acc + (Number(item.price || 0) * Number(item.quantity || 1)), 0)
+    const subtotal = useMemo(() => {
+        return (items || []).reduce((acc: number, item: any) => acc + (Number(item.price || 0) * Number(item.quantity || 1)), 0)
     }, [items])
+    // The proposal discount applies to its own services
+    const discount = fromProposal && pricing!.discount_value > 0
+        ? (pricing!.discount_type === "percent" ? subtotal * pricing!.discount_value / 100 : Math.min(subtotal, pricing!.discount_value))
+        : 0
+    const total = subtotal - discount
 
     const handleUpdateItem = (index: number, field: string, value: any) => {
-        const newItems = [...items]
+        const newItems = items.map((it: any) => ({ ...it }))
         newItems[index][field] = field === 'description' ? value : Number(value)
         onUpdate(block.id, { ...block.content, items: newItems })
     }
@@ -38,12 +49,23 @@ export const PricingTableBlock = ({ block, isReadOnly, onUpdate, onDelete }: Pri
         onUpdate(block.id, { ...block.content, items: newItems })
     }
 
-    const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
-    }
+    // The workspace's currency (was always BRL)
+    const { formatPrice, currencyCode } = useCurrency()
+    const formatCurrency = (value: number) => String(formatPrice(value))
+
+    // The example lines are only a starting point in the editor: a client never sees them
+    if (!items) return null
 
     return (
-        <div className="mb-8 group/block relative w-full overflow-hidden rounded-xl border border-white/10 backdrop-blur-sm bg-black/5 dark:bg-white/5">
+        <div className="group/block relative w-full overflow-hidden rounded-xl border border-white/10 backdrop-blur-sm bg-black/5 dark:bg-white/5">
+            {/* Editor only: say where the lines come from, so example prices are not taken for real ones */}
+            {!isReadOnly && !ownItems && (
+                <p className="px-6 pt-4 text-[11px] font-medium text-[#FF0054]">
+                    {fromProposal
+                        ? "Linhas dos serviços de «Editar detalhes». Se editar aqui, esta tabela passa a ter as suas próprias linhas."
+                        : "Linhas de exemplo: o cliente não as vê. Edite ou adicione uma linha para criar a tabela."}
+                </p>
+            )}
             <table className="w-full border-collapse">
                 <thead>
                     <tr className="bg-white/5 border-b border-white/10 text-inherit">
@@ -78,7 +100,7 @@ export const PricingTableBlock = ({ block, isReadOnly, onUpdate, onDelete }: Pri
                             </td>
                             <td className="py-4 px-4">
                                 <div className="flex items-center justify-end">
-                                    <span className="text-[10px] opacity-40 mr-1.5 font-bold">€</span>
+                                    <span className="text-[10px] opacity-40 mr-1.5 font-bold">{currencyCode}</span>
                                     <input
                                         type="number"
                                         value={item.price}
@@ -105,6 +127,15 @@ export const PricingTableBlock = ({ block, isReadOnly, onUpdate, onDelete }: Pri
                     ))}
                 </tbody>
                 <tfoot>
+                    {discount > 0 && (
+                        <tr className="border-t border-white/10">
+                            <td colSpan={3} className="pt-6 px-6 text-right opacity-60 text-[12px] uppercase tracking-[0.2em] font-bold">
+                                Desconto{pricing!.discount_type === "percent" ? ` (${pricing!.discount_value}%)` : ""}
+                            </td>
+                            <td className="pt-6 px-6 text-right text-[15px] font-bold text-inherit">− {formatCurrency(discount)}</td>
+                            {!isReadOnly && <td></td>}
+                        </tr>
+                    )}
                     <tr className="bg-white/5 border-t border-white/10">
                         <td colSpan={3} className="py-8 px-6 text-right font-black opacity-60 text-[12px] uppercase tracking-[0.2em]">
                             Investimento Total

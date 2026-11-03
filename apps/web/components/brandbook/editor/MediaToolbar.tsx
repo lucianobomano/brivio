@@ -1,3 +1,4 @@
+import { CollapsibleBar } from "./CollapsibleBar"
 import React, { useState } from "react"
 import { ArrowUp, ArrowDown, Paperclip, Link, MousePointer2, Settings, Trash2, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -16,7 +17,7 @@ interface MediaToolbarProps {
     className?: string
 }
 
-export const MediaToolbar = ({
+const MediaToolbarBar = ({
     onMoveUp,
     onMoveDown,
     onUpload,
@@ -133,3 +134,8 @@ export const MediaToolbar = ({
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const MediaToolbar = (props: React.ComponentProps<typeof MediaToolbarBar>) => (
+    <CollapsibleBar><MediaToolbarBar {...props} /></CollapsibleBar>
+)

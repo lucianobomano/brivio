@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { getBrandSettings, updateBrandSettings, updateBrandFontStyles, updateBrandInfo } from '@/app/actions/brand-settings'
 import { debounce } from '@/lib/utils'
+import { ensureGoogleFont } from "@/components/brandbook/editor/blocks/BlockUtils"
 import { updateProposalModuleContent, getProposalModules, createProposalModule } from '@/app/actions/proposal-builder'
 
 export interface FontStyle {
@@ -99,6 +100,9 @@ export function BrandDesignProvider({ children, brandId, proposalId, initialModu
         settingsModuleIdRef.current = id
         setSettingsModuleIdState(id)
     }
+
+    // Fonts of the text styles, loaded on every page that shows the proposal
+    useEffect(() => { fontStyles.forEach(s => ensureGoogleFont(s.font)) }, [fontStyles])
 
     // Initialize from initialModules if present
     useEffect(() => {

@@ -1,10 +1,12 @@
 'use server'
 
-import { createClient, getCurrentUser } from "@/lib/supabase/server"
+import { createAdminClient, createClient, getCurrentUser } from "@/lib/supabase/server"
 import { prisma } from "@/lib/prisma"
 import { revalidatePath } from "next/cache"
 import { invalidateShareRoadmap } from "@/lib/share-cache"
 import { ROADMAP_TEMPLATES } from "@/lib/roadmap-templates"
+import { projectStages } from "@/lib/roadmap-stages"
+import { canAccessProject } from "@/lib/brand-access"
 
 export interface RoadmapStage {
     id: string
@@ -101,8 +103,8 @@ export async function getProjectRoadmap(projectId: string) {
         console.error("[getProjectRoadmap] Error fetching tasks:", tError)
     }
 
-    // 4. Group tasks by stage and filter stages without tasks for this project
-    const roadmap: RoadmapStage[] = stages
+    // 4. The project's phases (with tasks, plus the rest of their template) and their tasks
+    const roadmap: RoadmapStage[] = projectStages(stages, tasks || [])
         .map(stage => {
             const stageTasks = (tasks || [])
                 .filter(t => t.stage_id === stage.id)
@@ -138,7 +140,6 @@ export async function getProjectRoadmap(projectId: string) {
                 progress
             }
         })
-        .filter(stage => stage.tasks.length > 0)
 
     return roadmap
 }
@@ -159,7 +160,7 @@ export async function getRoadmapStats(projectId: string) {
     const globalProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
     // Find current phase (first phase that's not 100% complete)
-    const currentPhase = roadmap.find(stage => stage.progress < 100) || roadmap[roadmap.length - 1]
+    const currentPhase = roadmap.find(stage => stage.progress < 100) || (completedTasks === totalTasks ? { name: 'Concluído' } : roadmap[roadmap.length - 1])
     const currentPhaseName = currentPhase?.name || 'Início'
 
     return {
@@ -406,6 +407,7 @@ export async function applyRoadmapTemplate(workspaceId: string, templateId: stri
             .eq('workspace_id', targetWorkspaceId)
 
         let currentTaskStartDate = new Date(projectStartDate)
+        let tasksCreated = 0
 
         // 3. Create/Select stages and create tasks
         for (let i = 0; i < template.stages.length; i++) {
@@ -456,6 +458,7 @@ export async function applyRoadmapTemplate(workspaceId: string, templateId: stri
                         })
 
                     if (taskError) throw taskError
+                    tasksCreated++
 
                     // Sequential tasking: next task starts when this one ends
                     currentTaskStartDate = new Date(taskDueDate)
@@ -474,7 +477,7 @@ export async function applyRoadmapTemplate(workspaceId: string, templateId: stri
         invalidateShareRoadmap()
         revalidatePath('/roadmap')
         if (projectId) revalidatePath(`/projects/${projectId}`)
-        return { success: true }
+        return { success: true, stages: template.stages.length, tasks: tasksCreated, templateName: template.name }
     } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error)
         console.error("[applyRoadmapTemplate] Error:", error)
@@ -891,4 +894,110 @@ export async function duplicateRoadmapTask(taskId: string, projectId: string) {
         console.error("Error duplicating task:", error)
         return { success: false, error: error.message }
     }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Summary of every roadmap (one per project) for the roadmaps table
+// ---------------------------------------------------------------------------------------------
+
+export type RoadmapSummary = {
+    project_id: string
+    name: string
+    brand: string | null
+    due_date: string | null
+    stages_total: number
+    stages_done: number
+    tasks_total: number
+    tasks_done: number
+    progress: number
+    current_stage: { name: string, color: string | null } | null
+    next_due: string | null
+    updated_at: string | null
+}
+
+/**
+ * Stages and tasks of the given projects in two queries, summarised per project the same way the roadmap
+ * page does it (a project's stages are the workspace stages that hold at least one of its tasks).
+ */
+export async function getRoadmapsSummary(projectIds: string[]): Promise<RoadmapSummary[]> {
+    if (!projectIds.length) return []
+    const supabase = await createClient()
+    const { data: projects } = await supabase
+        .from('projects')
+        .select('id, name, workspace_id, due_date, updated_at, brand:brands(name)')
+        .in('id', projectIds)
+    if (!projects?.length) return []
+
+    const workspaceIds = [...new Set(projects.map(p => p.workspace_id).filter(Boolean))] as string[]
+    const [{ data: stages }, { data: tasks }] = await Promise.all([
+        workspaceIds.length
+            ? supabase.from('project_stages').select('id, name, color, position, workspace_id').in('workspace_id', workspaceIds).order('position', { ascending: true })
+            : Promise.resolve({ data: [] as { id: string, name: string, color: string | null, position: number, workspace_id: string }[] }),
+        supabase.from('tasks').select('id, project_id, stage_id, completed, status, due_date, updated_at').in('project_id', projectIds),
+    ])
+
+    const byId = new Map(projects.map(p => [p.id, p]))
+    return projectIds.filter(id => byId.has(id)).map(id => {
+        const p = byId.get(id)!
+        const pTasks = (tasks || []).filter(t => t.project_id === id)
+        const isDone = (t: { completed: boolean | null, status: string | null }) => !!t.completed || t.status === 'done'
+        const pStages = projectStages((stages || []).filter(s => s.workspace_id === p.workspace_id), pTasks)
+            .map(s => {
+                const st = pTasks.filter(t => t.stage_id === s.id)
+                return { ...s, total: st.length, done: st.filter(isDone).length }
+            })
+        const current = pStages.find(s => s.total === 0 || s.done < s.total) || null
+        const tasksDone = pTasks.filter(isDone).length
+        const upcoming = pTasks.filter(t => !isDone(t) && t.due_date).map(t => t.due_date as string).sort()[0] || null
+        const lastUpdate = pTasks.map(t => t.updated_at as string | null).filter(Boolean).sort().pop() || p.updated_at || null
+        const brand = Array.isArray(p.brand) ? p.brand[0] : p.brand
+        return {
+            project_id: id,
+            name: p.name,
+            brand: (brand as { name?: string } | null)?.name || null,
+            due_date: p.due_date || null,
+            stages_total: pStages.length,
+            stages_done: pStages.filter(s => s.total > 0 && s.done === s.total).length,
+            tasks_total: pTasks.length,
+            tasks_done: tasksDone,
+            progress: pTasks.length ? Math.round(tasksDone / pTasks.length * 100) : 0,
+            current_stage: current ? { name: current.name, color: current.color } : null,
+            next_due: upcoming,
+            updated_at: lastUpdate,
+        }
+    })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Project tasks that are not in any phase of the roadmap yet
+// ---------------------------------------------------------------------------------------------
+
+export type UnstagedTask = { id: string, title: string, completed: boolean, due_date: string | null }
+
+export async function getUnstagedTasks(projectId: string): Promise<UnstagedTask[]> {
+    if (!(await canAccessProject(projectId))) return []
+    const supabase = await createAdminClient() // access checked above
+    const { data } = await supabase
+        .from('tasks')
+        .select('id, title, completed, status, due_date')
+        .eq('project_id', projectId)
+        .is('stage_id', null)
+        .order('created_at', { ascending: true })
+    return (data || []).map(t => ({ id: t.id, title: t.title, completed: !!t.completed || t.status === 'done', due_date: t.due_date }))
+}
+
+/** Puts a project task in a phase of the roadmap (checks the project and that the phase is of its workspace) */
+export async function assignTaskToStage(projectId: string, taskId: string, stageId: string): Promise<{ success: boolean, error?: string }> {
+    if (!(await canAccessProject(projectId))) return { success: false, error: 'Sem acesso a este projeto.' }
+    const supabase = await createAdminClient() // access checked above
+    const [{ data: project }, { data: stage }] = await Promise.all([
+        supabase.from('projects').select('workspace_id').eq('id', projectId).maybeSingle(),
+        supabase.from('project_stages').select('workspace_id').eq('id', stageId).maybeSingle(),
+    ])
+    if (!project || !stage || project.workspace_id !== stage.workspace_id) return { success: false, error: 'Fase inválida para este projeto.' }
+    const { error } = await supabase.from('tasks').update({ stage_id: stageId, updated_at: new Date().toISOString() }).eq('id', taskId).eq('project_id', projectId)
+    if (error) return { success: false, error: 'Não foi possível mover a tarefa.' }
+    invalidateShareRoadmap()
+    revalidatePath('/roadmap')
+    return { success: true }
 }

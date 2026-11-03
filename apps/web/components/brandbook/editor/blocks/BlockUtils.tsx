@@ -471,22 +471,26 @@ export const scrollPageToTop = (from: HTMLElement | null) => {
 }
 
 /** Fonts that come with the system / the app: never fetched */
-const LOCAL_FONTS = new Set(['inter', 'arial', 'helvetica', 'georgia', 'times new roman', 'sans-serif', 'serif', 'monospace', 'system-ui', 'ui-sans-serif', 'ui-monospace', 'minion variable concept', 'satoshi', 'brandon grotesque'])
+const LOCAL_FONTS = new Set(['inter', 'arial', 'helvetica', 'georgia', 'times new roman', 'sans-serif', 'serif', 'monospace', 'system-ui', 'ui-sans-serif', 'ui-monospace', 'minion variable concept', 'satoshi', 'satoshi bold', 'brandon grotesque'])
+
+/** Loads a Google font (all the usual weights, so light / bold texts keep their weight), once per page */
+export const ensureGoogleFont = (fontFamily?: string | null) => {
+    if (typeof document === 'undefined') return
+    const name = fontFamily?.split(',')[0].replace(/["']/g, '').trim()
+    if (!name || LOCAL_FONTS.has(name.toLowerCase())) return
+    const id = `font-${name}`
+    if (document.getElementById(id)) return
+    const family = name.replace(/ /g, '+')
+    const link = document.createElement('link')
+    link.id = id
+    link.rel = 'stylesheet'
+    link.href = `https://fonts.googleapis.com/css2?family=${family}:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap`
+    // Fonts without those weights / italics: ask for the font alone
+    link.onerror = () => { link.href = `https://fonts.googleapis.com/css2?family=${family}&display=swap` }
+    document.head.appendChild(link)
+}
 
 /** Loads the Google font a text uses (set in its toolbar or by a library component), once per page */
 export const useGoogleFont = (fontFamily?: string) => {
-    useEffect(() => {
-        const name = fontFamily?.split(',')[0].replace(/["']/g, '').trim()
-        if (!name || LOCAL_FONTS.has(name.toLowerCase())) return
-        const id = `font-${name}`
-        if (document.getElementById(id)) return
-        const family = name.replace(/ /g, '+')
-        const link = document.createElement('link')
-        link.id = id
-        link.rel = 'stylesheet'
-        link.href = `https://fonts.googleapis.com/css2?family=${family}:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap`
-        // Fonts without those weights / italics: ask for the font alone
-        link.onerror = () => { link.href = `https://fonts.googleapis.com/css2?family=${family}&display=swap` }
-        document.head.appendChild(link)
-    }, [fontFamily])
+    useEffect(() => { ensureGoogleFont(fontFamily) }, [fontFamily])
 }

@@ -20,7 +20,7 @@ import {
     detectOutline,
     detectFontSize
 } from "./BlockUtils"
-import { TextToolbar } from "../TextToolbar"
+import { TextToolbar } from "@/components/brandbook/editor/TextToolbar"
 
 interface CompositeBlockProps {
     block: Block

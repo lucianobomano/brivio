@@ -35,7 +35,7 @@ export const TimelineBlock = ({ block, isReadOnly, onUpdate, onDelete }: Timelin
     }
 
     return (
-        <div className="mb-12 group/block relative w-full pt-12">
+        <div className="group/block relative w-full pt-12">
             <div className="relative flex justify-between items-start gap-8 overflow-x-auto pb-8 custom-scrollbar scroll-px-8 px-8">
                 {/* Connecting Line - More technical look */}
                 <div className="absolute top-[51px] left-0 right-0 h-[1px] bg-white/10 z-0 mx-20" />

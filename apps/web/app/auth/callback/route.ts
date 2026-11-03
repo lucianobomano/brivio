@@ -27,7 +27,10 @@ export async function GET(request: NextRequest) {
         ok = !error
     }
 
-    // Recovery links always lead to the new-password page
-    const destination = ok ? (type === "recovery" ? "/reset-password" : next) : "/login?error=link"
+    // Recovery links lead to the new-password page; invitations to choosing a first password
+    const destination = !ok ? "/login?error=link"
+        : type === "recovery" ? "/reset-password"
+        : type === "invite" ? "/reset-password?invite=1"
+        : next
     return NextResponse.redirect(new URL(destination, origin))
 }

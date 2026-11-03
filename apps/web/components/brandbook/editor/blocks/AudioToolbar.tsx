@@ -1,3 +1,4 @@
+import { CollapsibleBar } from "../CollapsibleBar"
 import React, { useState } from "react"
 import { Paperclip, Link, MousePointerClick, Settings, Trash, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -14,7 +15,7 @@ interface AudioToolbarProps {
     className?: string
 }
 
-export const AudioToolbar = ({
+const AudioToolbarBar = ({
     onUpload,
     onLink,
     onSelect,
@@ -87,3 +88,8 @@ export const AudioToolbar = ({
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const AudioToolbar = (props: React.ComponentProps<typeof AudioToolbarBar>) => (
+    <CollapsibleBar><AudioToolbarBar {...props} /></CollapsibleBar>
+)

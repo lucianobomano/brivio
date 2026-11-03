@@ -26,8 +26,20 @@ import {
     ChevronDown,
     ArrowLeft,
     MessageSquare,
-    ImageIcon
+    ImageIcon,
+    Map as MapIcon,
+    Flag,
+    ListChecks,
+    Layers,
+    ChevronRight,
+    CalendarClock,
+    GitCommitHorizontal,
+    Milestone,
+    GanttChart,
 } from "lucide-react"
+import { formatDate as formatShortDate } from "@/lib/format"
+import { useRouter } from "nextjs-toploader/app"
+import { WorkspaceShell, StatStrip, OutlineButton, Pill, PANEL, TABLE_HEAD, TABLE_ROW, type Tone } from "@/components/workspace/ui"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -50,7 +62,12 @@ import {
     deleteRoadmapTask,
     updateRoadmapTask,
     completeStageTasks,
-    RoadmapStage
+    getProjectRoadmap,
+    getUnstagedTasks,
+    assignTaskToStage,
+    RoadmapStage,
+    type RoadmapSummary,
+    type UnstagedTask
 } from "@/app/actions/roadmap"
 import { ROADMAP_TEMPLATES } from "@/lib/roadmap-templates"
 import {
@@ -95,11 +112,11 @@ type GalleryItem = { type: 'gradient' | 'image', value: string, label?: string }
 
 type RoadmapLayoutStyle = 'default' | 'numbered' | 'minimal' | 'cards' | 'timeline' | JourneyLayoutStyle
 
-const JOURNEY_LAYOUT_OPTIONS: { id: JourneyLayoutStyle; icon: string; name: string; description: string }[] = [
-    { id: 'winding-road', icon: '🛣️', name: 'Estrada Serpenteante', description: 'Percurso sinuoso com início, curvas e objetivo' },
-    { id: 'angular-path', icon: '🚩', name: 'Percurso Angular', description: 'Caminho gráfico com viragens marcantes' },
-    { id: 'ribbon-path', icon: '🎗️', name: 'Fita Serpentina', description: 'Fases ligadas por uma fita fluida e elegante' },
-    { id: 'stair-path', icon: '🪜', name: 'Escadaria', description: 'Etapas ascendentes até à entrega final' },
+const JOURNEY_LAYOUT_OPTIONS: { id: JourneyLayoutStyle; icon: React.ComponentType<{ className?: string }>; name: string; description: string }[] = [
+    { id: 'winding-road', icon: GitCommitHorizontal, name: 'Percurso', description: 'Passos na horizontal, com um cartão por fase' },
+    { id: 'angular-path', icon: Milestone, name: 'Marcos', description: 'Linha do tempo vertical, fases em lados alternados' },
+    { id: 'ribbon-path', icon: Rows3, name: 'Faixas', description: 'Uma faixa por fase, com progresso e tarefas' },
+    { id: 'stair-path', icon: GanttChart, name: 'Cascata', description: 'Fases em escada, do início à entrega' },
 ]
 
 const galleryItems: GalleryItem[] = [
@@ -136,6 +153,11 @@ interface RoadmapClientProps {
     selectedProjectId: string | null
     selectedProject: ProjectBase | null
     initialNotes?: any[]
+    initialMeetings?: unknown[]
+    /** Every roadmap (one per project), for the table */
+    summaries?: RoadmapSummary[]
+    /** Open the roadmap of selectedProjectId straight away (?projectId= in the URL) */
+    openOnLoad?: boolean
 }
 
 export function RoadmapClient({
@@ -143,13 +165,22 @@ export function RoadmapClient({
     initialRoadmap,
     selectedProjectId,
     selectedProject,
-    initialNotes = []
+    initialNotes = [],
+    summaries = [],
+    openOnLoad = false,
 }: RoadmapClientProps) {
+    // The table is the first view; a roadmap opens in a full-screen modal
+    const [detailOpen, setDetailOpen] = React.useState(openOnLoad)
+    const [tableView, setTableView] = React.useState<'all' | 'active' | 'done' | 'empty'>('all')
+    // Project tasks not in any phase yet (shown in the open roadmap so they can be placed)
+    const [unstaged, setUnstaged] = React.useState<UnstagedTask[]>([])
     const [roadmap, setRoadmap] = React.useState<RoadmapStage[]>(initialRoadmap || [])
     const [isLoading, setIsLoading] = React.useState(false)
     const [isRoadmapLoading, setIsRoadmapLoading] = React.useState(false)
     const [currentSelectedProject, setCurrentSelectedProject] = React.useState(selectedProject)
     const [isNotesOpen, setIsNotesOpen] = React.useState(false)
+    const [projectQuery, setProjectQuery] = React.useState("")
+    const router = useRouter()
     const [localProjects, setLocalProjects] = React.useState<ProjectBase[]>(initialProjects || [])
     const [localSelectedProjectId, setLocalSelectedProjectId] = React.useState<string | null>(selectedProjectId)
 
@@ -183,6 +214,24 @@ export function RoadmapClient({
     }, [localSelectedProjectId, initialRoadmap])
 
     // Handles project selection without full page navigation
+    React.useEffect(() => {
+        if (!detailOpen || !localSelectedProjectId) return
+        let alive = true
+        getUnstagedTasks(localSelectedProjectId).then(t => { if (alive) setUnstaged(t) })
+        return () => { alive = false }
+    }, [detailOpen, localSelectedProjectId])
+
+    React.useEffect(() => {
+        if (!detailOpen) return
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape' || document.querySelector('[role="dialog"][data-state="open"]')) return
+            setDetailOpen(false)
+            window.history.pushState(null, "", "/roadmap")
+        }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [detailOpen])
+
     const handleSelectProject = React.useCallback((p: ProjectBase) => {
         if (p.id === localSelectedProjectId) return
         // 1. Update UI immediately (instant feedback)
@@ -338,7 +387,7 @@ export function RoadmapClient({
     const completedTasks = roadmap.reduce((acc, stage) => acc + stage.tasks.filter(t => t.completed).length, 0)
     const overallProgress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0
 
-    const currentStage = roadmap.find(s => s.progress < 100) || roadmap[roadmap.length - 1]
+    const currentStage = roadmap.find(s => s.progress < 100)
 
     const handleGenerateLink = () => {
         if (!localSelectedProjectId) return
@@ -585,16 +634,26 @@ export function RoadmapClient({
         }
     }
 
+    /** Reloads the open roadmap and the tasks without a phase */
+    const reloadRoadmap = async () => {
+        if (!localSelectedProjectId) return
+        const [data, loose] = await Promise.all([getProjectRoadmap(localSelectedProjectId), getUnstagedTasks(localSelectedProjectId)])
+        setRoadmap(data)
+        setUnstaged(loose)
+    }
+
     const handleApplyTemplate = async (templateId: string) => {
-        if (!currentSelectedProject?.workspace_id) return
+        if (!currentSelectedProject?.workspace_id || !localSelectedProjectId) return
+        if (roadmap.length > 0 && !confirm("Este projeto já tem um roadmap. Aplicar o template acrescenta as fases e as tarefas dele ao projeto. Continuar?")) return
 
         setIsLoading(true)
         try {
-            const result = await applyRoadmapTemplate(currentSelectedProject.workspace_id, templateId)
+            // With the project: its phases AND the tasks of each phase are created in the project
+            const result = await applyRoadmapTemplate(currentSelectedProject.workspace_id, templateId, localSelectedProjectId)
             if (result.success) {
-                toast.success("Template aplicado com sucesso!")
+                toast.success('tasks' in result ? `Roadmap criado: ${result.stages} fases e ${result.tasks} tarefas` : "Template aplicado")
                 setIsTemplateModalOpen(false)
-                window.location.reload()
+                await reloadRoadmap()
             } else {
                 toast.error(result.error || "Erro ao aplicar template")
             }
@@ -621,231 +680,253 @@ export function RoadmapClient({
         return {};
     }
 
+    const customBg = !!bgStyle && bgStyle !== 'default'
+    const doneStages = roadmap.filter(s => s.progress === 100).length
+    const roadmapId = (id: string) => `RM-${id.replace(/-/g, '').slice(0, 6).toUpperCase()}`
+
+    // Rows of the table; the roadmap open in the modal uses its live data (edits show straight away)
+    type Row = RoadmapSummary & { status: { label: string, tone: Tone, key: 'active' | 'done' | 'empty' } }
+    const statusOf = (r: RoadmapSummary): Row['status'] =>
+        r.stages_total === 0 ? { label: 'Sem roadmap', tone: 'zinc', key: 'empty' }
+            : r.progress === 100 ? { label: 'Concluído', tone: 'green', key: 'done' }
+            : r.tasks_done === 0 ? { label: 'Por iniciar', tone: 'amber', key: 'active' }
+            : { label: 'Em curso', tone: 'indigo', key: 'active' }
+    const rows: Row[] = summaries.map(r => {
+        const live = r.project_id === localSelectedProjectId && !isRoadmapLoading && roadmap.length > 0
+            ? { stages_total: roadmap.length, stages_done: doneStages, tasks_total: totalTasks, tasks_done: completedTasks, progress: overallProgress, current_stage: currentStage && currentStage.progress < 100 ? { name: currentStage.name, color: currentStage.color } : null }
+            : {}
+        const merged = { ...r, ...live }
+        return { ...merged, status: statusOf(merged) }
+    })
+    const q = projectQuery.trim().toLowerCase()
+    const visibleRows = rows.filter(r => (tableView === 'all' || r.status.key === tableView) && (!q || r.name.toLowerCase().includes(q) || roadmapId(r.project_id).toLowerCase().includes(q) || (r.brand || '').toLowerCase().includes(q)))
+    const withTasks = rows.filter(r => r.tasks_total > 0)
+    const avgProgress = withTasks.length ? Math.round(withTasks.reduce((a, r) => a + r.progress, 0) / withTasks.length) : 0
+
+    const openRoadmap = (projectId: string) => {
+        const p = localProjects.find(x => x.id === projectId)
+        if (!p) return
+        handleSelectProject(p)
+        window.history.pushState(null, "", `/roadmap?projectId=${p.id}`)
+        setDetailOpen(true)
+    }
+    const closeRoadmap = () => {
+        setDetailOpen(false)
+        window.history.pushState(null, "", "/roadmap")
+        router.refresh()
+    }
+
     return (
-        <div className="relative min-h-[calc(100vh-80px)] w-full z-0">
-            {/* Background Layer with Blur Effect */}
-            <div 
-                className={cn(
-                    "fixed inset-0 -z-20 transition-all duration-700",
-                    !bgStyle || bgStyle === 'default' ? BG_CLASSES_ADMIN['default'] : "scale-110"
-                )} 
-                style={getBackgroundStyle(bgStyle)}
-            />
-            
-            {/* Darker Glass/Blur overlay for admin panel */}
-            {bgStyle && bgStyle !== 'default' && (
-                <div className="fixed inset-0 -z-10 bg-black/60 backdrop-blur-[30px] transition-all duration-700" />
-            )}
+        <WorkspaceShell
+            section="Roadmap"
+            view={tableView}
+            onView={setTableView}
+            views={[
+                { id: 'all', label: 'Todos os roadmaps', icon: MapIcon, count: rows.length },
+                { id: 'active', label: 'Em curso', icon: Clock, count: rows.filter(r => r.status.key === 'active').length },
+                { id: 'done', label: 'Concluídos', icon: CheckCircle2, count: rows.filter(r => r.status.key === 'done').length },
+                { id: 'empty', label: 'Sem roadmap', icon: Circle, count: rows.filter(r => r.status.key === 'empty').length },
+            ]}
+            list={localProjects.map(p => ({ id: p.id, label: p.name, active: detailOpen && p.id === localSelectedProjectId, onClick: () => openRoadmap(p.id) }))}
+            listAddLabel="Novo projeto"
+            onListAdd={() => router.push('/projects')}
+            search={projectQuery}
+            onSearch={setProjectQuery}
+            searchPlaceholder="Procurar roadmap"
+            action={{ label: 'Novo projeto', onClick: () => router.push('/projects') }}
+        >
+            <StatStrip stats={[
+                { label: 'Roadmaps', value: rows.length, unit: 'projetos', icon: MapIcon, tone: 'rose', onClick: () => setTableView('all') },
+                { label: 'Em curso', value: rows.filter(r => r.status.key === 'active').length, unit: 'roadmaps', icon: Clock, tone: 'indigo', onClick: () => setTableView('active') },
+                { label: 'Concluídos', value: rows.filter(r => r.status.key === 'done').length, unit: 'roadmaps', icon: CheckCircle2, tone: 'green', onClick: () => setTableView('done') },
+                { label: 'Progresso médio', value: `${avgProgress}%`, unit: 'das tarefas', icon: Layers, tone: 'amber' },
+            ]} />
 
-            <div className="max-w-[1200px] mx-auto px-6 py-12 relative">
-            {/* Header Section */}
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 xl:gap-6 mb-12 w-full">
-                <div className="space-y-4 w-full xl:w-auto min-w-0">
-                    <div className="flex flex-wrap items-center gap-3">
-                        <Link href="/projects" title="Voltar aos Projetos">
-                            <Button variant="outline" className="bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2 flex items-center justify-center w-11 h-11 shadow-sm border-2 p-0 shrink-0">
-                                <ArrowLeft className="w-4 h-4 text-text-tertiary" />
-                            </Button>
-                        </Link>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2 flex items-center gap-2 px-4 shadow-sm border-2 h-11">
-                                    <div className="w-2 h-2 rounded-full bg-[#FF0055]" />
-                                    <span className="truncate font-black text-xs uppercase tracking-widest text-gray-900 dark:text-white">
-                                        {currentSelectedProject?.name || "Selecionar Projeto"}
-                                    </span>
-                                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent className="bg-white dark:bg-[#1A1B23] border border-gray-100 dark:border-white/10 rounded-xl min-w-[260px] p-2 shadow-2xl z-[110]">
-                                <div className="px-3 py-2 border-b border-gray-50 dark:border-white/5 mb-2">
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-gray-400 dark:text-gray-500">Meus Projectos</span>
-                                </div>
-                                <div className="max-h-[300px] overflow-y-auto custom-scrollbar pt-1">
-                                    {localProjects.map(p => (
-                                        <DropdownMenuItem
-                                            key={p.id}
-                                            className={cn(
-                                                "rounded-lg px-3 py-2.5 cursor-pointer transition-all mb-1 outline-none",
-                                                localSelectedProjectId === p.id
-                                                    ? "bg-[#FF0055] text-white font-black shadow-lg shadow-[#FF0055]/20"
-                                                    : "hover:bg-gray-50 dark:hover:bg-white/5 text-gray-600 dark:text-gray-300"
-                                            )}
-                                            onClick={() => handleSelectProject(p)}
-                                        >
-                                            <div className="flex items-center justify-between w-full">
-                                                <span className="truncate text-xs font-bold uppercase tracking-tight">{p.name}</span>
-                                                {localSelectedProjectId === p.id && <Check className="w-4 h-4 ml-2" />}
-                                            </div>
-                                        </DropdownMenuItem>
-                                    ))}
-                                </div>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-
-                    </div>
+            {rows.length === 0 ? (
+                <div className="border border-dashed border-zinc-200 dark:border-white/[0.08] rounded-2xl px-6 py-16 flex flex-col items-center text-center">
+                    <MapIcon className="w-5 h-5 text-zinc-400 mb-3" />
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Ainda não tens roadmaps</h3>
+                    <p className="text-xs text-zinc-500 mt-1.5 max-w-md">Cada projeto tem o seu roadmap, com as fases e as tarefas. Cria um projeto para começares.</p>
+                    <Link href="/projects" className="mt-5 h-8 px-3.5 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5"><Plus className="w-3.5 h-3.5" /> Novo projeto</Link>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-                    {currentSelectedProject && (
-                        <>
-                            <div className="relative group">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => {
-                                        setEditingStage(null)
-                                        setNewStageName("")
-                                        setIsStageModalOpen(true)
-                                    }}
-                                    className="w-11 h-11 rounded-xl text-accent-indigo hover:text-accent-indigo/80 hover:bg-bg-2"
-                                >
-                                    <Plus className="w-5 h-5" />
-                                </Button>
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
-                                    Nova Fase
-                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
-                                </div>
-                            </div>
-                            <div className="relative group">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setIsTemplateModalOpen(true)}
-                                    className="w-11 h-11 rounded-xl text-accent-mint hover:text-accent-mint/80 hover:bg-bg-2"
-                                >
-                                    <Sparkles className="w-5 h-5" />
-                                </Button>
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
-                                    Templates
-                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
-                                </div>
-                            </div>
-                            <div className="relative group">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setIsLayoutModalOpen(true)}
-                                    className="w-11 h-11 rounded-xl text-amber-500 hover:text-amber-400 hover:bg-bg-2"
-                                >
-                                    <Palette className="w-5 h-5" />
-                                </Button>
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
-                                    Layout
-                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
-                                </div>
-                            </div>
-                            <div className="relative group">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setIsBgModalOpen(true)}
-                                    className="w-11 h-11 rounded-xl text-fuchsia-500 hover:text-fuchsia-400 hover:bg-bg-2"
-                                >
-                                    <ImageIcon className="w-5 h-5" />
-                                </Button>
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
-                                    Fundo
-                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
-                                </div>
-                            </div>
-                            <div className="relative group">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => setIsNotesOpen(true)}
-                                    className="w-11 h-11 rounded-xl text-accent-indigo hover:text-accent-indigo/80 hover:bg-bg-2 relative"
-                                >
-                                    <MessageSquare className="w-5 h-5" />
-                                    {initialNotes.length > 0 && (
-                                        <span className="absolute top-1 right-1 w-3.5 h-3.5 bg-[#FF0055] text-white text-[9px] font-black flex items-center justify-center rounded-full shadow-lg">
-                                            {initialNotes.length}
-                                        </span>
-                                    )}
-                                </Button>
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
-                                    Notas
-                                    <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
-                                </div>
-                            </div>
-                        </>
-                    )}
-                    <div className="relative group">
-                        <Button
-                            onClick={handleGenerateLink}
-                            size="icon"
-                            className="w-11 h-11 bg-[#FF0055] hover:bg-[#FF0055]/90 text-white rounded-xl shadow-lg shadow-[#FF0055]/20"
+            ) : (
+                <div className={cn(PANEL, "overflow-hidden")}>
+                    <div className={cn(TABLE_HEAD, "hidden lg:grid grid-cols-[1.7fr_1.1fr_1.2fr_0.7fr_0.8fr_0.8fr_24px] gap-4")}>
+                        <span>Roadmap</span><span>Fase atual</span><span>Progresso</span><span>Tarefas</span><span>Próximo prazo</span><span>Estado</span><span />
+                    </div>
+                    {visibleRows.map(r => (
+                        <button
+                            key={r.project_id}
+                            type="button"
+                            onClick={() => openRoadmap(r.project_id)}
+                            className={cn(TABLE_ROW, "group w-full text-left grid grid-cols-2 lg:grid-cols-[1.7fr_1.1fr_1.2fr_0.7fr_0.8fr_0.8fr_24px] gap-x-4 gap-y-2 items-center")}
                         >
-                            <Share2 className="w-5 h-5" />
-                        </Button>
-                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
-                            Gerar Link
-                            <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
-                        </div>
-                    </div>
-                    {localSelectedProjectId && (
-                        <div className="relative group">
-                            <Button
-                                variant="outline"
-                                asChild
-                                size="icon"
-                                className="w-11 h-11 bg-bg-1 border-bg-3 rounded-xl hover:bg-bg-2"
-                            >
-                                <Link href={`/share/${localSelectedProjectId}/roadmap?layout=${layoutStyle}&bg=${encodeURIComponent(bgStyle)}`} target="_blank">
-                                    <ExternalLink className="w-5 h-5 text-text-primary" />
-                                </Link>
-                            </Button>
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-3 py-1.5 bg-[#1A1B23] border border-white/10 text-white text-[10px] font-black uppercase tracking-widest rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[120] shadow-xl">
-                                Visualizar
-                                <div className="absolute -top-[5px] left-1/2 -translate-x-1/2 w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-[#1A1B23]" />
-                            </div>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Overall Progress Banner */}
-            {selectedProject && (
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mb-12 p-8 bg-bg-1 border border-bg-3 rounded-[24px] overflow-hidden relative"
-                >
-                    <div className="absolute top-0 right-0 w-64 h-64 bg-accent-indigo/5 blur-[100px] -mr-32 -mt-32 rounded-full" />
-
-                    <div className="relative z-10 flex flex-col md:flex-row md:items-center gap-8">
-                        <div className="flex-1 space-y-4">
-                            <div className="flex justify-between items-end">
-                                <div>
-                                    <h3 className="text-[12px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Status Global</h3>
-                                    <p className="text-xl font-bold text-text-primary">
-                                        {currentStage ? `Fase Atual: ${currentStage.name}` : "Projeto Concluído"}
-                                    </p>
+                            <div className="flex items-center gap-3 min-w-0 col-span-2 lg:col-span-1">
+                                <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#181215] border border-red-500/20 flex items-center justify-center shrink-0 shadow-sm">
+                                    <span className="text-red-500 font-bold text-xs">{(r.name || "R")[0]?.toUpperCase()}</span>
                                 </div>
-                                <span className="text-2xl font-black text-accent-indigo">{overallProgress}%</span>
+                                <div className="min-w-0">
+                                    <p className="text-xs font-bold tracking-wide uppercase text-zinc-900 dark:text-zinc-100 truncate group-hover:text-[#ff0054] transition-colors">{r.name}</p>
+                                    <p className="text-[11px] text-zinc-500 truncate mt-0.5"><span className="font-mono">{roadmapId(r.project_id)}</span>{r.brand && <> · {r.brand}</>}</p>
+                                </div>
                             </div>
-                            <div className="h-3 bg-bg-2 rounded-full overflow-hidden">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${overallProgress}%` }}
-                                    className="h-full bg-accent-indigo"
-                                />
+                            <div className="flex items-center gap-2 min-w-0">
+                                {r.current_stage ? (
+                                    <>
+                                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: r.current_stage.color || '#ff0054' }} />
+                                        <span className="text-xs text-zinc-700 dark:text-zinc-300 truncate">{r.current_stage.name}</span>
+                                    </>
+                                ) : r.stages_total ? <span className="text-xs text-zinc-400">Todas concluídas</span>
+                                    : <span className="text-xs font-semibold text-[#ff0054] inline-flex items-center gap-1">Criar roadmap <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" /></span>}
                             </div>
-                        </div>
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1 h-1.5 rounded-full bg-zinc-100 dark:bg-white/[0.06] overflow-hidden">
+                                    <div className="h-full rounded-full bg-[#ff0054] transition-all duration-700" style={{ width: `${r.progress}%` }} />
+                                </div>
+                                <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums w-9 text-right">{r.progress}%</span>
+                            </div>
+                            <span className="text-xs text-zinc-600 dark:text-zinc-400 tabular-nums">{r.tasks_done}/{r.tasks_total} <span className="text-zinc-400">· {r.stages_done}/{r.stages_total} fases</span></span>
+                            <span className="text-xs text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">{(r.next_due || r.due_date) ? <><CalendarClock className="w-3.5 h-3.5 text-zinc-400" />{formatShortDate(r.next_due || r.due_date, { day: '2-digit', month: 'short' })}</> : '—'}</span>
+                            <span><Pill tone={r.status.tone}>{r.status.label}</Pill></span>
+                            <ChevronRight className="hidden lg:block w-4 h-4 text-zinc-400 group-hover:text-zinc-900 dark:group-hover:text-white transition-colors" />
+                        </button>
+                    ))}
+                    {visibleRows.length === 0 && <p className="text-xs text-zinc-500 text-center py-10">Nenhum roadmap {q ? 'encontrado' : 'nesta vista'}.</p>}
+                </div>
+            )}
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="p-4 bg-bg-2 border border-bg-3 rounded-2xl">
-                                <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Tarefas</p>
-                                <p className="text-lg font-bold text-text-primary">{completedTasks} / {totalTasks}</p>
-                            </div>
-                            <div className="p-4 bg-bg-2 border border-bg-3 rounded-2xl">
-                                <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-widest mb-1">Fases</p>
-                                <p className="text-lg font-bold text-text-primary">{roadmap.filter(s => s.progress === 100).length} / {roadmap.length}</p>
-                            </div>
+            {/* ===== Roadmap in a full-screen modal ===== */}
+            {detailOpen && currentSelectedProject && (
+                <div className="fixed inset-0 z-[45] flex items-center justify-center">
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeRoadmap} />
+                <div className="relative w-[90vw] h-[98vh] flex flex-col bg-bg-0 rounded-[16px] overflow-hidden border border-zinc-200/80 dark:border-white/[0.08] shadow-2xl animate-in fade-in zoom-in-[0.98] duration-200" role="dialog" aria-modal="true" aria-label={`Roadmap ${currentSelectedProject.name}`}>
+                    {/* Background chosen for this roadmap */}
+                    <div className={cn("absolute inset-0 -z-0 transition-all duration-700 pointer-events-none", customBg ? "scale-110" : "bg-bg-0")} style={getBackgroundStyle(bgStyle)} />
+                    {customBg && <div className="absolute inset-0 bg-black/60 backdrop-blur-[30px] pointer-events-none" />}
+
+                    {/* Header, as the app's modals */}
+                    <div className="relative h-[60px] bg-[#ff0054] px-6 md:px-8 flex items-center justify-between gap-4 shrink-0">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <span className="px-2 py-1 rounded-md bg-black/20 text-white text-[11px] font-mono font-semibold tracking-wide shrink-0" title="Identificador do roadmap">{roadmapId(currentSelectedProject.id)}</span>
+                            <h2 className="text-[18px] md:text-[20px] font-bold text-white truncate">{currentSelectedProject.name}</h2>
+                            {currentStage && <span className="hidden md:inline text-[13px] text-white/75 truncate">· Fase atual: {currentStage.name}</span>}
+                        </div>
+                        <button type="button" onClick={closeRoadmap} title="Fechar (Esc)" aria-label="Fechar" className="w-[22px] h-[22px] bg-[#15161B] rounded-full transition-transform active:scale-90 hover:scale-105 shrink-0" />
+                    </div>
+
+                    {/* Actions */}
+                    <div className="relative px-6 md:px-8 py-3 border-b border-zinc-200/80 dark:border-white/[0.06] bg-white/80 dark:bg-[#0c0c0e]/80 backdrop-blur flex flex-wrap items-center gap-2 shrink-0">
+                        <button type="button" onClick={() => { setEditingStage(null); setNewStageName(""); setIsStageModalOpen(true) }} className="h-8 px-3.5 bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-white dark:hover:bg-zinc-200 dark:text-zinc-950 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 shadow-sm transition-all active:scale-95">
+                            <Plus className="w-3.5 h-3.5" /> Nova fase
+                        </button>
+                        <span className="w-px h-5 bg-zinc-200 dark:bg-white/[0.08] mx-1" />
+                        <OutlineButton onClick={() => setIsTemplateModalOpen(true)}><Sparkles className="w-3.5 h-3.5" /> Templates</OutlineButton>
+                        <OutlineButton onClick={() => setIsLayoutModalOpen(true)}><Palette className="w-3.5 h-3.5" /> Layout</OutlineButton>
+                        <OutlineButton onClick={() => setIsBgModalOpen(true)}><ImageIcon className="w-3.5 h-3.5" /> Fundo</OutlineButton>
+                        <OutlineButton onClick={() => setIsNotesOpen(true)}>
+                            <MessageSquare className="w-3.5 h-3.5" /> Notas
+                            {initialNotes.length > 0 && <span className="ml-0.5 min-w-4 h-4 px-1 rounded-full bg-[#FF0055] text-white text-[9px] font-bold flex items-center justify-center">{initialNotes.length}</span>}
+                        </OutlineButton>
+                        <div className="ml-auto flex items-center gap-2">
+                            <OutlineButton onClick={handleGenerateLink}><Share2 className="w-3.5 h-3.5" /> Copiar link</OutlineButton>
+                            <Link href={`/share/${currentSelectedProject.id}/roadmap?layout=${layoutStyle}&bg=${encodeURIComponent(bgStyle)}`} target="_blank" className="h-8 px-3.5 rounded-lg bg-[#ff0054] hover:bg-[#e0004a] text-white text-xs font-semibold inline-flex items-center gap-1.5 transition-colors">
+                                <ExternalLink className="w-3.5 h-3.5" /> Ver como cliente
+                            </Link>
                         </div>
                     </div>
-                </motion.div>
-            )}
+
+                    <div className="relative flex-1 overflow-y-auto overflow-x-hidden no-scrollbar">
+                        <div className="w-full max-w-[1520px] mx-auto px-6 md:px-10 py-8 flex flex-col gap-6 min-w-0">
+                            <StatStrip stats={[
+                                { label: 'Progresso', value: `${overallProgress}%`, unit: 'concluído', icon: CheckCircle2, tone: 'green' },
+                                { label: 'Fase atual', value: <span className="text-lg lg:text-xl">{currentStage ? currentStage.name : 'Concluído'}</span>, icon: Flag, tone: 'indigo' },
+                                { label: 'Tarefas', value: `${completedTasks}/${totalTasks}`, unit: 'feitas', icon: ListChecks, tone: 'amber' },
+                                { label: 'Fases', value: `${doneStages}/${roadmap.length}`, unit: 'concluídas', icon: Layers, tone: 'rose' },
+                            ]} />
+
+                            {/* No roadmap yet: create it from a template */}
+                            {!isRoadmapLoading && roadmap.length === 0 && (
+                                <div className={cn(PANEL, "p-6 md:p-8")}>
+                                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-zinc-200/80 dark:border-white/[0.06]">
+                                        <div>
+                                            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#ff0054]">Próximo passo</span>
+                                            <h3 className="text-lg font-semibold text-zinc-900 dark:text-white mt-1">Cria o roadmap deste projeto</h3>
+                                            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1.5 max-w-xl leading-relaxed">
+                                                Escolhe o template mais próximo do trabalho. As fases e as tarefas são criadas no projeto, com datas seguidas a partir do início do projeto; depois ajustas o que for preciso.
+                                                {unstaged.length > 0 && <> As <b className="text-zinc-700 dark:text-zinc-300">{unstaged.length} tarefas</b> que já existem mantêm-se e podes encaixá-las nas fases a seguir.</>}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="pt-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                        {ROADMAP_TEMPLATES.filter(t => t.stages.length > 0).map(t => {
+                                            const taskCount = t.stages.reduce((a, st) => a + (st.tasks?.length || 0), 0)
+                                            return (
+                                                <button
+                                                    key={t.id}
+                                                    type="button"
+                                                    disabled={isLoading}
+                                                    onClick={() => handleApplyTemplate(t.id)}
+                                                    className="group text-left rounded-xl border border-zinc-200/80 dark:border-white/[0.08] bg-zinc-50 dark:bg-[#141416] p-5 hover:border-[#ff0054] transition-colors disabled:opacity-60"
+                                                >
+                                                    <div className="flex items-start justify-between gap-3">
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-[#ff0054] transition-colors">{t.name}</p>
+                                                            <p className="text-[11px] text-zinc-500 mt-1 line-clamp-2">{t.description}</p>
+                                                        </div>
+                                                        <ArrowRight className="w-4 h-4 text-zinc-400 group-hover:text-[#ff0054] group-hover:translate-x-0.5 transition-all shrink-0 mt-0.5" />
+                                                    </div>
+                                                    <div className="mt-4 flex flex-wrap gap-1.5">
+                                                        {t.stages.map((st, i) => (
+                                                            <span key={i} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-zinc-200 dark:border-white/[0.08] text-[10px] font-medium text-zinc-600 dark:text-zinc-400">
+                                                                <span className="w-1.5 h-1.5 rounded-full" style={{ background: st.color }} />{st.name}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                    <p className="mt-4 text-[11px] text-zinc-500"><b className="text-zinc-700 dark:text-zinc-300">{t.stages.length}</b> fases · <b className="text-zinc-700 dark:text-zinc-300">{taskCount}</b> tarefas</p>
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                    {isLoading && <p className="mt-5 text-xs text-zinc-500 flex items-center gap-2"><span className="w-3 h-3 rounded-full border-2 border-[#ff0054] border-t-transparent animate-spin" /> A criar as fases e as tarefas…</p>}
+                                </div>
+                            )}
+
+                            {/* Project tasks that are not in any phase yet */}
+                            {!isRoadmapLoading && roadmap.length > 0 && unstaged.length > 0 && (
+                                <div className={cn(PANEL, "p-6")}>
+                                    <div className="flex items-center justify-between gap-4 pb-4 border-b border-zinc-200/80 dark:border-white/[0.06]">
+                                        <div className="flex items-center gap-2 text-xs font-medium text-zinc-700 dark:text-zinc-300">
+                                            <ListChecks className="w-4 h-4 text-zinc-500" />
+                                            Tarefas do projeto sem fase <span className="text-zinc-400">· {unstaged.length}</span>
+                                        </div>
+                                        <span className="text-[11px] text-zinc-500 hidden sm:block">Escolhe a fase de cada uma para aparecer no roadmap.</span>
+                                    </div>
+                                    <div className="divide-y divide-zinc-200/60 dark:divide-white/[0.04]">
+                                        {unstaged.slice(0, 8).map(t => (
+                                            <div key={t.id} className="flex items-center gap-3 py-3">
+                                                <span className={cn("w-1.5 h-1.5 rounded-full shrink-0", t.completed ? "bg-emerald-500" : "bg-zinc-400")} />
+                                                <span className="text-xs text-zinc-800 dark:text-zinc-200 truncate flex-1">{t.title}</span>
+                                                {t.due_date && <span className="text-[11px] text-zinc-500 hidden md:inline">{formatShortDate(t.due_date, { day: '2-digit', month: 'short' })}</span>}
+                                                <select
+                                                    defaultValue=""
+                                                    aria-label={`Fase de «${t.title}»`}
+                                                    onChange={async (e) => {
+                                                        const stageId = e.target.value
+                                                        if (!stageId || !localSelectedProjectId) return
+                                                        const res = await assignTaskToStage(localSelectedProjectId, t.id, stageId)
+                                                        if (res.success) { toast.success('Tarefa colocada na fase'); await reloadRoadmap() } else toast.error(res.error || 'Erro')
+                                                    }}
+                                                    className="h-8 px-2 rounded-lg bg-zinc-100 dark:bg-[#141416] border border-zinc-200 dark:border-white/[0.08] text-xs text-zinc-700 dark:text-zinc-300 outline-none focus:border-[#ff0054] cursor-pointer"
+                                                >
+                                                    <option value="" disabled>Colocar na fase…</option>
+                                                    {roadmap.map(st => <option key={st.id} value={st.id}>{st.name}</option>)}
+                                                </select>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {unstaged.length > 8 && <p className="pt-3 text-[11px] text-zinc-500">E mais {unstaged.length - 8}. Coloca estas primeiro e as restantes aparecem a seguir.</p>}
+                                </div>
+                            )}
 
             {/* Roadmap loading skeleton */}
             {isRoadmapLoading && (
@@ -872,14 +953,15 @@ export function RoadmapClient({
             >
                 {/* Default Layout (Vertical/Horizontal based on viewMode) */}
                 {layoutStyle === 'default' && viewMode === 'vertical' && (
-                    <div className="relative pl-8 md:pl-24 space-y-12 pb-24">
-                        <div className="absolute left-[39px] md:left-[103px] top-4 bottom-0 w-[2px] bg-bg-3" />
+                    <div className="pb-12">
                         <SortableContext items={roadmap.map(s => s.id)} strategy={verticalListSortingStrategy}>
                             {roadmap.map((stage, idx) => (
                                 <SortableStageItem
                                     key={stage.id}
                                     stage={stage}
                                     idx={idx}
+                                    isLast={idx === roadmap.length - 1}
+                                    isCurrent={roadmap.findIndex(s => s.progress < 100) === idx}
                                     onEdit={() => {
                                         setEditingStage(stage)
                                         setNewStageName(stage.name)
@@ -908,7 +990,7 @@ export function RoadmapClient({
 
                 {layoutStyle === 'default' && viewMode === 'horizontal' && (
                     <div className="pb-24">
-                        <div className="flex gap-6 overflow-x-auto pb-4 scrollbar-hide" style={{ scrollbarWidth: 'none' }}>
+                        <div className="flex gap-6 overflow-x-auto pb-4 roadmap-scroll">
                             {roadmap.map((stage, idx) => (
                                 <motion.div
                                     key={stage.id}
@@ -979,7 +1061,7 @@ export function RoadmapClient({
 
                 {/* Numbered Circles Layout - Horizontal Single Line */}
                 {layoutStyle === 'numbered' && (
-                    <div className="relative pb-[300px] -mx-6" style={{ width: '100vw', marginLeft: 'calc(-50vw + 50%)' }}>
+                    <div className="relative w-full min-w-0 pb-6">
                         {/* Custom Cursor */}
                         <AnimatePresence>
                             {scrollDirection && cursorPosition && (
@@ -1017,7 +1099,7 @@ export function RoadmapClient({
                             ref={scrollContainerRef}
                             onMouseMove={handleMouseMove}
                             onMouseLeave={handleMouseLeave}
-                            className="overflow-x-auto overflow-y-visible px-6 scrollbar-hide"
+                            className="overflow-x-auto overflow-y-visible roadmap-scroll"
                             style={{ cursor: scrollDirection ? 'none' : 'default' }}
                         >
 
@@ -1330,120 +1412,87 @@ export function RoadmapClient({
 
                 {/* Cards Layout (Glassmorphism) */}
                 {layoutStyle === 'cards' && (
-                    <div className="pb-24">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {roadmap.map((stage, idx) => (
+                    <div className="pb-12 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {roadmap.map((stage, idx) => {
+                            const done = stage.progress === 100
+                            const current = roadmap.findIndex(s => s.progress < 100) === idx
+                            return (
                                 <motion.div
                                     key={stage.id}
-                                    initial={{ opacity: 0, y: 30 }}
+                                    initial={{ opacity: 0, y: 8 }}
                                     animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.1 }}
-                                    whileHover={{ y: -5, scale: 1.02 }}
-                                    className="relative overflow-hidden"
+                                    transition={{ delay: idx * 0.05 }}
+                                    className={cn("bg-white dark:bg-[#0c0c0e] border rounded-2xl p-5 flex flex-col", current ? "border-[#ff0054]/40" : "border-zinc-200/80 dark:border-white/[0.08]")}
                                 >
-                                    <div className="absolute inset-0 bg-gradient-to-br from-accent-indigo/10 to-accent-mint/10 rounded-3xl" />
-                                    <div className="relative p-6 backdrop-blur-xl bg-bg-1/80 border border-white/10 rounded-3xl shadow-xl">
-                                        <div className="flex items-center justify-between mb-4">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold" style={{ backgroundColor: stage.color }}>
-                                                    {idx + 1}
-                                                </div>
-                                                <h3 className="text-[16px] font-bold text-text-primary">{stage.name}</h3>
-                                            </div>
-                                            {stage.progress === 100 && <CheckCircle2 className="w-6 h-6 text-accent-indigo" />}
-                                        </div>
-
-                                        <div className="mb-4">
-                                            <div className="flex justify-between text-[12px] mb-2">
-                                                <span className="text-text-tertiary">Progresso</span>
-                                                <span className="font-bold text-accent-indigo">{stage.progress}%</span>
-                                            </div>
-                                            <div className="h-3 bg-bg-3/50 rounded-full overflow-hidden backdrop-blur-sm">
-                                                <motion.div
-                                                    initial={{ width: 0 }}
-                                                    animate={{ width: `${stage.progress}%` }}
-                                                    transition={{ duration: 1.5, delay: idx * 0.2 }}
-                                                    className="h-full bg-gradient-to-r from-accent-indigo to-accent-mint rounded-full"
-                                                />
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <span className={cn(
+                                                "w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold tabular-nums shrink-0",
+                                                done ? "bg-[#ff0054] text-white" : current ? "text-[#ff0054] ring-2 ring-[#ff0054]" : "bg-zinc-100 dark:bg-[#141416] text-zinc-500 ring-1 ring-zinc-200 dark:ring-white/[0.08]"
+                                            )}>
+                                                {done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : String(idx + 1).padStart(2, '0')}
+                                            </span>
+                                            <div className="min-w-0">
+                                                <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Fase {String(idx + 1).padStart(2, '0')}</p>
+                                                <h3 className="text-sm font-semibold text-zinc-900 dark:text-white truncate">{stage.name}</h3>
                                             </div>
                                         </div>
+                                        <button type="button" title="Editar fase" aria-label="Editar fase" onClick={() => { setEditingStage(stage); setNewStageName(stage.name); setNewStageColor(stage.color); setIsStageModalOpen(true) }} className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06]">
+                                            <Edit3 className="w-3.5 h-3.5" />
+                                        </button>
+                                    </div>
 
-                                        <div className="space-y-2 max-h-[150px] overflow-y-auto pr-2">
-                                            {stage.tasks.map(task => (
-                                                <div key={task.id} className="flex items-center justify-between group/task">
-                                                    <div className="flex items-center gap-2 text-[12px]">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleToggleTask(task.id, stage.id);
-                                                            }}
-                                                            className={cn(
-                                                                "w-3.5 h-3.5 rounded border transition-colors flex items-center justify-center shrink-0",
-                                                                task.completed ? "bg-accent-indigo border-accent-indigo text-white" : "border-bg-3 hover:border-accent-indigo"
-                                                            )}
-                                                        >
-                                                            {task.completed && <Check className="w-2.5 h-2.5" />}
-                                                        </button>
-                                                        <span
-                                                            className={cn("cursor-pointer", task.completed && "line-through text-text-tertiary")}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setEditingTask({ id: task.id, title: task.title, stageId: stage.id });
-                                                                setNewTaskTitle(task.title);
-                                                                setIsTaskModalOpen(true);
-                                                            }}
-                                                        >
-                                                            {task.title}
-                                                        </span>
-                                                    </div>
+                                    <div className="mt-4 flex items-center gap-2">
+                                        <div className="flex-1 h-1 rounded-full bg-zinc-100 dark:bg-white/[0.06] overflow-hidden">
+                                            <motion.div initial={{ width: 0 }} animate={{ width: `${stage.progress}%` }} transition={{ duration: 0.7, delay: idx * 0.05 }} className="h-full rounded-full bg-[#ff0054]" />
+                                        </div>
+                                        <span className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-300 tabular-nums w-8 text-right">{stage.progress}%</span>
+                                    </div>
+
+                                    <div className="mt-3 -mx-1.5 space-y-0.5 flex-1">
+                                        {stage.tasks.map(task => (
+                                            <div key={task.id} className="group/task flex items-center justify-between gap-2 rounded-md px-1.5 py-1 hover:bg-zinc-50 dark:hover:bg-white/[0.03]">
+                                                <div className="flex items-center gap-2 min-w-0">
                                                     <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteTask(task.id, stage.id);
-                                                        }}
-                                                        className="opacity-0 group-hover/task:opacity-100 text-text-tertiary hover:text-error transition-all"
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); handleToggleTask(task.id, stage.id) }}
+                                                        className={cn("w-3.5 h-3.5 rounded-[4px] border flex items-center justify-center shrink-0 transition-colors", task.completed ? "bg-[#ff0054] border-[#ff0054] text-white" : "border-zinc-300 dark:border-white/20 hover:border-[#ff0054]")}
                                                     >
-                                                        <Trash2 className="w-3 h-3" />
+                                                        {task.completed && <Check className="w-2.5 h-2.5" strokeWidth={3} />}
                                                     </button>
+                                                    <span
+                                                        className={cn("text-xs truncate cursor-pointer", task.completed ? "text-zinc-400 line-through" : "text-zinc-700 dark:text-zinc-300")}
+                                                        onClick={(e) => { e.stopPropagation(); setEditingTask({ id: task.id, title: task.title, stageId: stage.id }); setNewTaskTitle(task.title); setIsTaskModalOpen(true) }}
+                                                    >
+                                                        {task.title}
+                                                    </span>
                                                 </div>
-                                            ))}
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="w-full text-[10px] h-7 mt-2 bg-transparent border-bg-3"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    setTaskStageId(stage.id);
-                                                    setEditingTask(null);
-                                                    setNewTaskTitle("");
-                                                    setIsTaskModalOpen(true);
-                                                }}
-                                            >
-                                                <Plus className="w-3 h-3 mr-1" /> Add Tarefa
-                                            </Button>
-                                        </div>
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); handleDeleteTask(task.id, stage.id) }} className="opacity-0 group-hover/task:opacity-100 text-zinc-400 hover:text-rose-500 transition-all" aria-label="Eliminar tarefa">
+                                                    <Trash2 className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                        {stage.tasks.length === 0 && <p className="px-1.5 py-1 text-xs text-zinc-400">Ainda sem tarefas.</p>}
+                                    </div>
 
-                                        <div className="mt-4 pt-4 border-t border-bg-3/30 flex items-center justify-between">
-                                            <span className="text-[11px] text-text-tertiary">{stage.tasks.filter(t => t.completed).length}/{stage.tasks.length} tarefas</span>
-                                            <Button variant="ghost" size="sm" className="h-8 text-[10px]" onClick={() => {
-                                                setEditingStage(stage)
-                                                setNewStageName(stage.name)
-                                                setNewStageColor(stage.color)
-                                                setIsStageModalOpen(true)
-                                            }}>
-                                                <Edit3 className="w-3 h-3 mr-1" />Editar
-                                            </Button>
-                                        </div>
+                                    <div className="mt-4 pt-3 border-t border-zinc-200/80 dark:border-white/[0.06] flex items-center justify-between">
+                                        <span className="text-[11px] text-zinc-500 tabular-nums">{stage.tasks.filter(t => t.completed).length}/{stage.tasks.length} tarefas</span>
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); setTaskStageId(stage.id); setEditingTask(null); setNewTaskTitle(""); setIsTaskModalOpen(true) }}
+                                            className="text-[11px] font-medium text-zinc-500 hover:text-[#ff0054] inline-flex items-center gap-1 transition-colors"
+                                        >
+                                            <Plus className="w-3 h-3" /> Tarefa
+                                        </button>
                                     </div>
                                 </motion.div>
-                            ))}
-                        </div>
+                            )
+                        })}
                     </div>
                 )}
 
-                {/* Timeline Horizontal Layout */}
                 {layoutStyle === 'timeline' && (
-                    <div className="pb-24 overflow-x-auto scrollbar-hide">
+                    <div className="pb-6 overflow-x-auto roadmap-scroll">
                         <div className="flex items-start gap-0 min-w-max py-8">
                             {roadmap.map((stage, idx) => (
                                 <React.Fragment key={stage.id}>
@@ -1576,6 +1625,11 @@ export function RoadmapClient({
                 )}
             </DndContext>
             </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+            )}
 
             {/* Stage Create/Edit Modal */}
             <Dialog open={isStageModalOpen} onOpenChange={setIsStageModalOpen}>
@@ -1835,7 +1889,7 @@ export function RoadmapClient({
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                             >
-                                <div className="text-2xl mb-2">{option.icon}</div>
+                                <option.icon className="w-5 h-5 mb-3 text-[#FF0054]" />
                                 <h3 className="text-[14px] font-bold text-text-primary mb-1">{option.name}</h3>
                                 <p className="text-[11px] text-text-tertiary">{option.description}</p>
                             </motion.button>
@@ -1961,14 +2015,15 @@ export function RoadmapClient({
                     onClose={() => setIsNotesOpen(false)}
                 />
             )}
-            </div>
-        </div>
+        </WorkspaceShell>
     )
 }
 
 function SortableStageItem({
     stage,
     idx,
+    isLast,
+    isCurrent,
     onEdit,
     onDelete,
     onToggleTask,
@@ -1978,6 +2033,8 @@ function SortableStageItem({
 }: {
     stage: RoadmapStage
     idx: number
+    isLast: boolean
+    isCurrent: boolean
     onEdit: () => void
     onDelete: () => void
     onToggleTask: (taskId: string, stageId: string) => void
@@ -1985,159 +2042,107 @@ function SortableStageItem({
     onEditTask: (task: { id: string, title: string, stageId: string }) => void
     onDeleteTask: (taskId: string, stageId: string) => void
 }) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging
-    } = useSortable({ id: stage.id })
-
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
-        zIndex: isDragging ? 50 : undefined,
-        position: 'relative' as const
-    }
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: stage.id })
+    const style = { transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : undefined, position: 'relative' as const }
+    const done = stage.progress === 100
+    const doneTasks = stage.tasks.filter(t => t.completed).length
+    const fmt = (d?: string | null) => d ? new Date(d).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short' }) : '…'
 
     return (
-        <div ref={setNodeRef} style={style} className={cn(isDragging && "opacity-50")}>
-            {/* Marker */}
-            <div className={cn(
-                "absolute -left-[48px] md:-left-[112px] w-10 h-10 rounded-full border-4 border-bg-0 z-10 flex items-center justify-center transition-all duration-500 shadow-xl",
-                stage.progress === 100
-                    ? "bg-accent-indigo ring-4 ring-accent-indigo/10"
-                    : stage.progress > 0
-                        ? "bg-white ring-4 ring-accent-indigo/10 animate-pulse"
-                        : "bg-bg-3"
-            )}>
-                {stage.progress === 100 ? (
-                    <CheckCircle2 className="w-5 h-5 text-white" />
-                ) : (
-                    <div className={cn(
-                        "w-2.5 h-2.5 rounded-full",
-                        stage.progress > 0 ? "bg-accent-indigo" : "bg-text-tertiary"
-                    )} />
-                )}
+        <div ref={setNodeRef} style={style} className={cn("grid grid-cols-[28px_1fr] gap-4", isDragging && "opacity-50")}>
+            {/* Node on the line (the line continues to the next phase) */}
+            <div className="relative flex justify-center pt-5">
+                {!isLast && <span className="absolute top-5 -bottom-5 w-px bg-zinc-200 dark:bg-white/[0.08]" />}
+                {!isLast && done && <span className="absolute top-5 -bottom-5 w-px bg-[#ff0054]" />}
+                <span className={cn(
+                    "relative z-10 w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-semibold tabular-nums",
+                    done && "bg-[#ff0054] text-white",
+                    !done && isCurrent && "bg-white dark:bg-[#0c0c0e] text-[#ff0054] ring-2 ring-[#ff0054]",
+                    !done && !isCurrent && "bg-zinc-100 dark:bg-[#141416] text-zinc-500 ring-1 ring-zinc-200 dark:ring-white/[0.08]"
+                )}>
+                    {done ? <Check className="w-3.5 h-3.5" strokeWidth={3} /> : String(idx + 1).padStart(2, '0')}
+                </span>
             </div>
 
-            {/* Phase Content */}
+            {/* Phase */}
             <div className={cn(
-                "p-6 md:p-8 border rounded-[24px] transition-all group/stage",
-                stage.progress === 100
-                    ? "bg-bg-1/40 border-bg-3 opacity-80"
-                    : stage.progress > 0
-                        ? "bg-bg-1 border-accent-indigo/20 shadow-xl shadow-accent-indigo/5"
-                        : "bg-bg-1/40 border-bg-3 opacity-60"
+                "mb-5 bg-white dark:bg-[#0c0c0e] border rounded-2xl p-5 transition-colors group/stage",
+                isCurrent ? "border-[#ff0054]/40" : "border-zinc-200/80 dark:border-white/[0.08]"
             )}>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-                    <div className="flex items-center gap-4">
-                        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-2 -ml-2 text-text-tertiary hover:text-text-primary opacity-0 group-hover/stage:opacity-100 transition-opacity">
-                            <GripVertical className="w-4 h-4" />
+                <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-start gap-2 min-w-0">
+                        <div {...attributes} {...listeners} className="cursor-grab active:cursor-grabbing p-1 -ml-1 mt-0.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-white opacity-0 group-hover/stage:opacity-100 transition-opacity" title="Arrastar para reordenar">
+                            <GripVertical className="w-3.5 h-3.5" />
                         </div>
-                        <div>
-                            <div className="flex items-center gap-3 mb-2">
-                                <h3 className="text-xl font-bold text-text-primary">{stage.name}</h3>
-                                <div className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase tracking-tighter" style={{ backgroundColor: `${stage.color}15`, color: stage.color }}>
-                                    Fase {idx + 1}
-                                </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-medium uppercase tracking-wider text-zinc-400">Fase {String(idx + 1).padStart(2, '0')}</span>
+                                <span className={cn(
+                                    "inline-flex items-center px-2 py-0.5 rounded-md border text-[10px] font-medium",
+                                    done ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                                        : isCurrent ? "bg-[#ff0054]/10 text-[#ff0054] border-[#ff0054]/20"
+                                            : "bg-zinc-100 text-zinc-500 dark:bg-white/[0.04] dark:text-zinc-400 border-zinc-200 dark:border-white/[0.08]"
+                                )}>
+                                    {done ? 'Concluída' : isCurrent ? 'Em curso' : 'Por iniciar'}
+                                </span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-text-tertiary">
-                                <div className="flex items-center gap-1.5">
-                                    <Clock className="w-3.5 h-3.5" />
-                                    <span>{stage.tasks.length} Tarefas</span>
-                                </div>
-                                <div className="h-1 w-1 rounded-full bg-bg-3" />
-                                <span>{stage.progress}% Concluído</span>
-                                {(stage.start_date || stage.due_date) && (
-                                    <>
-                                        <div className="h-1 w-1 rounded-full bg-bg-3" />
-                                        <span className="flex items-center gap-1 text-[12px] font-semibold text-accent-indigo">
-                                            📅 {stage.start_date ? new Date(stage.start_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '...'} - {stage.due_date ? new Date(stage.due_date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }) : '...'}
-                                        </span>
-                                    </>
-                                )}
-                            </div>
+                            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white mt-1">{stage.name}</h3>
+                            <p className="text-[11px] text-zinc-500 mt-1 tabular-nums">
+                                {doneTasks}/{stage.tasks.length} tarefas · {stage.progress}%
+                                {(stage.start_date || stage.due_date) && <> · {fmt(stage.start_date)} – {fmt(stage.due_date)}</>}
+                            </p>
                         </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onAddTask(stage.id)}
-                            className="bg-bg-2 border-bg-3 rounded-xl h-9 font-bold text-[10px] uppercase tracking-wider"
-                        >
-                            <Plus className="w-3.5 h-3.5 mr-2" />
-                            Tarefa
-                        </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                        <button type="button" onClick={() => onAddTask(stage.id)} className="h-8 px-3 rounded-lg border border-zinc-200 dark:border-white/[0.08] bg-zinc-100 hover:bg-zinc-200 dark:bg-white/[0.03] dark:hover:bg-white/[0.08] text-xs font-medium text-zinc-700 dark:text-zinc-300 inline-flex items-center gap-1.5 transition-colors">
+                            <Plus className="w-3.5 h-3.5" /> Tarefa
+                        </button>
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="rounded-xl hover:bg-bg-2">
+                                <button type="button" className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06]" aria-label="Mais ações">
                                     <MoreHorizontal className="w-4 h-4" />
-                                </Button>
+                                </button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="bg-bg-1 border-bg-3 rounded-xl">
-                                <DropdownMenuItem onClick={onEdit} className="text-[13px] font-medium cursor-pointer">
-                                    <Edit3 className="w-4 h-4 mr-2" />
-                                    Editar Fase
-                                </DropdownMenuItem>
-                                <DropdownMenuItem className="text-error text-[13px] font-medium cursor-pointer" onClick={onDelete}>
-                                    <Trash2 className="w-4 h-4 mr-2" />
-                                    Excluir Fase
-                                </DropdownMenuItem>
+                            <DropdownMenuContent align="end" className="bg-white dark:bg-[#141416] border-zinc-200 dark:border-white/[0.08] rounded-xl">
+                                <DropdownMenuItem onClick={onEdit} className="text-xs font-medium cursor-pointer"><Edit3 className="w-3.5 h-3.5 mr-2" /> Editar fase</DropdownMenuItem>
+                                <DropdownMenuItem className="text-rose-500 text-xs font-medium cursor-pointer" onClick={onDelete}><Trash2 className="w-3.5 h-3.5 mr-2" /> Eliminar fase</DropdownMenuItem>
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
                 </div>
 
-                {/* Tasks List */}
-                <div className="space-y-2">
+                <div className="mt-4 h-1 rounded-full bg-zinc-100 dark:bg-white/[0.06] overflow-hidden">
+                    <div className="h-full rounded-full bg-[#ff0054] transition-all duration-700" style={{ width: `${stage.progress}%` }} />
+                </div>
+
+                <div className="mt-3 divide-y divide-zinc-200/60 dark:divide-white/[0.04]">
                     {stage.tasks.map(task => (
-                        <div
-                            key={task.id}
-                            className="group/task flex items-center justify-between p-3.5 bg-bg-2/50 border border-bg-3 rounded-xl hover:border-accent-indigo/30 hover:bg-bg-2 transition-all"
-                        >
-                            <div className="flex items-center gap-3">
+                        <div key={task.id} className="group/task flex items-center justify-between gap-3 py-2">
+                            <div className="flex items-center gap-2.5 min-w-0">
                                 <button
+                                    type="button"
                                     onClick={() => onToggleTask(task.id, stage.id)}
+                                    aria-label={task.completed ? 'Marcar como por fazer' : 'Marcar como feita'}
                                     className={cn(
-                                        "w-5 h-5 rounded-md border transition-all flex items-center justify-center shrink-0",
-                                        task.completed
-                                            ? "bg-accent-indigo border-accent-indigo text-white"
-                                            : "border-bg-3 dark:border-white/10 hover:border-accent-indigo"
+                                        "w-4 h-4 rounded-[5px] border flex items-center justify-center shrink-0 transition-colors",
+                                        task.completed ? "bg-[#ff0054] border-[#ff0054] text-white" : "border-zinc-300 dark:border-white/20 hover:border-[#ff0054]"
                                     )}
                                 >
-                                    {task.completed && <Check className="w-3.5 h-3.5" />}
+                                    {task.completed && <Check className="w-3 h-3" strokeWidth={3} />}
                                 </button>
                                 <span
                                     onClick={() => onEditTask({ id: task.id, title: task.title, stageId: stage.id })}
-                                    className={cn(
-                                        "text-[14px] font-medium transition-colors cursor-pointer",
-                                        task.completed ? "text-text-tertiary line-through" : "text-text-primary"
-                                    )}
+                                    className={cn("text-xs cursor-pointer truncate", task.completed ? "text-zinc-400 line-through" : "text-zinc-800 dark:text-zinc-200 hover:text-zinc-950 dark:hover:text-white")}
                                 >
                                     {task.title}
                                 </span>
                             </div>
-                            <div className="flex items-center opacity-0 group-hover/task:opacity-100 transition-opacity">
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => onDeleteTask(task.id, stage.id)}
-                                    className="h-8 w-8 text-text-tertiary hover:text-error rounded-lg"
-                                >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                </Button>
-                            </div>
+                            <button type="button" onClick={() => onDeleteTask(task.id, stage.id)} className="w-7 h-7 rounded-md flex items-center justify-center text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 opacity-0 group-hover/task:opacity-100 transition-opacity" aria-label="Eliminar tarefa">
+                                <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                         </div>
                     ))}
-                    {stage.tasks.length === 0 && (
-                        <div className="py-8 px-4 border border-dashed border-bg-3 rounded-xl flex flex-col items-center justify-center text-center">
-                            <p className="text-[13px] font-medium text-text-tertiary italic">Nenhuma tarefa associada a esta fase</p>
-                        </div>
-                    )}
+                    {stage.tasks.length === 0 && <p className="py-3 text-xs text-zinc-400">Ainda sem tarefas nesta fase.</p>}
                 </div>
             </div>
         </div>

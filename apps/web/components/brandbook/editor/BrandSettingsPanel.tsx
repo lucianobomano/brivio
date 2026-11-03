@@ -6,6 +6,7 @@ import { UploadAssetPopup } from "./UploadAssetPopup"
 import { SmoothColorInput } from "./SmoothColorInput"
 import { NavigationSettingsView } from "./navigation/NavigationSettingsView"
 import { GOOGLE_FONTS } from "./googleFonts"
+import { BackgroundFillEditor, type BackgroundFill } from "./backgroundFill"
 
 // Sidebar Items
 const SIDEBAR_ITEMS = [
@@ -36,6 +37,10 @@ export interface PageBackgroundControls {
     onChange: (color: string | undefined) => void
     /** Removes every page's own background so all pages use the general one */
     onClearAllPages: () => void
+    /** Picture / gradient of this page (over its colour) */
+    fill?: BackgroundFill | null
+    onFillChange?: (fill: BackgroundFill | null) => void
+    upload?: (file: File) => Promise<{ success: boolean, url?: string, error?: string }>
 }
 
 type ThemeMode = 'light' | 'dark'
@@ -313,6 +318,16 @@ const PageBackgroundControl = ({ t, page, general, onGeneralChange }: {
                     ? 'Só esta página fica com esta cor. As outras mantêm a sua.'
                     : 'Muda o fundo de todas as páginas. As páginas que tinham uma cor própria passam a usar esta.'}
             </span>
+
+            {page?.onFillChange && (
+                <div className="flex flex-col gap-3 pt-2">
+                    <span className={cn("text-[15px]", t.textSec)}>Imagem ou gradiente de fundo{page.title ? ` de "${page.title}"` : ''}</span>
+                    <span className={cn("text-[12px] -mt-2", t.textSec)}>Fica por cima da cor de fundo, atrás de todo o conteúdo da página.</span>
+                    <div className="w-full max-w-[380px] rounded-2xl bg-[#1F1F25] border border-white/5 p-4">
+                        <BackgroundFillEditor value={page.fill} onChange={page.onFillChange} upload={page.upload} />
+                    </div>
+                </div>
+            )}
         </div>
     )
 }

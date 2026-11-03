@@ -1,5 +1,6 @@
 import React from "react"
 import { AlignLeft, AlignCenter, AlignRight, RotateCcw, Grid, Layout, LayoutDashboard, GalleryHorizontal, Rows3, Lock, LockOpen, Infinity as InfinityIcon } from "lucide-react"
+import { ImageLookControls, type ImageLook } from "./backgroundFill"
 import { cn } from "@/lib/utils"
 import { MarginSettingsControl, BlockMargin } from "./blocks/MarginSettingsControl"
 import type { SliderSettings } from "./blocks/GallerySliderFrame"
@@ -37,6 +38,8 @@ interface MediaSettingsPanelProps {
         galleryType?: GalleryType
         columns?: number
         margin?: BlockMargin
+        /** Single image: fit, zoom, focal point, filters and colour filter */
+        look?: ImageLook
     }
     onUpdate: (settings: Partial<MediaSettingsPanelProps['settings']>) => void
     className?: string
@@ -847,6 +850,18 @@ export const MediaSettingsPanel = ({ onClose, settings, onUpdate, className, blo
                     margin={settings.margin}
                     onChange={(m) => onUpdate({ ...settings, margin: m })}
                 />
+
+                {/* 7. Ajuste, filtros e cor do filtro (single image) */}
+                {!isGallery && (
+                    <>
+                        <div className="h-px bg-[#333] w-full" />
+                        <ImageLookControls
+                            value={settings.look}
+                            fits={["cover", "contain", "stretch"]}
+                            onChange={(look) => onUpdate({ ...settings, look })}
+                        />
+                    </>
+                )}
 
             </div>
         </div>

@@ -23,6 +23,7 @@ export const FONT_GROUPS: { label: string, fonts: string[] }[] = [
             'Roboto Condensed', 'Roboto Flex', 'Saira', 'Saira Condensed', 'Sarabun', 'Signika', 'Sofia Sans', 'Sofia Sans Condensed',
             'Spline Sans', 'Tenor Sans', 'Tajawal', 'Varela Round', 'Wix Madefor Text', 'Ysabeau', 'Zen Kaku Gothic New', 'Afacad',
             'Mitr', 'Livvic', 'Murecho', 'Noto Sans JP',
+            'Lexend Exa', 'Lexend Giga', 'Montserrat Alternates', 'Signika Negative', 'Baloo 2', 'Catamaran', 'Mada', 'Sen', 'Ubuntu Condensed', 'Yantramanav', 'Zen Maru Gothic', 'Hind Siliguri', 'Hind Madurai', 'Noto Sans KR', 'Nanum Gothic', 'Kantumruy Pro',
         ],
     },
     {
@@ -39,6 +40,7 @@ export const FONT_GROUPS: { label: string, fonts: string[] }[] = [
             'Playfair Display SC', 'Podkova', 'Quattrocento', 'Rokkitt', 'Rufina', 'Sorts Mill Goudy', 'Trirong', 'Tinos',
             'Unna', 'Vollkorn', 'Vidaloka', 'Yrsa', 'Radley', 'Lusitana', 'Neuton', 'Bellefair',
             'Forum', 'Noto Serif Display', 'STIX Two Text', 'Hedvig Letters Serif', 'Corben',
+            'Abhaya Libre', 'Alike', 'Amethysta', 'Average', 'Cambo', 'Coustard', 'Crete Round', 'Della Respira', 'Fanwood Text', 'Goudy Bookletter 1911', 'Junge', 'Linden Hill', 'Marcellus SC', 'Mate', 'Montaga', 'Rosarivo', 'Sumana', 'Taviraj', 'Tienne', 'Trocchi', 'Luxurious Roman',
         ],
     },
     {
@@ -54,6 +56,7 @@ export const FONT_GROUPS: { label: string, fonts: string[] }[] = [
             'Philosopher', 'Press Start 2P', 'Quantico', 'Racing Sans One', 'Rubik Glitch', 'Sansita', 'Secular One', 'Sigmar One',
             'Silkscreen', 'Special Elite', 'Squada One', 'Titan One', 'Vast Shadow', 'VT323', 'Wallpoet', 'Zen Dots',
             'Bagel Fat One', 'Changa One', 'Big Shoulders Text', 'Tektur', 'Erica One',
+            'Barrio', 'Bungee Spice', 'Codystar', 'Ewert', 'Fascinate', 'Federant', 'Fredericka the Great', 'Gravitas One', 'Modak', 'Nosifer', 'Rampart One', 'Shojumaru', 'Stardos Stencil', 'Train One', 'Yatra One', 'Rubik Moonrocks', 'Rubik Bubbles', 'Rubik Puddles', 'Rubik Dirt', 'Rubik Vinyl', 'Rubik Beastly', 'Rubik Iso', 'Rubik Microbe', 'Honk', 'Nabla', 'Tourney', 'Kalnia', 'Knewave', 'Leckerli One', 'Lily Script One', 'Grechen Fuemen', 'Kings',
         ],
     },
     {
@@ -67,6 +70,14 @@ export const FONT_GROUPS: { label: string, fonts: string[] }[] = [
             'Herr Von Muellerhoff', 'Alex Brush', 'Tangerine', 'Italianno', 'Cedarville Cursive', 'Zeyada', 'Gloria Hallelujah', 'Coming Soon',
             'Mansalva', 'Playpen Sans', 'Whisper', 'Ms Madi', 'Birthstone', 'Corinthia', 'Imperial Script', 'Petit Formal Script',
             'Rouge Script', 'Arizonia', 'Cherish',
+            'Shadows Into Light Two', 'Schoolbell', 'Sue Ellen Francisco', 'Swanky and Moo Moo', 'Waiting for the Sunrise', 'Walter Turncoat', 'Crafty Girls', 'Delius', 'Delius Swash Caps', 'Gaegu', 'Gamja Flower', 'Give You Glory', 'Hi Melody', 'Just Me Again Down Here', 'Kite One', 'Loved by the King', 'Mali', 'Neucha', 'Nanum Pen Script', 'Nanum Brush Script', 'Patrick Hand SC', 'Pangolin', 'Rancho', 'Short Stack', 'Sriracha', 'The Girl Next Door', 'Annie Use Your Telescope', 'Bad Script', 'Caveat Brush', 'Chilanka', 'Dekko', 'Delicious Handrawn', 'Edu NSW ACT Foundation', 'Edu SA Beginner', 'Edu TAS Beginner', 'Edu VIC WA NT Beginner', 'Fuzzy Bubbles', 'Grape Nuts', 'Itim', 'Long Cang', 'Liu Jian Mao Cao', 'Ma Shan Zheng', 'Zhi Mang Xing', 'Oregano', 'Over the Rainbow', 'Sedgwick Ave', 'Sedgwick Ave Display', 'Shantell Sans', 'Unkempt', 'Yomogi', 'Klee One', 'Comic Neue', 'Mynerve', 'Gluten', 'Nerko One', 'Hachi Maru Pop', 'Calligraffitti', 'Love Ya Like A Sister', 'Dawning of a New Day', 'Kalam', 'Redressed', 'Seaweed Script', 'Grand Hotel', 'Playball', 'Condiment', 'Dynalight', 'Fondamento', 'Eagle Lake', 'Vibur', 'Romanesco', 'Ruge Boogie', 'Bonbon', 'Butterfly Kids', 'Bilbo',
+        ],
+    },
+    {
+        // Calligraphic scripts that look like a handwritten signature
+        label: 'Assinatura',
+        fonts: [
+            'Monsieur La Doulaise', 'Mr De Haviland', 'Mrs Sheppards', 'Miss Fajardose', 'Mr Bedfort', 'Bilbo Swash Caps', 'Qwigley', 'Rochester', 'Ruthie', 'Meddon', 'Euphoria Script', 'Lovers Quarrel', 'League Script', 'Engagement', 'Sail', 'Niconne', 'Norican', 'Clicker Script', 'Felipa', 'Montez', 'Kristi', 'Allison', 'Ballet', 'Beau Rivage', 'Bonheur Royale', 'Comforter', 'Comforter Brush', 'Ephesis', 'Estonia', 'Explora', 'Fleur De Leah', 'Gwendolyn', 'Hurricane', 'Inspiration', 'Island Moments', 'Kolker Brush', 'Love Light', 'Lavishly Yours', 'Luxurious Script', 'Moon Dance', 'Ole', 'Passions Conflict', 'Puppies Play', 'Qwitcher Grypen', 'Send Flowers', 'Splash', 'Square Peg', 'Tapestry', 'The Nautigal', 'Twinkle Star', 'Updock', 'Vujahday Script', 'Water Brush', 'WindSong', 'Grey Qo', 'Babylonica', 'Carattere', 'Caramel', 'Dr Sugiyama', 'Meow Script', 'My Soul', 'Oooh Baby', 'Praise', 'Princess Sofia', 'Stalemate', 'Mea Culpa', 'Charm', 'MonteCarlo', 'Birthstone Bounce', 'Fuggles', 'Fasthand', 'Ingrid Darling', 'Jim Nightshade', 'Petemoss', 'Sassy Frass', 'Smooch', 'Sofia', 'Style Script', 'Waterfall', 'Shalimar', 'Moo Lah Lah', 'Quintessential', 'Yesteryear', 'Srisakdi', 'Tillana', 'Kavivanar', 'Herr Von Muellerhoff', 'Mrs Saint Delafield', 'Alex Brush', 'Great Vibes', 'Pinyon Script', 'Allura', 'Arizonia', 'Cherish', 'Corinthia', 'Imperial Script', 'Ms Madi', 'Whisper', 'Italianno', 'Rouge Script', 'Petit Formal Script', 'Parisienne', 'Sacramento', 'Tangerine',
         ],
     },
     {
@@ -83,7 +94,11 @@ export const FONT_GROUPS: { label: string, fonts: string[] }[] = [
         label: 'Outras',
         fonts: ['Minion Variable Concept', 'Satoshi', 'Brandon Grotesque'],
     },
-].map(g => ({ ...g, fonts: Array.from(new Set(g.fonts)) }))
+].map((g, _i, all) => {
+    // A font listed in «Assinatura» shows there only; elsewhere the first group that lists it keeps it
+    const signature = new Set(all.find(x => x.label === 'Assinatura')?.fonts || [])
+    return { ...g, fonts: Array.from(new Set(g.label === 'Assinatura' ? g.fonts : g.fonts.filter(f => !signature.has(f)))) }
+}).map((g, i, all) => ({ ...g, fonts: g.fonts.filter(f => !all.slice(0, i).some(prev => prev.fonts.includes(f))) }))
 
 /** Every font, once */
 export const GOOGLE_FONTS: string[] = Array.from(new Set(FONT_GROUPS.flatMap(g => g.fonts)))

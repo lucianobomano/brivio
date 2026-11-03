@@ -23,17 +23,22 @@ import {
     LayoutTemplate,
     Table,
     ClipboardList,
-    Milestone
-} from "lucide-react"
+    Milestone, Columns2, Columns3, ClipboardPaste, X as XIcon } from "lucide-react"
 
 interface AddItemDialogProps {
     isOpen: boolean
     onOpenChange: (open: boolean) => void
     onSelectBlock: (type: string, variant?: string) => void
+    /** Puts the copied block in the column */
+    onPaste?: () => void
+    hasClipboard?: boolean
+    onClearClipboard?: () => void
 }
 
 // Full list of items derived from design system overlap
 const ITEMS = [
+    { id: 'subcols-2', label: 'Subcolunas (2)', icon: Columns2, type: 'layout', variant: '2-col' },
+    { id: 'subcols-3', label: 'Subcolunas (3)', icon: Columns3, type: 'layout', variant: '3-col' },
     { id: 'headline', label: 'Headline', icon: Heading, type: 'heading', variant: 'h1' },
     { id: 'text', label: 'Text', icon: Type, type: 'text', variant: 'p' },
     { id: 'text-card', label: 'TextCard', icon: CreditCard, type: 'card', variant: 'text' },
@@ -64,7 +69,7 @@ const ITEMS = [
     { id: 'timeline', label: 'Timeline', icon: Milestone, type: 'timeline' }
 ]
 
-export function AddItemDialog({ isOpen, onOpenChange, onSelectBlock }: AddItemDialogProps) {
+export function AddItemDialog({ isOpen, onOpenChange, onSelectBlock, onPaste, hasClipboard, onClearClipboard }: AddItemDialogProps) {
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             {/* Added [&>button]:hidden to remove default close icon */}
@@ -78,6 +83,26 @@ export function AddItemDialog({ isOpen, onOpenChange, onSelectBlock }: AddItemDi
                         <div className="bg-white rounded-full w-[20px] h-[20px]" />
                     </DialogClose>
                 </div>
+
+                {/* Paste the copied block */}
+                {hasClipboard && onPaste && (
+                    <div className="px-[30px] pt-[20px] w-full flex gap-2">
+                        <button
+                            onClick={() => { onPaste(); onOpenChange(false) }}
+                            className="flex-1 bg-[#1A1A20] border border-dashed border-[#FF0054]/50 rounded-[5px] h-[50px] flex items-center justify-center gap-3 hover:bg-[#2A2A35] transition-all text-[#FF0054] font-semibold"
+                        >
+                            <ClipboardPaste className="w-5 h-5" />
+                            <span>Colar o bloco copiado</span>
+                        </button>
+                        <button
+                            onClick={() => onClearClipboard?.()}
+                            className="w-[50px] h-[50px] bg-[#1A1A20] border border-[#333] rounded-[5px] flex items-center justify-center text-gray-500 hover:text-white hover:bg-[#2A2A35] transition-all"
+                            title="Esquecer o bloco copiado"
+                        >
+                            <XIcon className="w-5 h-5" />
+                        </button>
+                    </div>
+                )}
 
                 {/* 3. Grid Container: Padding 30px */}
                 <div className="w-full p-[30px] grid grid-cols-3 gap-[16px] bg-[#15161B] max-h-[80vh] overflow-y-auto custom-scrollbar">

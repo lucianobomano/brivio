@@ -1,6 +1,8 @@
 "use client"
 
 import React, { useState, useRef, useMemo, useEffect, useCallback } from "react"
+import type { BackgroundFill } from "./editor/backgroundFill"
+import { uploadBrandbookMedia } from "@/app/actions/brandbook"
 import { toast } from "sonner"
 import {
     DndContext,
@@ -932,6 +934,18 @@ export default function BrandbookEditor({
                         onChange: (color) => {
                             const { pageBackground: _previous, ...rest } = (activeModule.content_json || {}) as Record<string, unknown>
                             handleUpdateModule(activeModule.id, color ? { ...rest, pageBackground: color } : rest)
+                        },
+                        fill: (activeModule.content_json as { pageFill?: BackgroundFill })?.pageFill,
+                        onFillChange: (fill) => {
+                            const { pageFill: _previous, ...rest } = (activeModule.content_json || {}) as Record<string, unknown>
+                            handleUpdateModule(activeModule.id, fill && fill.type !== 'none' ? { ...rest, pageFill: fill } : rest)
+                        },
+                        upload: async (file) => {
+                            const formData = new FormData()
+                            formData.append('file', file)
+                            formData.append('brandId', brandId)
+                            formData.append('moduleId', activeModule.id)
+                            return uploadBrandbookMedia(formData)
                         },
                         // "All pages": drop every page's own background so the general one shows everywhere
                         onClearAllPages: () => {

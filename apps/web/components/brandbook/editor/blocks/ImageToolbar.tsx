@@ -1,5 +1,6 @@
 "use client"
 
+import { CollapsibleBar } from "../CollapsibleBar"
 import React, { useState, useEffect, useRef } from "react"
 import { Paperclip, Link as LinkIcon, MousePointer2, Trash2, Settings, Download, X, Zap, RotateCcw, Copy, Check } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -23,7 +24,7 @@ interface ImageToolbarProps {
     }
 }
 
-export const ImageToolbar = ({
+const ImageToolbarBar = ({
     onUpload,
     onAttach,
     onLink,
@@ -197,3 +198,8 @@ export const ImageToolbar = ({
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const ImageToolbar = (props: React.ComponentProps<typeof ImageToolbarBar>) => (
+    <CollapsibleBar><ImageToolbarBar {...props} /></CollapsibleBar>
+)

@@ -3,16 +3,18 @@
 import * as React from "react"
 import { Project } from "./ProjectsClient"
 import { motion } from "framer-motion"
-import { Plus, ChevronRight, Link as LinkIcon } from "lucide-react"
+import { ChevronRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getBrands } from "@/app/actions/brands"
-import { createProposal } from "@/app/actions/proposals"
+import { createProposal, getNextProposalIdentifier } from "@/app/actions/proposals"
 import { toast } from "sonner"
 
 interface ProjectProposalCreateModalProps {
     isOpen: boolean
     onClose: () => void
     project?: Project | null
+    /** Called with the new proposal id after it is created */
+    onCreated?: (proposalId: string) => void
 }
 
 interface Brand {
@@ -21,7 +23,7 @@ interface Brand {
     logo_url?: string
 }
 
-export function ProjectProposalCreateModal({ isOpen, onClose, project }: ProjectProposalCreateModalProps) {
+export function ProjectProposalCreateModal({ isOpen, onClose, project, onCreated }: ProjectProposalCreateModalProps) {
     const [brands, setBrands] = React.useState<Brand[]>([])
     const [selectedBrand, setSelectedBrand] = React.useState("")
     const [selectedProject, setSelectedProject] = React.useState(project?.id || "")
@@ -40,6 +42,8 @@ export function ProjectProposalCreateModal({ isOpen, onClose, project }: Project
             fetchBrands()
             if (project?.id) {
                 setSelectedProject(project.id)
+                // Next free number of the month, so two proposals never share an id
+                getNextProposalIdentifier(project.id).then(setProposalId).catch(() => {})
             }
         }
     }, [isOpen, project])
@@ -47,8 +51,8 @@ export function ProjectProposalCreateModal({ isOpen, onClose, project }: Project
     if (!isOpen) return null
 
     const handleSubmit = async () => {
-        if (!selectedBrand || !selectedProject || !proposalId) {
-            toast.error("Por favor, preencha todos os campos obrigatórios")
+        if (!selectedProject || !proposalId.trim()) {
+            toast.error("Escolha o projeto e indique a identificação da proposta")
             return
         }
 
@@ -57,14 +61,15 @@ export function ProjectProposalCreateModal({ isOpen, onClose, project }: Project
             const res = await createProposal({
                 project_id: selectedProject,
                 brand_id: selectedBrand,
-                identifier: proposalId,
+                identifier: proposalId.trim(),
                 status: 'draft',
                 items: [] // Creation modal doesn't have items initially
             })
 
             if (res.success) {
-                toast.success("Proposta iniciada com sucesso!")
+                toast.success("Proposta criada")
                 onClose()
+                if (res.proposalId) onCreated?.(res.proposalId)
             } else {
                 toast.error(res.error || "Erro ao criar proposta")
             }
@@ -111,7 +116,7 @@ export function ProjectProposalCreateModal({ isOpen, onClose, project }: Project
                                 value={selectedBrand}
                                 onChange={(e) => setSelectedBrand(e.target.value)}
                             >
-                                <option value="" className="bg-[#1A1A1A]">Nome do cliente</option>
+                                <option value="" className="bg-[#1A1A1A]">Cliente (opcional)</option>
                                 {brands.map((brand) => (
                                     <option key={brand.id} value={brand.id} className="bg-[#1A1A1A]">
                                         {brand.name}
@@ -120,11 +125,6 @@ export function ProjectProposalCreateModal({ isOpen, onClose, project }: Project
                             </select>
                             <ChevronRight className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[#97A1B3] rotate-90 pointer-events-none" />
                         </div>
-                        <Button
-                            className="h-12 px-4 bg-[#EF0050] hover:bg-[#D60048] text-white rounded-[8px] flex items-center justify-center font-bold text-xs shrink-0"
-                        >
-                            <Plus className="w-5 h-5" />
-                        </Button>
                     </div>
 
                     {/* Project Selection */}
@@ -156,23 +156,9 @@ export function ProjectProposalCreateModal({ isOpen, onClose, project }: Project
                                 placeholder="PR2026-01-0001"
                             />
                         </div>
-                        <p className="text-[12px] text-[#97A1B3] leading-relaxed italic">
-                            A sugestão automática de identificação de proposta está ativa. Ainda sim, você pode utilizar o texto que preferir...
+                        <p className="text-[12px] text-[#97A1B3] leading-relaxed">
+                            Sugerimos o próximo número livre deste mês. Pode escrever outro, se preferir.
                         </p>
-                    </div>
-
-                    {/* Quick Action Box */}
-                    <div className="bg-[#2A2A2A] rounded-[8px] p-4 flex items-center justify-center">
-                        <button
-                            className="flex items-center gap-2 px-4 py-2 rounded-full border border-[#373737] text-[12px] font-bold text-[#97A1B3] hover:text-white hover:bg-white/5 transition-all"
-                            onClick={() => {
-                                navigator.clipboard.writeText(window.location.href);
-                                toast.success("Link interno copiado!");
-                            }}
-                        >
-                            <LinkIcon className="w-3.5 h-3.5" />
-                            Copy internal link
-                        </button>
                     </div>
                 </div>
 

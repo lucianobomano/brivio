@@ -4,6 +4,7 @@ import { createClient, createAdminClient, getCurrentUser } from "@/lib/supabase/
 import { revalidatePath } from "next/cache"
 import { invalidateShareRoadmap } from "@/lib/share-cache"
 import { cache } from "react"
+import { getUserWorkspaceIds as getMyWorkspaceIds } from "@/lib/brand-access"
 
 export async function getProjectById(id: string) {
     const supabase = await createClient()
@@ -425,10 +426,17 @@ export async function createNewProject(data: {
 
     if (!user) return { success: false, error: "Not authorized" }
 
+    // A project always belongs to one of the user's workspaces. The form sends the workspace it has loaded; when
+    // it has none yet (the list still loading) the project went in without one and was invisible to everyone.
+    const workspaceIds = await getMyWorkspaceIds()
+    const workspaceId = data.workspace_id || workspaceIds[0] || null
+    if (!workspaceId) return { success: false, error: "Não encontrámos o teu espaço de trabalho. Recarrega a página e tenta de novo." }
+    if (!workspaceIds.includes(workspaceId)) return { success: false, error: "Não tens acesso a este espaço de trabalho." }
+
     const insertData: Record<string, string | number | string[] | undefined | null> = {
         name: data.name,
         brand_id: data.brand_id || null,
-        workspace_id: data.workspace_id || null,
+        workspace_id: workspaceId,
         description: data.description || null,
         category: data.category || null,
         priority: data.priority,
@@ -472,15 +480,17 @@ export async function createNewProject(data: {
         return { success: false, error: error.message }
     }
 
-    // Apply roadmap template if provided
+    // Apply roadmap template if provided: the project starts with its phases and tasks
+    let roadmap: { stages: number, tasks: number, templateName: string } | null = null
     if (data.template_id) {
         const { applyRoadmapTemplate } = await import("./roadmap")
-        await applyRoadmapTemplate(data.workspace_id, data.template_id, project.id)
+        const applied = await applyRoadmapTemplate(workspaceId, data.template_id, project.id)
+        if (applied.success && 'tasks' in applied) roadmap = { stages: applied.stages ?? 0, tasks: applied.tasks ?? 0, templateName: applied.templateName ?? '' }
     }
 
     invalidateShareRoadmap()
     revalidatePath('/projects')
-    return { success: true, data: project }
+    return { success: true, data: project, roadmap }
 }
 
 

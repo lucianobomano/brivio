@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { AddSectionDialog } from "./AddSectionDialog"
 import { AddItemDialog } from "./AddItemDialog"
 import { SectionSettingsPanel, SectionSettings, isFullScreenSection, fullScreenHeight, sectionGradientCss } from "./SectionSettingsPanel"
+import { borderCss } from "./BorderControl"
+import { fitWidth } from "@/components/proposals/sectionStyle"
+import { FillLayer, hasFill, type BackgroundFill } from "./backgroundFill"
 import { createMarqueeContent } from "./blocks/marquee"
 import { createFooterContent } from "./blocks/footer"
 import { createLogoShowcaseContent } from "./blocks/logoShowcase"
@@ -223,6 +226,10 @@ const SectionWrapper = ({
             style={{
                 ...sectionHover.style,
                 ...boxStyle,
+                // Border of the section, per side
+                ...borderCss(settings?.sectionBorder),
+                // «Ajustar ao conteúdo» in width
+                ...fitWidth(settings),
                 // Full screen: exactly the screen height (minus the margin); taller content can still grow it
                 minHeight: isFullScreenSection(settings) ? fullScreenHeight(settings) : getSectionHeight(settings?.height),
                 backgroundColor: settings?.backgroundType === 'color' || !settings?.backgroundType ? settings?.backgroundColor : undefined,
@@ -1072,6 +1079,14 @@ export function MainCanvas({
                 className="flex-1 h-full overflow-y-auto overflow-x-hidden bg-white p-0 custom-scrollbar relative transition-colors duration-300 flex flex-col"
                 style={{ backgroundColor: (activeModule.content_json?.pageBackground as string | undefined) || settings.main_project_bg }}
             >
+                {/* Picture / gradient of the page: stays behind the content as the page scrolls */}
+                {hasFill(activeModule.content_json?.pageFill as BackgroundFill | undefined) && (
+                    <div className="sticky top-0 h-0 z-0 pointer-events-none shrink-0" aria-hidden>
+                        <div className="relative w-full h-[100dvh]">
+                            <FillLayer fill={activeModule.content_json?.pageFill as BackgroundFill} />
+                        </div>
+                    </div>
+                )}
                 {/* data-bleed-root: page width that edge-to-edge blocks (slider gallery) stretch to */}
                 <div data-bleed-root className={cn(
                     "w-full flex-1 bg-transparent p-0 relative transition-all duration-300 flex flex-col",

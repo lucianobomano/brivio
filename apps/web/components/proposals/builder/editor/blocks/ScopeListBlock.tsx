@@ -39,7 +39,7 @@ export const ScopeListBlock = ({ block, isReadOnly, onUpdate, onDelete }: ScopeL
     }
 
     return (
-        <div className="mb-10 group/block relative w-full">
+        <div className="group/block relative w-full">
             <div className="space-y-4 max-w-4xl mx-auto">
                 {items.map((item: any, index: number) => (
                     <div key={index} className="flex items-start gap-4 group/item border-b border-white/5 pb-4 last:border-0">

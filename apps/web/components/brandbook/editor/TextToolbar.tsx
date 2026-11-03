@@ -1,3 +1,4 @@
+import { CollapsibleBar } from "./CollapsibleBar"
 import React from "react"
 import {
     Type,
@@ -89,6 +90,9 @@ interface TextToolbarProps {
     heightValue?: string | number
     onHeightChangePx?: (height: string) => void
     onOrderChange?: (direction: 'up' | 'down') => void
+    /** The block's style, for the box options of the settings panel (padding, corners, border…) */
+    textStyle?: Record<string, any>
+    onTextStyleChange?: (patch: Record<string, unknown>) => void
     outline?: { top: boolean; right: boolean; bottom: boolean; left: boolean }
     onOutlineChange?: (side: 'top' | 'right' | 'bottom' | 'left') => void
     margin?: BlockMargin
@@ -309,7 +313,7 @@ const LetterSpacingControl = ({ value, onChange, onPreview, onOpenChange }: {
     )
 }
 
-export const TextToolbar = ({
+const TextToolbarBar = ({
     onDelete,
     onDuplicate,
     onCopy,
@@ -347,6 +351,8 @@ export const TextToolbar = ({
     heightValue,
     onHeightChangePx,
     onOrderChange,
+    textStyle,
+    onTextStyleChange,
     outline,
     onOutlineChange,
     margin,
@@ -750,8 +756,8 @@ export const TextToolbar = ({
 
                 {/* 5. Actions */}
                 <div className="flex items-center gap-1">
-                    {/* Link Button & Popover */}
-                    {(() => {
+                    {/* Link Button & Popover (only where the editor can save a link) */}
+                    {onLinkChange && (() => {
                         const hasActiveLink = Boolean(link?.url || link?.moduleId || link?.sectionId)
                         const linkTooltip = hasActiveLink
                             ? `Link ativo: ${link?.type === 'url' ? link.url : link?.type === 'internal' ? (link.moduleTitle || 'Página') : (link?.sectionTitle || 'Seção')}`
@@ -803,6 +809,14 @@ export const TextToolbar = ({
                         onOutlineChange={onOutlineChange || (() => { })}
                         margin={margin}
                         onMarginChange={onMarginChange}
+                        style={textStyle}
+                        onStyleChange={onTextStyleChange}
+                        actions={onTextStyleChange ? {
+                            onMove: onOrderChange,
+                            onCopy,
+                            onDuplicate,
+                            onDelete: onDelete ? () => { setIsSettingsOpen(false); onDelete() } : undefined,
+                        } : undefined}
                         trigger={
                             <button className={cn("text-gray-400 hover:text-white p-1", isSettingsOpen && "text-white")}>
                                 <Settings className="w-4 h-4" />
@@ -810,8 +824,8 @@ export const TextToolbar = ({
                         }
                     />
 
-                    <button onClick={onDuplicate} className="text-gray-400 hover:text-blue-400 p-1" title="Duplicar bloco"><CopyPlus className="w-4 h-4" /></button>
-                    <button
+                    {onDuplicate && <button onClick={onDuplicate} className="text-gray-400 hover:text-blue-400 p-1" title="Duplicar bloco"><CopyPlus className="w-4 h-4" /></button>}
+                    {onCopy && <button
                         onClick={handleCopy}
                         className={cn(
                             "p-1 rounded transition-colors",
@@ -820,8 +834,8 @@ export const TextToolbar = ({
                         title={isCopied ? "Bloco copiado!" : "Copiar bloco"}
                     >
                         {isCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                    <button onClick={onAnimate} className="text-gray-400 hover:text-[#FF0054] p-1" title="Animar bloco"><Zap className="w-4 h-4 fill-transparent hover:fill-[#FF0054]" /></button>
+                    </button>}
+                    {onAnimate && <button onClick={onAnimate} className="text-gray-400 hover:text-[#FF0054] p-1" title="Animar bloco"><Zap className="w-4 h-4 fill-transparent hover:fill-[#FF0054]" /></button>}
                     <button onClick={onDelete} className="text-gray-400 hover:text-red-500 p-1" title="Eliminar"><Trash className="w-4 h-4" /></button>
                 </div>
 
@@ -850,3 +864,8 @@ export const TextToolbar = ({
         </div>
     )
 }
+
+/** The bar folded into a «+» circle until it is opened (less clutter while editing) */
+export const TextToolbar = (props: React.ComponentProps<typeof TextToolbarBar>) => (
+    <CollapsibleBar><TextToolbarBar {...props} /></CollapsibleBar>
+)

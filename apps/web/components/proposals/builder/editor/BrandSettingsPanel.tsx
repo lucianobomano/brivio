@@ -21,6 +21,8 @@ export interface BrandSettingsPanelProps {
     isOpen: boolean
     onClose: () => void
     brandId: string
+    /** Only these tabs (a proposal shows only colours and fonts; the rest belongs to the brandbook) */
+    sections?: string[]
 }
 
 type ThemeMode = 'light' | 'dark'
@@ -35,8 +37,12 @@ type ThemeStyles = {
     accent?: string
 }
 
-export const BrandSettingsPanel = ({ isOpen, onClose, brandId }: BrandSettingsPanelProps) => {
-    const [activeTab, setActiveTab] = useState('settings')
+// Labels for a proposal (the brandbook keeps its own)
+const PROPOSAL_LABELS: Record<string, string> = { colors: 'Cores', fonts: 'Fontes' }
+
+export const BrandSettingsPanel = ({ isOpen, onClose, brandId, sections }: BrandSettingsPanelProps) => {
+    const items = sections ? SIDEBAR_ITEMS.filter(i => sections.includes(i.id)).map(i => ({ ...i, label: PROPOSAL_LABELS[i.id] || i.label })) : SIDEBAR_ITEMS
+    const [activeTab, setActiveTab] = useState(items[0]?.id || 'settings')
     const [theme, setTheme] = useState<ThemeMode>('dark')
     const [scope, setScope] = useState<'global' | 'bam'>('global')
 
@@ -92,8 +98,8 @@ export const BrandSettingsPanel = ({ isOpen, onClose, brandId }: BrandSettingsPa
                             <span className={cn("text-sm font-medium", t.text)}>Dark</span>
                         </div>
 
-                        {/* Global/BAM */}
-                        <div className="flex items-center justify-between">
+                        {/* Global/BAM (brandbook only) */}
+                        {!sections && <div className="flex items-center justify-between">
                             <span className={cn("text-sm font-medium", t.textSec)}>Global</span>
                             <div className="bg-[#333] p-1 rounded-full flex items-center relative w-12 h-6 cursor-pointer" onClick={() => setScope(prev => prev === 'global' ? 'bam' : 'global')}>
                                 <div className={cn(
@@ -102,12 +108,12 @@ export const BrandSettingsPanel = ({ isOpen, onClose, brandId }: BrandSettingsPa
                                 )} />
                             </div>
                             <span className={cn("text-sm font-medium", t.textSec)}>BAM</span>
-                        </div>
+                        </div>}
                     </div>
 
                     {/* Navigation Links */}
                     <nav className="flex flex-col gap-6">
-                        {SIDEBAR_ITEMS.map((item) => (
+                        {items.map((item) => (
                             <button
                                 key={item.id}
                                 onClick={() => setActiveTab(item.id)}

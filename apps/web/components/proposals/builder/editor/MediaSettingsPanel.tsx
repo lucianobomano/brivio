@@ -1,5 +1,6 @@
 import React from "react"
 import { X, AlignLeft, AlignCenter, AlignRight, RotateCcw } from "lucide-react"
+import { ImageLookControls, ImageTint, imageLookStyle, type ImageLook } from "@/components/brandbook/editor/backgroundFill"
 import { cn } from "@/lib/utils"
 import { ColorInput } from "@/components/ui/color-input"
 
@@ -13,6 +14,8 @@ interface MediaSettingsPanelProps {
         radius?: number
         width?: string
         height?: string
+        /** Fit, zoom, focal point, filters and colour filter of the picture */
+        look?: ImageLook
     }
     onUpdate: (settings: any) => void
     className?: string
@@ -28,19 +31,20 @@ export const MediaSettingsPanel = ({ onClose, settings, onUpdate, className }: M
     const radii = [1, 3, 5, 10, 20]
 
     return (
-        <div className={cn("w-[280px] bg-[#15161B] rounded-[8px] overflow-hidden shadow-2xl flex flex-col text-white font-sans text-sm z-[200]", className)}>
+        <div className={cn("w-[280px] max-h-[min(680px,calc(100vh-96px))] bg-[#15161B] rounded-[8px] overflow-hidden shadow-2xl flex flex-col text-white font-sans text-sm z-[200]", className)}>
             {/* Header */}
             <div className="h-[48px] bg-[#FF0054] px-4 flex items-center justify-between shrink-0">
                 <span className="font-medium text-[15px]">Edit image</span>
                 <button
+                    type="button"
                     onClick={(e) => { e.stopPropagation(); onClose() }}
-                    className="w-6 h-6 bg-black/20 hover:bg-black/40 rounded-full flex items-center justify-center transition-colors"
+                    className="w-5 h-5 rounded-full bg-black hover:bg-black/80 transition-colors shrink-0"
                 >
-                    <X className="w-3.5 h-3.5 text-white" />
+                    <span className="sr-only">Fechar</span>
                 </button>
             </div>
 
-            <div className="p-5 flex flex-col gap-5">
+            <div className="p-5 flex flex-col gap-5 flex-1 min-h-0 overflow-y-auto custom-scrollbar">
 
                 {/* 1. Alinhamento */}
                 <div className="flex flex-col gap-2">
@@ -189,6 +193,15 @@ export const MediaSettingsPanel = ({ onClose, settings, onUpdate, className }: M
                     </div>
                 </div>
 
+
+                <div className="h-px bg-[#333] w-full" />
+
+                {/* 6. Ajuste, filtros e cor do filtro */}
+                <ImageLookControls
+                    value={settings.look}
+                    fits={["cover", "contain", "stretch"]}
+                    onChange={(look) => onUpdate({ ...settings, look })}
+                />
             </div>
         </div>
     )

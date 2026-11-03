@@ -8,15 +8,34 @@ import { cn } from "@/lib/utils"
 import { LayoutBlock } from "./LayoutBlock"
 import { MediaBlock } from "./MediaBlock"
 import { EmbedBlock } from "./EmbedBlock"
-import { ListBlock } from "./ListBlock"
+// The list is the brandbook's (same block, bar and settings panel in both editors)
+import { ListBlock } from "@/components/brandbook/editor/blocks/ListBlock"
+import { AnimatedBlock } from "@/components/brandbook/editor/AnimatedBlock"
+import { useGoogleFont } from "@/components/brandbook/editor/blocks/BlockUtils"
+import { uploadProjectMedia } from "@/app/actions/projects"
+import { toast as uploadToast } from "sonner"
+
+/** Picture of a list marker, kept with the project's media */
+const uploadListMarker = async (file: File): Promise<string | null> => {
+    const id = uploadToast.loading("A carregar a imagem…")
+    try {
+        const r = await uploadProjectMedia(file)
+        if (r.success && "url" in r && r.url) { uploadToast.success("Imagem carregada", { id }); return r.url }
+    } catch { /* reported below */ }
+    uploadToast.error("Não foi possível carregar a imagem.", { id })
+    return null
+}
 import { CompositeBlock } from "./CompositeBlock"
-import { ButtonBlock } from "./ButtonBlock"
+// The button is the brandbook editor's block (its bar, styles, animations and icons)
+import { ButtonBlock } from "@/components/brandbook/editor/blocks/ButtonBlock"
 import { PaletteBlock } from "./PaletteBlock"
-import { SeparatorBlock } from "./SeparatorBlock"
+// The line is the brandbook one (same bar, «Linha» panel and look in both editors)
+import { SeparatorBlock } from "@/components/brandbook/editor/blocks/SeparatorBlock"
 import { PricingTableBlock } from "./PricingTableBlock"
 import { ScopeListBlock } from "./ScopeListBlock"
 import { TimelineBlock } from "./TimelineBlock"
-import { TextToolbar } from "../TextToolbar"
+import { TextBlockToolbar } from "./TextBlockToolbar"
+import { BlockChrome } from "./BlockChrome"
 import { useBrandDesign } from "../BrandDesignContext"
 
 interface BlockProps {
@@ -28,6 +47,8 @@ interface BlockProps {
     activeBlockId?: string | null
     onDelete?: (id: string) => void
     onMove?: (id: string, direction: 'up' | 'down') => void
+    onDuplicate?: (id: string) => void
+    onCopy?: (id: string) => void
 }
 
 import {
@@ -309,154 +330,30 @@ const ResizableWrapper = ({
     );
 }
 
-const HeadlineBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onMove }: BlockProps) => {
+const HeadlineBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onMove, onDuplicate, onCopy }: BlockProps) => {
     const { getStyleById } = useBrandDesign()
+    const [isHovered, setIsHovered] = React.useState(false)
     const [isFocused, setIsFocused] = React.useState(false)
     // Determine which global style to use
     const styleId = (block.variant === 'h2' || block.content?.text?.startsWith('##')) ? 'h2' : 'h1'
     const globalStyle = getStyleById(styleId)
 
     return (
-        <div className="mb-4 group/block relative w-full" onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}>
-            {/* Toolbar on Hover or if Menu Open */}
+        <div className="group/block relative w-full" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}>
+            {/* Context bar: the brandbook editor's text bar */}
             {!isReadOnly && (
-                <div className="opacity-0 group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity">
-                    <TextToolbar
-                        onDelete={onDelete ? () => onDelete(block.id) : undefined}
-                        activeTransform={detectTransform(block.content.text || "")}
-                        onTransform={(type) => {
-                            const text = block.content.text || ""
-                            let newText = text
-                            if (type === 'uppercase') newText = text.toUpperCase()
-                            if (type === 'lowercase') newText = text.toLowerCase()
-                            if (type === 'sentence') newText = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
-                            if (type === 'capitalize') newText = text.replace(/\b\w/g, (c: string) => c.toUpperCase())
-
-                            onUpdate(block.id, { ...block.content, text: newText })
-                        }}
-                        currentFont={block.content.style?.fontFamily || globalStyle?.font || 'Inter'}
-                        onFontChange={(font) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, fontFamily: font }
-                            })
-                        }}
-                        currentLineHeight={block.content.style?.lineHeight || globalStyle?.height || '1.1'}
-                        onLineHeightChange={(height) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, lineHeight: height }
-                            })
-                        }}
-                        activeFormats={detectFormats(block.content.style)}
-                        onFormat={(type) => {
-                            const style = { ...block.content.style }
-                            if (type === 'bold') {
-                                style.fontWeight = style.fontWeight === 'bold' ? 'normal' : 'bold'
-                            }
-                            if (type === 'italic') {
-                                style.fontStyle = style.fontStyle === 'italic' ? 'normal' : 'italic'
-                            }
-                            if (type === 'underline') {
-                                let decoration = style.textDecoration || ''
-                                if (decoration.includes('underline')) {
-                                    decoration = decoration.replace('underline', '').trim()
-                                } else {
-                                    decoration = `${decoration} underline`.trim()
-                                }
-                                style.textDecoration = decoration
-                            }
-                            if (type === 'strikethrough') {
-                                let decoration = style.textDecoration || ''
-                                if (decoration.includes('line-through')) {
-                                    decoration = decoration.replace('line-through', '').trim()
-                                } else {
-                                    decoration = `${decoration} line-through`.trim()
-                                }
-                                style.textDecoration = decoration
-                            }
-                            onUpdate(block.id, { ...block.content, style })
-                        }}
-                        activeListFormat={detectListFormat(block.content.style)}
-                        onListFormat={(type) => {
-                            const style = { ...block.content.style }
-                            if (type) {
-                                if (style.display === 'list-item' && style.listStyleType === type) {
-                                    // Toggle off
-                                    delete style.display
-                                    delete style.listStyleType
-                                    delete style.listStylePosition
-                                    delete style.marginLeft
-                                } else {
-                                    // Enable
-                                    style.display = 'list-item'
-                                    style.listStyleType = type
-                                    style.listStylePosition = 'inside'
-                                    style.marginLeft = '1em'
-                                }
-                            }
-                            onUpdate(block.id, { ...block.content, style })
-                        }}
-                        activeAlign={detectAlign(block.content.style)}
-                        onAlign={(align) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, textAlign: align }
-                            })
-                        }}
-                        color={detectColor(block.content.style)}
-                        onColorChange={(color) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, color }
-                            })
-                        }}
-                        heightSettings={detectHeight(block.content.style)}
-                        onHeightSettingsChange={(step) => {
-                            let val = 'auto'
-                            if (step === 3) val = '40px'
-                            if (step === 5) val = '80px'
-                            if (step === 8) val = '160px'
-                            if (step === 100) val = '400px'
-
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, minHeight: val }
-                            })
-                        }}
-                        onOrderChange={(dir) => {
-                            if (onMove) {
-                                onMove(block.id, dir);
-                            } else {
-                                // Fallback to Z-Index if no reordering provided (e.g. root level?)
-                                const currentZ = parseInt(block.content.style?.zIndex || '0')
-                                const newZ = dir === 'up' ? currentZ + 1 : currentZ - 1
-                                onUpdate(block.id, {
-                                    ...block.content,
-                                    style: { ...block.content.style, zIndex: newZ }
-                                })
-                            }
-                        }}
-                        outline={detectOutline(block.content.style)}
-                        onOutlineChange={(side) => {
-                            const style = { ...block.content.style }
-                            const key = side === 'top' ? 'borderTop' : side === 'right' ? 'borderRight' : side === 'bottom' ? 'borderBottom' : 'borderLeft'
-                            if (style[key]) {
-                                delete style[key]
-                            } else {
-                                style[key] = `2px solid currentColor`
-                            }
-                            onUpdate(block.id, { ...block.content, style })
-                        }}
-                        currentFontSize={detectFontSize(block.content.style)}
-                        onFontSizeChange={(size) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, fontSize: size }
-                            })
-                        }}
-                    />
-                </div>
+                <TextBlockToolbar
+                    block={block}
+                    onUpdate={onUpdate}
+                    onDelete={onDelete}
+                    onMove={onMove}
+                    onDuplicate={onDuplicate}
+                    onCopy={onCopy}
+                    hovered={isHovered}
+                    focused={isFocused}
+                    globalStyle={globalStyle}
+                    isHeading={true}
+                />
             )}
             <ResizableWrapper
                 width={block.content.style?.width}
@@ -502,151 +399,28 @@ const HeadlineBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onMove
     )
 }
 
-const TextBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onMove }: BlockProps) => {
+const TextBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onMove, onDuplicate, onCopy }: BlockProps) => {
     const { getStyleById } = useBrandDesign()
+    const [isHovered, setIsHovered] = React.useState(false)
     const [isFocused, setIsFocused] = React.useState(false)
     const globalStyle = getStyleById('body')
 
     return (
-        <div className="mb-4 w-full group/block relative" onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}>
-            {/* Toolbar on Hover or if Menu Open */}
+        <div className="w-full group/block relative" onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} onClick={(e) => { e.stopPropagation(); onSelect?.(block.id) }}>
+            {/* Context bar: the brandbook editor's text bar */}
             {!isReadOnly && (
-                <div className="opacity-0 group-hover/block:opacity-100 has-[[data-state=open]]:opacity-100 transition-opacity">
-                    <TextToolbar
-                        onDelete={onDelete ? () => onDelete(block.id) : undefined}
-                        activeTransform={detectTransform(block.content.text || "")}
-                        onTransform={(type) => {
-                            const text = block.content.text || ""
-                            let newText = text
-                            if (type === 'uppercase') newText = text.toUpperCase()
-                            if (type === 'lowercase') newText = text.toLowerCase()
-                            if (type === 'sentence') newText = text.charAt(0).toUpperCase() + text.slice(1).toLowerCase()
-                            if (type === 'capitalize') newText = text.replace(/\b\w/g, (c: string) => c.toUpperCase())
-
-                            onUpdate(block.id, { ...block.content, text: newText })
-                        }}
-                        currentFont={block.content.style?.fontFamily || globalStyle?.font || 'Inter'}
-                        onFontChange={(font) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, fontFamily: font }
-                            })
-                        }}
-                        currentLineHeight={block.content.style?.lineHeight || globalStyle?.height || '1.5'}
-                        onLineHeightChange={(height) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, lineHeight: height }
-                            })
-                        }}
-                        activeFormats={detectFormats(block.content.style)}
-                        onFormat={(type) => {
-                            const style = { ...block.content.style }
-                            if (type === 'bold') {
-                                style.fontWeight = style.fontWeight === 'bold' ? 'normal' : 'bold'
-                            }
-                            if (type === 'italic') {
-                                style.fontStyle = style.fontStyle === 'italic' ? 'normal' : 'italic'
-                            }
-                            if (type === 'underline') {
-                                let decoration = style.textDecoration || ''
-                                if (decoration.includes('underline')) {
-                                    decoration = decoration.replace('underline', '').trim()
-                                } else {
-                                    decoration = `${decoration} underline`.trim()
-                                }
-                                style.textDecoration = decoration
-                            }
-                            if (type === 'strikethrough') {
-                                let decoration = style.textDecoration || ''
-                                if (decoration.includes('line-through')) {
-                                    decoration = decoration.replace('line-through', '').trim()
-                                } else {
-                                    decoration = `${decoration} line-through`.trim()
-                                }
-                                style.textDecoration = decoration
-                            }
-                            onUpdate(block.id, { ...block.content, style })
-                        }}
-                        activeListFormat={detectListFormat(block.content.style)}
-                        onListFormat={(type) => {
-                            const style = { ...block.content.style }
-                            if (type) {
-                                if (style.display === 'list-item' && style.listStyleType === type) {
-                                    // Toggle off
-                                    delete style.display
-                                    delete style.listStyleType
-                                    delete style.listStylePosition
-                                    delete style.marginLeft
-                                } else {
-                                    // Enable
-                                    style.display = 'list-item'
-                                    style.listStyleType = type
-                                    style.listStylePosition = 'inside'
-                                    style.marginLeft = '1em'
-                                }
-                            }
-                            onUpdate(block.id, { ...block.content, style })
-                        }}
-                        activeAlign={detectAlign(block.content.style)}
-                        onAlign={(align) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, textAlign: align }
-                            })
-                        }}
-                        color={detectColor(block.content.style)}
-                        onColorChange={(color) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, color }
-                            })
-                        }}
-                        heightSettings={detectHeight(block.content.style)}
-                        onHeightSettingsChange={(step) => {
-                            let val = 'auto'
-                            if (step === 3) val = '40px'
-                            if (step === 5) val = '80px'
-                            if (step === 8) val = '160px'
-                            if (step === 100) val = '400px'
-
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, minHeight: val }
-                            })
-                        }}
-                        onOrderChange={(dir) => {
-                            if (onMove) {
-                                onMove(block.id, dir);
-                            } else {
-                                const currentZ = parseInt(block.content.style?.zIndex || '0')
-                                const newZ = dir === 'up' ? currentZ + 1 : currentZ - 1
-                                onUpdate(block.id, {
-                                    ...block.content,
-                                    style: { ...block.content.style, zIndex: newZ }
-                                })
-                            }
-                        }}
-                        outline={detectOutline(block.content.style)}
-                        onOutlineChange={(side) => {
-                            const style = { ...block.content.style }
-                            const key = side === 'top' ? 'borderTop' : side === 'right' ? 'borderRight' : side === 'bottom' ? 'borderBottom' : 'borderLeft'
-                            if (style[key]) {
-                                delete style[key]
-                            } else {
-                                style[key] = `2px solid currentColor`
-                            }
-                            onUpdate(block.id, { ...block.content, style })
-                        }}
-                        currentFontSize={detectFontSize(block.content.style)}
-                        onFontSizeChange={(size) => {
-                            onUpdate(block.id, {
-                                ...block.content,
-                                style: { ...block.content.style, fontSize: size }
-                            })
-                        }}
-                    />
-                </div>
+                <TextBlockToolbar
+                    block={block}
+                    onUpdate={onUpdate}
+                    onDelete={onDelete}
+                    onMove={onMove}
+                    onDuplicate={onDuplicate}
+                    onCopy={onCopy}
+                    hovered={isHovered}
+                    focused={isFocused}
+                    globalStyle={globalStyle}
+                    isHeading={false}
+                />
             )}
             <ResizableWrapper
                 width={block.content.style?.width}
@@ -693,10 +467,24 @@ const TextBlock = ({ block, isReadOnly, onUpdate, onSelect, onDelete, onMove }: 
 }
 
 
-export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDelete, onMove }: BlockProps) {
+export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelect, activeBlockId, onDelete, onMove, onDuplicate, onCopy }: BlockProps) {
+    // A font picked for a text or a list is fetched here too, not only where it was picked: a new tab (the
+    // client page, «Visualizar», the PDF) otherwise shows the fallback font
+    useGoogleFont(block?.content?.style?.fontFamily)
+    useGoogleFont(block?.content?.list?.fontFamily)
+    useGoogleFont(block?.content?.list?.descFontFamily)
+    const design = useBrandDesign()
     if (!block) return null
 
     const commonProps = { block, isReadOnly, onUpdate, onSelect, activeBlockId, onDelete, onMove }
+    const textProps = { ...commonProps, onDuplicate, onCopy }
+    // Blocks without a bar of their own get the brandbook context bar (the block-level delete lives there)
+    const chrome = (label: string, node: React.ReactNode) => (
+        <BlockChrome label={label} blockId={block.id} isReadOnly={isReadOnly} activeBlockId={activeBlockId} onSelect={onSelect} onMove={onMove} onDelete={onDelete}>
+            {node}
+        </BlockChrome>
+    )
+    const innerProps = { ...commonProps, onDelete: undefined }
 
     switch (block.type as string) {
         case 'layout':
@@ -705,13 +493,13 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
 
         case 'headline':
         case 'heading': // Add alias for safety
-            return <HeadlineBlock {...commonProps} />
+            return <HeadlineBlock {...textProps} />
 
         case 'text':
             if (['h1', 'h2', 'h3'].includes(block.variant || '')) {
-                return <HeadlineBlock {...commonProps} />
+                return <HeadlineBlock {...textProps} />
             }
-            return <TextBlock {...commonProps} />
+            return <TextBlock {...textProps} />
 
         case 'image':
         case 'video':
@@ -726,14 +514,29 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
 
         case 'list':
         case 'code': // Using ListBlock for snippet for now or simple text?
-            return <ListBlock {...commonProps} />
+            return (
+                <AnimatedBlock animation={block.content?.animation} settings={block.content?.animationSettings} isEnabled={!!isReadOnly}>
+                    <ListBlock {...commonProps} onDuplicate={onDuplicate} onCopy={onCopy} ownAnimationPanel bodyStyle={design.getStyleById('body')} uploadImage={uploadListMarker} />
+                </AnimatedBlock>
+            )
 
         case 'composite':
             return <CompositeBlock {...commonProps} />
 
         case 'separator':
         case 'divider':
-            return <SeparatorBlock {...commonProps} />
+            {
+                // Space around the line (its «margem»): the brandbook applies it around every block, here it is done for the line
+                const m = block.content?.style?.margin || {}
+                const px = (v: unknown) => v === undefined || v === "" ? undefined : `${Number(v) || 0}px`
+                return (
+                    <AnimatedBlock animation={block.content?.animation} settings={block.content?.animationSettings} isEnabled={!!isReadOnly}>
+                        <div className="w-full" style={{ marginTop: px(m.top), marginBottom: px(m.bottom), paddingLeft: px(m.left), paddingRight: px(m.right) }}>
+                            <SeparatorBlock {...commonProps} onDuplicate={onDuplicate} onCopy={onCopy} ownAnimationPanel />
+                        </div>
+                    </AnimatedBlock>
+                )
+            }
 
         case 'spacer':
             return <div style={{ height: block.content?.style?.height || '48px' }} className="w-full" />
@@ -742,18 +545,18 @@ export function BlockRenderer({ block, isReadOnly, onUpdate, onAddBlock, onSelec
             return <ButtonBlock {...commonProps} />
 
         case 'palette':
-            return <PaletteBlock {...commonProps} />
+            return chrome("Paleta", <PaletteBlock {...innerProps} />)
 
         case 'pricing-table':
-            return <PricingTableBlock {...commonProps} />
+            return chrome("Tabela de preços", <PricingTableBlock {...innerProps} />)
 
         case 'scope-list':
-            return <ScopeListBlock {...commonProps} />
+            return chrome("Lista de escopo", <ScopeListBlock {...innerProps} />)
 
         case 'timeline':
-            return <TimelineBlock {...commonProps} />
+            return chrome("Linha do tempo", <TimelineBlock {...innerProps} />)
 
         default:
-            return <TextBlock {...commonProps} />
+            return <TextBlock {...textProps} />
     }
 }

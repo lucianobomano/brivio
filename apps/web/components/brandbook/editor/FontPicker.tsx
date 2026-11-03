@@ -93,7 +93,8 @@ export const FontPicker = ({ currentFont = 'Inter', onFontChange, children }: Fo
             <PopoverContent
                 side="bottom"
                 align="center"
-                className="p-0 border-none w-[280px] bg-transparent shadow-xl z-[60]"
+                // Above the floating block panels (z 9500), which can open it
+                className="p-0 border-none w-[280px] bg-transparent shadow-xl z-[10001]"
                 sideOffset={10}
             >
                 <div className="flex flex-col border border-[#333] rounded-lg bg-[#15161B]">

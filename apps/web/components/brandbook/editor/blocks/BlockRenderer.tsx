@@ -302,6 +302,8 @@ const EditableTextBlock = ({ block, isReadOnly, onUpdate, onSelect, activeBlockI
                                         if (style[key]) delete style[key]; else style[key] = `2px solid currentColor`
                                         onUpdate(block.id, { ...block.content, style })
                                     }}
+                                    textStyle={block.content.style}
+                                    onTextStyleChange={(patch) => onUpdate(block.id, { ...block.content, style: { ...block.content.style, ...patch } })}
                                     margin={block.content.style?.margin}
                                     onMarginChange={(m) => {
                                         onUpdate(block.id, {

@@ -165,12 +165,9 @@ export function VideoSettingsPanel({
     return (
         <div
             onClick={(e) => e.stopPropagation()}
-            className="w-[280px] bg-[#15161B] text-white rounded-lg overflow-hidden shadow-2xl border border-[#333] z-[9999] fixed"
-            style={{
-                top: 100, // Initial position
-                left: '50%', // Centered initially or adjusted as requested
-                transform: `translateX(-50%) translate(${position.x}px, ${position.y}px)`
-            }}
+            // Placed next to the video on the top layer (FloatingPanel); dragging moves it from there
+            className="w-[280px] bg-[#15161B] text-white rounded-lg overflow-hidden shadow-2xl border border-[#333]"
+            style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
         >
             {/* Header */}
             <div

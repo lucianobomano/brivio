@@ -37,7 +37,9 @@ export function AuthLayoutInner({ children, user, showSidebar = true, workspaceI
                             activeView === "assets" ? "/assets" :
                             activeView === "brandops" ? "/brandops" : pathname
 
-    const isProjectsPage = currentPathname === "/projects" || currentPathname === "/standups" || currentPathname.startsWith("/sprints") || currentPathname === "/assets" || currentPathname === "/tasks" || currentPathname === "/roadmap" || currentPathname === "/focus"
+    // Studio pages built like Projects: their own full-height shell (side menu + breadcrumb bar), no padding around
+    const isStudioShell = ["/crm", "/team", "/inventory", "/finances", "/roadmap"].some(p => currentPathname === p || currentPathname.startsWith(`${p}/`))
+    const isProjectsPage = currentPathname === "/projects" || currentPathname === "/standups" || currentPathname.startsWith("/sprints") || currentPathname === "/assets" || currentPathname === "/tasks" || currentPathname === "/roadmap" || currentPathname === "/focus" || isStudioShell
     const isDashboard = currentPathname === "/dashboard"
 
     const isCommunity = currentPathname === "/community" || currentPathname === "/creators-pool" || currentPathname === "/brandbooks" || currentPathname.startsWith("/creators/") || currentPathname === "/settings" || currentPathname === "/jobs"
@@ -50,7 +52,7 @@ export function AuthLayoutInner({ children, user, showSidebar = true, workspaceI
         <WorkspaceProvider initialWorkspaceId={workspaceId} initialWorkspace={initialWorkspace}>
             <div className={cn(
                 "flex min-h-screen h-screen overflow-hidden bg-bg-0 selection:bg-accent-indigo selection:text-white",
-                (isProjectsPage && currentPathname !== "/assets" && currentPathname !== "/projects") ? "pb-24" : ""
+                (isProjectsPage && currentPathname !== "/assets" && currentPathname !== "/projects" && !isStudioShell) ? "pb-24" : ""
             )}>
                 {/* Bottom Navigation is shown for all SPA-enabled pages */}
                 {isProjectsPage && <BottomNavigation />}
@@ -62,11 +64,11 @@ export function AuthLayoutInner({ children, user, showSidebar = true, workspaceI
                     {/* Main Content Area */}
                     <main className={cn(
                         "flex-1 overflow-y-auto w-full",
-                        isBrandOpsSpace ? "p-0 overflow-hidden" : shouldShowSidebar ? "p-8" : (isDashboard || isCommunity || currentPathname === "/projects" || currentPathname === "/assets" || currentPathname === "/standups" || currentPathname === "/tasks" || currentPathname === "/roadmap" || currentPathname === "/focus") ? "p-0" : "p-8"
+                        isBrandOpsSpace || isStudioShell ? "p-0 overflow-hidden" : shouldShowSidebar ? "p-8" : (isDashboard || isCommunity || currentPathname === "/projects" || currentPathname === "/assets" || currentPathname === "/standups" || currentPathname === "/tasks" || currentPathname === "/roadmap" || currentPathname === "/focus") ? "p-0" : "p-8"
                     )}>
                         <div className={cn(
                             "w-full h-full",
-                            (!isBrandOpsSpace && (shouldShowSidebar || (!isDashboard && !isCommunity && currentPathname !== "/projects" && currentPathname !== "/assets" && currentPathname !== "/tasks" && currentPathname !== "/roadmap" && currentPathname !== "/focus"))) ? "max-w-[1600px] mx-auto" : ""
+                            (!isBrandOpsSpace && !isStudioShell && (shouldShowSidebar || (!isDashboard && !isCommunity && currentPathname !== "/projects" && currentPathname !== "/assets" && currentPathname !== "/tasks" && currentPathname !== "/roadmap" && currentPathname !== "/focus"))) ? "max-w-[1600px] mx-auto" : ""
                         )}>
                             {children}
                         </div>

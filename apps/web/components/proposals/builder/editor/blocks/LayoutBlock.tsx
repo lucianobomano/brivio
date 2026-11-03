@@ -7,12 +7,26 @@ import { cn } from "@/lib/utils"
 // Usually better to have a generic renderer or Import it.
 // React handles circular imports fine usually for components if implementation is clean.
 import { BlockRenderer } from "./BlockRenderer"
+import { copyBlock } from "../blockClipboard"
+import { toast as clipToast } from "sonner"
 import { Plus, ArrowLeft, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { ColumnSettingsPanel } from "./ColumnSettingsPanel"
+// The column panel is the brandbook editor's: same options in both editors
+import { ColumnSettingsPanel } from "@/components/brandbook/editor/blocks/ColumnSettingsPanel"
+import { borderCss, hasBorder, resolveBorder } from "@/components/brandbook/editor/BorderControl"
+import { getHoverProps } from "@/components/brandbook/editor/hoverEffects"
+import { fullScreenHeight } from "@/components/brandbook/editor/SectionSettingsPanel"
 import { useState, useRef, useEffect } from "react"
-import { motion } from "framer-motion"
 import { ColumnSplitter } from "./ColumnSplitter"
+import { uploadProjectMedia } from "@/app/actions/projects"
+import { toast } from "sonner"
+
+/** «200» → «200px»; «auto» or empty → none */
+const toCssSize = (value: unknown): string | undefined => {
+    const text = value === undefined || value === null ? '' : String(value).trim()
+    if (!text || text.toLowerCase() === 'auto') return undefined
+    return /^-?\d+(\.\d+)?$/.test(text) ? `${text}px` : text
+}
 
 interface LayoutBlockProps {
     block: Block
@@ -42,7 +56,10 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
     }
 
     const getHeight = (settingsHeight: string | undefined) => {
-        if (!settingsHeight) return 'auto' // Default to auto for fit-to-content
+        if (!settingsHeight || settingsHeight === 'fit') return 'auto' // Default to auto for fit-to-content
+        // Fill container: the section grows with the page; the columns take the section's room
+        if (settingsHeight === 'fill') return '100%'
+        if (settingsHeight === '100vh') return fullScreenHeight(block.content.settings, true)
 
         switch (settingsHeight) {
             case 'XS': return '150px'
@@ -88,15 +105,62 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
         onUpdate(block.id, { ...block.content, columns: newColumns })
     }
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, colId: string) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, colId: string) => {
         const file = e.target.files?.[0]
-        if (file) {
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                handleColumnSettingsChange(colId, { backgroundImage: reader.result as string })
-            }
-            reader.readAsDataURL(file)
+        e.target.value = ''
+        if (!file) return
+        const toastId = toast.loading("A carregar a imagem…")
+        const res = await uploadProjectMedia(file)
+        if (res.success && res.url) {
+            handleColumnSettingsChange(colId, { backgroundImage: res.url })
+            toast.success("Imagem de fundo aplicada", { id: toastId })
+        } else {
+            toast.error("Não foi possível carregar a imagem.", { id: toastId })
         }
+    }
+
+    const handleDuplicateColumn = (colId: string) => {
+        const colIndex = columns.findIndex((c: any) => c.id === colId)
+        if (colIndex === -1) return
+        const reId = (b: any): any => ({
+            ...b,
+            id: `b-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            ...(b.type === 'layout' && Array.isArray(b.content?.columns)
+                ? { content: { ...b.content, columns: b.content.columns.map((c: any) => ({ ...c, id: `col-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, blocks: (c.blocks || []).map(reId) })) } }
+                : {}),
+        })
+        const source = JSON.parse(JSON.stringify(columns[colIndex]))
+        const clone = { ...source, id: `col-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, blocks: (source.blocks || []).map(reId) }
+        const newColumns = [...columns]
+        newColumns.splice(colIndex + 1, 0, clone)
+        onUpdate(block.id, { ...block.content, columns: newColumns, settings: { ...block.content.settings, columns: newColumns.length, columnWidths: Array(newColumns.length).fill(1) } })
+        setOpenSettingsColId(null)
+    }
+
+    const handleDeleteColumn = (colId: string) => {
+        if (columns.length <= 1) {
+            toast.error("A secção precisa de ter pelo menos uma coluna.")
+            return
+        }
+        const newColumns = columns.filter((c: any) => c.id !== colId)
+        onUpdate(block.id, { ...block.content, columns: newColumns, settings: { ...block.content.settings, columns: newColumns.length, columnWidths: Array(newColumns.length).fill(1) } })
+        setOpenSettingsColId(null)
+    }
+
+    // A copy of a block right under it, in the same column (new ids inside too)
+    const handleBlockDuplicate = (blockId: string) => {
+        const fresh = () => Math.random().toString(36).slice(2, 11)
+        const renew = (value: any): any => Array.isArray(value) ? value.map(renew)
+            : value && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([k, v]) => [k, k === 'id' && typeof v === 'string' ? fresh() : renew(v)]))
+            : value
+        const newColumns = columns.map((col: any) => {
+            const i = (col.blocks || []).findIndex((b: Block) => b.id === blockId)
+            if (i === -1) return col
+            const next = [...col.blocks]
+            next.splice(i + 1, 0, renew(col.blocks[i]))
+            return { ...col, blocks: next }
+        })
+        onUpdate(block.id, { ...block.content, columns: newColumns })
     }
 
     const handleBlockMove = (blockId: string, direction: 'up' | 'down') => {
@@ -318,195 +382,354 @@ export const LayoutBlock = ({ block, isReadOnly, onUpdate, onAddBlock, onSelect,
     const aspectRatio = block.content.settings?.aspectRatio
     const hasAspectRatio = aspectRatio && aspectRatio !== 'auto'
     const isFullWidth = block.content.settings?.isFullWidth || false
-    const isFreeMovement = block.content.settings?.isFreeMovement || false
+    const isFullHeight = block.content.settings?.isFullHeight || false
+    const noColumnGap = block.content.settings?.noColumnGap || false
+    const columnGap = block.content.settings?.columnGap ?? 32
+    const gapValue = noColumnGap ? 0 : columnGap
+
+    // Section alignment positions the columns themselves (their content has its own column alignment).
+    // Vertical: 'top' keeps columns stretched to the row; 'middle'/'bottom' let them shrink to their content and align.
+    const sectionAlignHorizontal = block.content.settings?.alignHorizontal || 'center'
+    const sectionAlignVertical = block.content.settings?.alignVertical || 'top'
+    const alignColumnsVertically = sectionAlignVertical === 'middle' || sectionAlignVertical === 'bottom'
+    const columnJustifySelf = sectionAlignHorizontal === 'left' ? 'start' : sectionAlignHorizontal === 'right' ? 'end' : 'center'
+    const columnAlignSelf = sectionAlignVertical === 'middle' ? 'center' : sectionAlignVertical === 'bottom' ? 'end' : undefined
+
+    // Vertical direction: the columns become full-width rows stacked top to bottom
+    const isVertical = block.content.settings?.columnDirection === 'vertical'
+    const sectionHeight = block.content.settings?.height
+    const hasSectionHeight = !!sectionHeight && sectionHeight !== 'auto' && sectionHeight !== 'fit'
+    const toTracks = (min: string) => (appliedTemplate || `repeat(${Math.max(1, colCount)}, 1fr)`).replace(/(\d*\.?\d+)fr/g, `minmax(${min}, $1fr)`)
+
+    // Distribution of the columns along the direction ('fill' shares all the room; the rest keep their size)
+    const distribution = block.content.settings?.columnDistribution || (isVertical ? 'packed' : 'fill')
+    const isFill = distribution === 'fill'
+    // Column widths: «Ajustar ao conteúdo» columns take their content's width (never more than the row),
+    // «Preencher» columns share what the others leave; the rest keep their share of the grid
+    const hasWidthModes = columns.some((c: any) => c.settings?.widthMode)
+    const columnTracks = (() => {
+        const base = appliedTemplate || `repeat(${Math.max(1, colCount)}, 1fr)`
+        const m = /^repeat\((\d+),\s*([^)]+)\)$/.exec(base.trim())
+        const list: string[] = m ? Array(Number(m[1])).fill(m[2].trim()) : base.trim().split(/\s+/)
+        return columns.map((c: any, i: number) => c.settings?.widthMode === 'fit' ? 'fit-content(100%)'
+            : c.settings?.widthMode === 'fill' ? 'minmax(0, 1fr)'
+            : (list[i] || '1fr').replace(/^(\d*\.?\d+)fr$/, 'minmax(0, $1fr)')).join(' ')
+    })()
+    const packedAlign = isVertical
+        ? (sectionAlignVertical === 'middle' ? 'center' : sectionAlignVertical === 'bottom' ? 'end' : 'start')
+        : (sectionAlignHorizontal === 'left' ? 'start' : sectionAlignHorizontal === 'right' ? 'end' : 'center')
+    const contentAlign = isFill ? undefined
+        : distribution === 'between' ? 'space-between'
+        : distribution === 'around' ? 'space-around'
+        : distribution === 'evenly' ? 'space-evenly'
+        : packedAlign
+    const needsSectionHeight = hasSectionHeight && !hasAspectRatio && (isVertical || alignColumnsVertically)
 
     return (
-        <div
-            className={cn("grid gap-8 w-full transition-all duration-300 relative", getGridClass(colCount))}
-            id={`layout-block-${block.id}`}
-            style={{
-                padding: '0px',
-                gridTemplateColumns: appliedTemplate,
-                aspectRatio: hasAspectRatio ? aspectRatio.replace(':', '/') : undefined
-            }}
-        >
-            {columns.map((col: any, index: number) => (
-                <div
-                    key={col.id}
-                    className={cn(
-                        "relative group/col rounded-lg flex flex-col gap-4 items-center justify-center transition-all duration-300",
-                        col.blocks && col.blocks.length > 0 ? "" : (`min-h-[100px] ${!isReadOnly ? "border border-dashed border-gray-200 hover:border-[#FF0054]" : ""}`),
-                        colCount === 1 ? (isFullWidth ? "w-full" : "max-w-[1080px] w-full mx-auto") : ""
-                    )}
-                    style={{
-                        minHeight: (isFullWidth || col.blocks?.some((b: any) => b.type === 'gallery' || b.type === 'carousel'))
-                            ? 'auto'
-                            : (col.settings?.minHeight && col.settings.minHeight !== 'auto'
-                                ? col.settings.minHeight
-                                : (hasAspectRatio ? '100%' : getHeight(block.content.settings?.height))),
-                        padding: isFullWidth
-                            ? '0px'
-                            : (block.content.settings?.padding
-                                ? `${block.content.settings.padding.top}px ${block.content.settings.padding.right}px ${block.content.settings.padding.bottom}px ${block.content.settings.padding.left}px`
-                                : '0px'), // Default to 0px as requested
-                        backgroundColor: col.settings?.backgroundColor || 'transparent',
-                        backgroundImage: col.settings?.backgroundImage ? `url(${col.settings.backgroundImage})` : undefined,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                        borderRadius: col.settings?.radius ? `${col.settings.radius}px` : undefined,
-                        borderWidth: col.settings?.borderWidth ? `${col.settings.borderWidth}px` : undefined,
-                        borderColor: col.settings?.borderColor || undefined,
-                        borderStyle: col.settings?.borderWidth ? (col.settings?.borderStyle || 'dashed') : undefined,
-                        position: col.settings?.isFixed ? 'sticky' : undefined, // Assuming fixed -> sticky for now + top 0
-                        top: col.settings?.isFixed ? 0 : undefined,
-                        zIndex: col.settings?.isFixed ? 10 : undefined,
-                        height: 'auto', // Force auto height to allow expansion
-                    }}
-                >
-                    {/* Hidden File Input for Background Upload */}
-                    <input
-                        type="file"
-                        id={`upload-bg-${col.id}`}
-                        className="hidden"
-                        accept="image/*"
-                        onChange={(e) => handleFileUpload(e, col.id)}
-                    />
+        <div className="w-full h-full flex flex-col relative overflow-visible">
+            <div
+                className={cn(
+                    "grid w-full flex-1 min-h-0 relative overflow-visible transition-all duration-300",
+                    isVertical ? "grid-cols-1" : getGridClass(colCount)
+                )}
+                id={`layout-block-${block.id}`}
+                style={{
+                    padding: '0px',
+                    gap: `${gapValue}px`,
+                    // minmax(0, fr) keeps every column at its share of the section's width
+                    gridTemplateColumns: isVertical ? 'minmax(0, 1fr)' : (isFill ? (hasWidthModes ? columnTracks : toTracks('0')) : `repeat(${colCount}, auto)`),
+                    gridTemplateRows: isVertical && isFill && hasSectionHeight ? toTracks('min-content') : undefined,
+                    justifyContent: !isVertical ? contentAlign : undefined,
+                    alignContent: isVertical ? contentAlign : undefined,
+                    aspectRatio: hasAspectRatio ? aspectRatio.replace(':', '/') : undefined,
+                    minHeight: needsSectionHeight ? getHeight(sectionHeight) : undefined,
+                    maxHeight: '100%',
+                }}
+            >
+                {columns.map((col: any, index: number) => {
+                    // In flex-col: alignItems = horizontal, justifyContent = vertical
+                    const getAlignItems = () => col.settings?.alignHorizontal === 'center' ? 'center' : col.settings?.alignHorizontal === 'right' ? 'flex-end' : 'flex-start'
+                    const getJustifyContent = () => col.settings?.alignVertical === 'top' ? 'flex-start' : col.settings?.alignVertical === 'bottom' ? 'flex-end' : 'center'
+                    const colHover = isReadOnly ? getHoverProps(col.settings?.hoverEffect) : { className: '', style: {} }
+                    // Sizes set on the column itself win over what it would inherit from the section
+                    const colWidth = toCssSize(col.settings?.columnWidth)
+                    const colHeight = toCssSize(col.settings?.columnHeight)
+                    const colMinHeight = toCssSize(col.settings?.minHeight)
+                    const heightMode: 'fit' | 'fill' | undefined = colHeight ? undefined
+                        : (col.settings?.heightMode || (col.settings?.isFullHeight ? 'fill' : undefined))
+                    // Subcolumns: the column's items sit side by side, one per slot
+                    const subColumns = Math.min(4, Math.max(1, Number(col.settings?.subColumns) || 1))
+                    const hasSubColumns = subColumns > 1
+                    const itemGap: number = col.settings?.blockGap ?? 16
+                    const contentDistribution = col.settings?.contentDistribution
+                    const itemsJustify = contentDistribution === 'between' ? 'space-between'
+                        : contentDistribution === 'around' ? 'space-around'
+                        : contentDistribution === 'evenly' ? 'space-evenly'
+                        : undefined
+                    const emptySlots = hasSubColumns ? Math.max(0, subColumns - (col.blocks?.length || 0)) : 0
 
-                    {/* Column Settings Trigger Overlay */}
-                    {!isReadOnly && (
-                        <div className="absolute -top-[24px] left-0 z-20 opacity-0 group-hover/col:opacity-100 transition-opacity flex items-center gap-2">
-                            <ColumnSettingsPanel
-                                isOpen={openSettingsColId === col.id}
-                                onOpenChange={(open) => setOpenSettingsColId(open ? col.id : null)}
-                                minHeight={col.settings?.minHeight ? col.settings.minHeight.replace('px', '') : 'auto'}
-                                onMinHeightChange={(val) => handleColumnSettingsChange(col.id, { minHeight: val })}
-                                backgroundColor={col.settings?.backgroundColor || '#ffffff'} // Default logic?
-                                onBackgroundColorChange={(color) => handleColumnSettingsChange(col.id, { backgroundColor: color })}
-                                onUploadBackground={() => document.getElementById(`upload-bg-${col.id}`)?.click()}
-                                radius={col.settings?.radius || 0}
-                                onRadiusChange={(val) => handleColumnSettingsChange(col.id, { radius: val })}
-                                borderWidth={col.settings?.borderWidth || 0}
-                                onBorderWidthChange={(val) => handleColumnSettingsChange(col.id, { borderWidth: val })}
-                                borderColor={col.settings?.borderColor || '#000000'}
-                                onBorderColorChange={(color) => handleColumnSettingsChange(col.id, { borderColor: color })}
-                                borderStyle={col.settings?.borderStyle || 'dashed'}
-                                onBorderStyleChange={(style) => handleColumnSettingsChange(col.id, { borderStyle: style })}
-                                isFixed={col.settings?.isFixed || false}
-                                onFixedChange={(val) => handleColumnSettingsChange(col.id, { isFixed: val })}
-                                onReset={() => handleColumnSettingsChange(col.id, {
-                                    minHeight: 'auto',
-                                    backgroundColor: null,
-                                    backgroundImage: null,
-                                    radius: 0,
-                                    borderWidth: 0,
-                                    borderColor: null,
-                                    borderStyle: 'dashed',
-                                    isFixed: false
-                                })}
-                            >
-                                <button
-                                    className="bg-[#FF0054] text-white text-[10px] px-2 h-[24px] rounded-t-[4px] font-medium tracking-wide flex items-center gap-1 hover:bg-[#D90048] transition-colors"
-                                >
-                                    Edit column
-                                </button>
-                            </ColumnSettingsPanel>
+                    return (
+                        <div
+                            key={col.id}
+                            className={cn(
+                                "relative group/col flex flex-col overflow-visible w-full transition-all duration-300",
+                                colHover.className,
+                                // Editing guides are outlines drawn inside the column: a border would make it 2px taller than on the client page
+                                col.blocks && col.blocks.length > 0 ? "min-h-0" : `min-h-[32px] ${!isReadOnly ? "outline outline-1 outline-dashed -outline-offset-1 outline-gray-200 hover:outline-[#FF0054]" : ""}`,
+                                !isReadOnly && col.blocks?.length > 0 && !hasBorder(resolveBorder(col.settings)) && "outline outline-1 outline-dashed -outline-offset-1 outline-transparent hover:outline-[#FF0054]",
+                                !isReadOnly && !hasBorder(resolveBorder(col.settings)) && openSettingsColId === col.id && "!border-[#FF0054]"
+                            )}
+                            style={{
+                                gap: `${itemGap}px`,
+                                minWidth: 0,
+                                ...colHover.style,
+                                minHeight: colHeight
+                                    ? (colMinHeight ? `max(${colHeight}, ${colMinHeight})` : colHeight)
+                                    : heightMode === 'fit' ? colMinHeight
+                                    : col.blocks?.some((b: any) => b.type === 'gallery' || b.type === 'carousel')
+                                    ? 'auto'
+                                    : (colMinHeight
+                                        ? colMinHeight
+                                        : (alignColumnsVertically || isVertical ? undefined : (hasAspectRatio ? '100%' : getHeight(block.content.settings?.height)))),
+                                paddingTop: col.settings?.padding?.top ?? (isFullHeight ? 0 : (block.content.settings?.padding?.top ?? 24)),
+                                paddingBottom: col.settings?.padding?.bottom ?? (isFullHeight ? 0 : (block.content.settings?.padding?.bottom ?? 24)),
+                                paddingLeft: col.settings?.padding?.left ?? (isFullWidth ? 0 : (block.content.settings?.padding?.left ?? 24)),
+                                paddingRight: col.settings?.padding?.right ?? (isFullWidth ? 0 : (block.content.settings?.padding?.right ?? 24)),
+                                backgroundColor: col.settings?.backgroundColor || 'transparent',
+                                backgroundImage: col.settings?.backgroundImage ? `url(${col.settings.backgroundImage})` : undefined,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                borderRadius: `${col.settings?.radius || 0}px`,
+                                // Border per side (or the single width saved before)
+                                ...borderCss(resolveBorder(col.settings)),
+                                position: col.settings?.isFixed ? 'sticky' : undefined,
+                                top: col.settings?.isFixed ? 0 : undefined,
+                                zIndex: col.settings?.isFixed ? 10 : undefined,
+                                width: col.settings?.isFullWidth || col.settings?.widthMode === 'fill' ? '100%' : col.settings?.widthMode === 'fit' ? 'fit-content' : (colWidth || (!isVertical && !isFill ? 'fit-content' : undefined)),
+                                maxWidth: '100%',
+                                height: heightMode === 'fill' ? '100%' : (heightMode === 'fit' || colHeight || alignColumnsVertically ? 'auto' : '100%'),
+                                justifySelf: columnJustifySelf,
+                                alignSelf: heightMode === 'fill' ? 'stretch' : (columnAlignSelf || (colHeight || heightMode === 'fit' ? 'start' : undefined)),
+                                justifyContent: getJustifyContent(),
+                                alignItems: getAlignItems(),
+                            }}
+                        >
+                            {/* Hidden File Input for Background Upload */}
+                            <input
+                                type="file"
+                                id={`upload-bg-${col.id}`}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={(e) => handleFileUpload(e, col.id)}
+                            />
 
-                            {colCount > 1 && (
-                                <div className="flex bg-[#FF0054] rounded-t-[4px] h-[24px] overflow-hidden">
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleColumnMove(index, 'left') }}
-                                        disabled={index === 0}
-                                        className="px-2 hover:bg-[#D90048] disabled:opacity-50 transition-colors flex items-center justify-center text-white border-r border-white/20"
+                            {/* Column toolbar: settings (the brandbook's column panel) and moving the column */}
+                            {!isReadOnly && (
+                                <div className="absolute top-0 left-0 z-50 opacity-0 group-hover/col:opacity-100 transition-opacity flex items-center gap-2 -translate-y-full">
+                                    <ColumnSettingsPanel
+                                        isOpen={openSettingsColId === col.id}
+                                        onOpenChange={(open) => setOpenSettingsColId(open ? col.id : null)}
+                                        minHeight={col.settings?.minHeight ? String(col.settings.minHeight).replace('px', '') : 'auto'}
+                                        onMinHeightChange={(val) => handleColumnSettingsChange(col.id, { minHeight: val })}
+                                        backgroundColor={col.settings?.backgroundColor || '#ffffff'}
+                                        onBackgroundColorChange={(color) => handleColumnSettingsChange(col.id, { backgroundColor: color })}
+                                        onUploadBackground={() => document.getElementById(`upload-bg-${col.id}`)?.click()}
+                                        radius={col.settings?.radius || 0}
+                                        onRadiusChange={(val) => handleColumnSettingsChange(col.id, { radius: val })}
+                                        border={resolveBorder(col.settings)}
+                                        onBorderChange={(b) => handleColumnSettingsChange(col.id, { border: b, borderWidth: b.isLocked ? b.top : 0, borderColor: b.color, borderStyle: b.style })}
+                                        borderWidth={col.settings?.borderWidth || 0}
+                                        onBorderWidthChange={(val) => handleColumnSettingsChange(col.id, { borderWidth: val })}
+                                        borderColor={col.settings?.borderColor || '#000000'}
+                                        onBorderColorChange={(color) => handleColumnSettingsChange(col.id, { borderColor: color })}
+                                        borderStyle={col.settings?.borderStyle || 'dashed'}
+                                        onBorderStyleChange={(style) => handleColumnSettingsChange(col.id, { borderStyle: style })}
+                                        isFixed={col.settings?.isFixed || false}
+                                        onFixedChange={(val) => handleColumnSettingsChange(col.id, { isFixed: val })}
+                                        padding={col.settings?.padding || block.content.settings?.padding || { isLocked: true, top: 24, right: 24, bottom: 24, left: 24 }}
+                                        onPaddingChange={(val) => handleColumnSettingsChange(col.id, { padding: val })}
+                                        alignHorizontal={col.settings?.alignHorizontal || 'left'}
+                                        onAlignHorizontalChange={(align) => handleColumnSettingsChange(col.id, { alignHorizontal: align })}
+                                        alignVertical={col.settings?.alignVertical || 'middle'}
+                                        onAlignVerticalChange={(align) => handleColumnSettingsChange(col.id, { alignVertical: align })}
+                                        blockGap={itemGap}
+                                        onBlockGapChange={(gap) => handleColumnSettingsChange(col.id, { blockGap: gap })}
+                                        subColumns={subColumns}
+                                        onSubColumnsChange={(count) => handleColumnSettingsChange(col.id, { subColumns: count })}
+                                        contentDistribution={col.settings?.contentDistribution || 'packed'}
+                                        onContentDistributionChange={(value) => handleColumnSettingsChange(col.id, { contentDistribution: value })}
+                                        hoverEffect={col.settings?.hoverEffect}
+                                        onHoverEffectChange={(effect) => handleColumnSettingsChange(col.id, { hoverEffect: effect })}
+                                        columnWidth={col.settings?.columnWidth || 'auto'}
+                                        onColumnWidthChange={(val) => handleColumnSettingsChange(col.id, { columnWidth: val })}
+                                        columnHeight={col.settings?.columnHeight || 'auto'}
+                                        onColumnHeightChange={(val) => handleColumnSettingsChange(col.id, { columnHeight: val, heightMode: undefined, isFullHeight: false })}
+                                        isFullWidth={col.settings?.isFullWidth || false}
+                                        onFullWidthChange={(val) => handleColumnSettingsChange(col.id, { isFullWidth: val })}
+                                        isFullHeight={col.settings?.isFullHeight || false}
+                                        onFullHeightChange={(val) => handleColumnSettingsChange(col.id, { isFullHeight: val })}
+                                        heightMode={heightMode}
+                                        widthMode={col.settings?.widthMode}
+                                        onWidthModeChange={(mode) => handleColumnSettingsChange(col.id, { widthMode: mode, ...(mode ? { columnWidth: 'auto', isFullWidth: false } : {}) })}
+                                        onHeightModeChange={(mode) => handleColumnSettingsChange(col.id, { heightMode: mode, isFullHeight: false, columnHeight: 'auto' })}
+                                        onReset={() => handleColumnSettingsChange(col.id, {
+                                            minHeight: 'auto',
+                                            padding: { isLocked: true, top: 24, right: 24, bottom: 24, left: 24 },
+                                            backgroundColor: null,
+                                            backgroundImage: null,
+                                            radius: 0,
+                                            borderWidth: 0,
+                                            border: null,
+                                            borderColor: null,
+                                            borderStyle: 'dashed',
+                                            isFixed: false,
+                                            alignHorizontal: 'left',
+                                            alignVertical: 'top',
+                                            blockGap: 16,
+                                            subColumns: 1,
+                                            contentDistribution: 'packed',
+                                            hoverEffect: undefined,
+                                            columnWidth: 'auto',
+                                            columnHeight: 'auto',
+                                            heightMode: undefined,
+                                            isFullWidth: false,
+                                            isFullHeight: false
+                                        })}
+                                        onDuplicateColumn={() => handleDuplicateColumn(col.id)}
+                                        onDeleteColumn={() => handleDeleteColumn(col.id)}
+                                        isLocked={col.settings?.isLocked || false}
+                                        onToggleLock={() => handleColumnSettingsChange(col.id, { isLocked: !col.settings?.isLocked })}
                                     >
-                                        <ArrowLeft className="w-3 h-3" />
-                                    </button>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); handleColumnMove(index, 'right') }}
-                                        disabled={index === colCount - 1}
-                                        className="px-2 hover:bg-[#D90048] disabled:opacity-50 transition-colors flex items-center justify-center text-white"
-                                    >
-                                        <ArrowRight className="w-3 h-3" />
-                                    </button>
+                                        <button
+                                            className="bg-[#FF0054] text-white text-[10px] px-2 h-[24px] rounded-t-[4px] font-medium tracking-wide flex items-center gap-1 hover:bg-[#D90048] transition-colors cursor-pointer"
+                                            onClick={(e) => e.stopPropagation()}
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                        >
+                                            Editar coluna
+                                        </button>
+                                    </ColumnSettingsPanel>
+
+                                    {!hasSubColumns && col.blocks?.length > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); onAddBlock(block.id, col.id, 'request_dialog') }}
+                                            onPointerDown={(e) => e.stopPropagation()}
+                                            title="Adicionar item a esta coluna"
+                                            className="bg-[#FF0054] text-white text-[10px] px-2 h-[24px] rounded-t-[4px] font-medium tracking-wide flex items-center gap-1 hover:bg-[#D90048] transition-colors"
+                                        >
+                                            <Plus className="w-3 h-3" /> Item
+                                        </button>
+                                    )}
+
+                                    {colCount > 1 && (
+                                        <div className="flex bg-[#FF0054] rounded-t-[4px] h-[24px] overflow-hidden">
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleColumnMove(index, 'left') }}
+                                                disabled={index === 0}
+                                                aria-label="Mover coluna para a esquerda"
+                                                className="px-2 hover:bg-[#D90048] disabled:opacity-50 transition-colors flex items-center justify-center text-white border-r border-white/20"
+                                            >
+                                                <ArrowLeft className="w-3 h-3" />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleColumnMove(index, 'right') }}
+                                                disabled={index === colCount - 1}
+                                                aria-label="Mover coluna para a direita"
+                                                className="px-2 hover:bg-[#D90048] disabled:opacity-50 transition-colors flex items-center justify-center text-white"
+                                            >
+                                                <ArrowRight className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             )}
-                        </div>
-                    )}
 
-                    {col.blocks.map((b: Block) => (
-                        <motion.div
-                            key={b.id}
-                            className={cn(
-                                "w-full transition-all duration-300 shrink-0",
-                                isFreeMovement && "z-10 cursor-move active:z-50"
-                            )}
-                            drag={isFreeMovement && !isReadOnly}
-                            dragMomentum={false}
-                            onDragEnd={(_, info) => {
-                                if (isFreeMovement) {
-                                    const currentPos = b.content.position || { x: 0, y: 0 }
-                                    handleColumnUpdate(col.id, b.id, {
-                                        ...b.content,
-                                        position: {
-                                            x: currentPos.x + info.offset.x,
-                                            y: currentPos.y + info.offset.y
-                                        }
-                                    })
-                                }
-                            }}
-                            animate={{
-                                x: isFreeMovement ? (b.content.position?.x || 0) : 0,
-                                y: isFreeMovement ? (b.content.position?.y || 0) : 0
-                            }}
-                        >
-                            <BlockRenderer
-                                block={b}
-                                isReadOnly={isReadOnly}
-                                onUpdate={(id, content) => handleColumnUpdate(col.id, id, content)}
-                                onAddBlock={onAddBlock}
-                                onSelect={onSelect}
-                                activeBlockId={activeBlockId}
-                                onMove={handleBlockMove}
-                                onDelete={(id) => {
-                                    // Deleting a block inside a column
-                                    const newColumns = columns.map((c: any) => {
-                                        if (c.id === col.id) {
-                                            return {
-                                                ...c,
-                                                blocks: c.blocks.filter((blk: Block) => blk.id !== id)
-                                            }
-                                        }
-                                        return c
-                                    })
-                                    onUpdate(block.id, { ...block.content, columns: newColumns })
+                            {/* Column content: the items, stacked or in subcolumns */}
+                            <div
+                                className={cn(
+                                    "flex-1 w-full h-full min-h-0 overflow-visible relative",
+                                    hasSubColumns ? "grid" : "flex flex-col",
+                                    // A negative spacing overlaps the items (CSS gap can't be negative)
+                                    !hasSubColumns && itemGap < 0 && "[&>*+*]:mt-[var(--col-item-overlap)]",
+                                    // The page typography (prose) gives pictures a top / bottom margin: an item aligned to the
+                                    // top or bottom of its column must touch the edge (only the column padding stays)
+                                    "[&_img]:m-0 [&_figure]:m-0 [&_video]:m-0"
+                                )}
+                                style={hasSubColumns ? {
+                                    gridTemplateColumns: `repeat(${subColumns}, minmax(0, 1fr))`,
+                                    gap: `${Math.max(0, itemGap)}px`,
+                                    alignContent: itemsJustify || getJustifyContent(),
+                                } : {
+                                    gap: `${Math.max(0, itemGap)}px`,
+                                    ...(itemGap < 0 ? { '--col-item-overlap': `${itemGap}px` } as React.CSSProperties : {}),
+                                    justifyContent: itemsJustify || getJustifyContent(),
+                                    alignItems: getAlignItems(),
                                 }}
-                            />
-                        </motion.div>
-                    ))}
+                            >
+                                {col.blocks.map((b: Block) => (
+                                    <div key={b.id} className="w-full min-w-0 max-w-full flex flex-col shrink-0 overflow-visible transition-all duration-300" style={{ alignItems: getAlignItems() }}>
+                                        <BlockRenderer
+                                            block={b}
+                                            isReadOnly={isReadOnly}
+                                            onUpdate={(id, content) => handleColumnUpdate(col.id, id, content)}
+                                            onAddBlock={onAddBlock}
+                                            onSelect={onSelect}
+                                            activeBlockId={activeBlockId}
+                                            onMove={handleBlockMove}
+                                            onDuplicate={handleBlockDuplicate}
+                                            onCopy={(id) => {
+                                                const found = col.blocks.find((blk: Block) => blk.id === id)
+                                                if (found) { copyBlock(found); clipToast.success("Bloco copiado. Cole-o em «Adicionar item».") }
+                                            }}
+                                            onDelete={(id) => {
+                                                // Deleting a block inside a column
+                                                const newColumns = columns.map((c: any) => c.id === col.id ? { ...c, blocks: c.blocks.filter((blk: Block) => blk.id !== id) } : c)
+                                                onUpdate(block.id, { ...block.content, columns: newColumns })
+                                            }}
+                                        />
+                                    </div>
+                                ))}
 
-                    {/* Add Button for this column */}
-                    {!isReadOnly && (
-                        <Button
-                            variant="ghost"
-                            className="w-[65%] mx-auto h-8 border border-dashed text-gray-400 hover:text-pink-500 hover:border-pink-500 hover:bg-pink-50"
-                            onClick={() => {
-                                onAddBlock(block.id, col.id, 'request_dialog')
-                            }}
-                        >
-                            <Plus className="w-4 h-4 mr-2" /> Add Item
-                        </Button>
-                    )}
+                                {/* Empty subcolumns: each one takes one item */}
+                                {!isReadOnly && Array.from({ length: emptySlots }).map((_, i) => (
+                                    <div key={`slot-${i}`} className="min-h-[120px] w-full border border-dashed border-gray-300 rounded-md flex items-center justify-center p-2">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); onAddBlock(block.id, col.id, 'request_dialog') }}
+                                            className="h-8 px-3 rounded-md flex items-center justify-center gap-1.5 text-xs text-gray-400 hover:text-pink-500 hover:bg-pink-50/50 transition-colors"
+                                            title="Adicionar um item a esta subcoluna"
+                                        >
+                                            <Plus className="w-4 h-4" /> Item
+                                        </button>
+                                    </div>
+                                ))}
 
-                    {/* Splitter (Only if unlocked and not last column) */}
-                    {isGridUnlocked && !isReadOnly && index < colCount - 1 && (
-                        <ColumnSplitter
-                            index={index}
-                            onResizeStart={handleResizeStart}
-                            onResize={handleResize}
-                            onResizeEnd={handleResizeEnd}
-                        />
-                    )}
-                </div>
-            ))}
+                                {/* Add Button for this column (with subcolumns, the empty slots add instead) */}
+                                {/* Empty column: the button in the middle. With content it lives in the column bar above (never over
+                                    the content, and the editor page stays as tall as the client's) */}
+                                {!isReadOnly && !hasSubColumns && !col.blocks?.length && (
+                                    <Button
+                                        variant="ghost"
+                                        className="h-8 border border-dashed text-gray-400 hover:text-pink-500 hover:border-pink-500 hover:bg-pink-50 shrink-0 w-[65%] mx-auto mt-2 mb-2"
+                                        onClick={() => onAddBlock(block.id, col.id, 'request_dialog')}
+                                    >
+                                        <Plus className="w-4 h-4 mr-2" /> Adicionar item
+                                    </Button>
+                                )}
+                            </div>
+
+                            {/* Splitter (Only if unlocked and not last column) */}
+                            {isGridUnlocked && !isReadOnly && !isVertical && index < colCount - 1 && (
+                                <ColumnSplitter
+                                    index={index}
+                                    onResizeStart={handleResizeStart}
+                                    onResize={handleResize}
+                                    onResizeEnd={handleResizeEnd}
+                                />
+                            )}
+                        </div>
+                    )
+                })}
+            </div>
         </div>
     )
 }

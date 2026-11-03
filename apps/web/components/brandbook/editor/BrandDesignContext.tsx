@@ -350,6 +350,9 @@ export function BrandDesignProvider({
     )
 }
 
+/** The brand design when inside a brandbook editor; undefined elsewhere (other editors reuse its panels) */
+export const useBrandDesignOptional = () => useContext(BrandDesignContext)
+
 export const useBrandDesign = () => {
     const context = useContext(BrandDesignContext)
     if (context === undefined) {

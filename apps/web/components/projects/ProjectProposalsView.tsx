@@ -6,64 +6,74 @@ import {
     MoreHorizontal,
     Plus,
     FileText,
-    Clock,
     CheckCircle2,
     XCircle,
-    AlertCircle,
     ArrowUpRight,
     Download,
-    Edit3
+    PenLine,
+    Eye,
+    Send,
+    Link2,
+    Undo2,
+    Trash2,
+    Settings2,
+    CalendarClock,
+    Hourglass,
+    Wallet,
+    LayoutTemplate,
 } from "lucide-react"
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuTrigger
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { ProjectProposalCreateModal } from "./ProjectProposalCreateModal"
+import { TemplateGalleryModal } from "@/components/proposals/TemplateGalleryModal"
 import { ProjectProposalEditModal } from "./ProjectProposalEditModal"
-import { getProposalsByProject, deleteProposal } from "@/app/actions/proposals"
+import { getProposalsByProject, deleteProposal, setProposalStatus, type ProposalRow } from "@/app/actions/proposals"
 import { toast } from "sonner"
-import { useCurrency, FormattedPrice } from "@/components/CurrencyUtils"
+import { cn } from "@/lib/utils"
+import { useCurrency } from "@/components/CurrencyUtils"
+import { PANEL, TABLE_HEAD, TABLE_ROW, Pill, StatStrip, DarkButton, Modal, ModalPrimary, ModalSecondary, type Tone } from "@/components/workspace/ui"
 
-interface Proposal {
-    id: string
-    title: string
-    identifier: string
-    project_name?: string
-    status: 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
-    value: number
-    currency: string
-    sent_at?: string
-    expires_at?: string
-    created_at: string
-    proposal_items?: { price: number; quantity: number }[]
+type Status = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+
+const STATUS: Record<Status, { label: string, tone: Tone }> = {
+    draft: { label: "Rascunho", tone: "zinc" },
+    sent: { label: "Enviada", tone: "indigo" },
+    accepted: { label: "Aceite", tone: "green" },
+    rejected: { label: "Recusada", tone: "rose" },
+    expired: { label: "Expirada", tone: "amber" },
 }
 
-const PROPOSAL_STATUS: Record<Proposal['status'], { label: string, color: string, bg: string, icon: React.ElementType }> = {
-    draft: { label: "Rascunho", color: "#64748b", bg: "rgba(100, 116, 139, 0.1)", icon: FileText },
-    sent: { label: "Enviada", color: "#3b82f6", bg: "rgba(59, 130, 246, 0.1)", icon: ArrowUpRight },
-    accepted: { label: "Aceite", color: "#10b981", bg: "rgba(16, 185, 129, 0.1)", icon: CheckCircle2 },
-    rejected: { label: "Recusada", color: "#ef4444", bg: "rgba(239, 68, 68, 0.1)", icon: XCircle },
-    expired: { label: "Expirada", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.1)", icon: AlertCircle }
+/** A sent proposal past its validity shows as expired */
+function statusOf(p: ProposalRow): Status {
+    const s = (p.status in STATUS ? p.status : 'draft') as Status
+    if (s === 'sent' && p.expires_at && new Date(p.expires_at).getTime() < Date.now()) return 'expired'
+    return s
 }
 
-interface ProjectProposalsViewProps {
-    project: Project
-}
+const fmtDate = (iso: string | null | undefined) =>
+    iso ? new Date(iso).toLocaleDateString('pt-PT', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
-export function ProjectProposalsView({ project }: ProjectProposalsViewProps) {
+const GRID = "grid grid-cols-[minmax(200px,2fr)_minmax(110px,1fr)_minmax(100px,0.9fr)_minmax(100px,0.9fr)_minmax(110px,1fr)_112px] gap-4 items-center"
+
+export function ProjectProposalsView({ project }: { project: Project }) {
     const { formatPrice } = useCurrency()
-    const [proposals, setProposals] = React.useState<Proposal[]>([])
+    const [proposals, setProposals] = React.useState<ProposalRow[]>([])
     const [isLoading, setIsLoading] = React.useState(true)
+    const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false)
+    const [isGalleryOpen, setIsGalleryOpen] = React.useState(false)
+    const [isEditModalOpen, setIsEditModalOpen] = React.useState(false)
+    const [selectedProposal, setSelectedProposal] = React.useState<ProposalRow | null>(null)
+    const [toDelete, setToDelete] = React.useState<ProposalRow | null>(null)
+    const [busy, setBusy] = React.useState(false)
 
     const fetchProposals = React.useCallback(async () => {
-        setIsLoading(true)
         try {
-            const data = await getProposalsByProject(project.id)
-            setProposals(data)
+            setProposals(await getProposalsByProject(project.id))
         } catch (error) {
             console.error(error)
             toast.error("Erro ao carregar propostas")
@@ -73,242 +83,176 @@ export function ProjectProposalsView({ project }: ProjectProposalsViewProps) {
     }, [project.id])
 
     React.useEffect(() => {
+        // Async fetch: state is set after the request resolves
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         fetchProposals()
     }, [fetchProposals])
 
-    const [isCreateModalOpen, setIsCreateModalOpen] = React.useState(false)
-    const [isEditModalOpen, setIsEditModalOpen] = React.useState(false)
-    const [selectedProposal, setSelectedProposal] = React.useState<Proposal | null>(null)
+    const clientLink = (p: ProposalRow) => `${window.location.origin}/share/${p.id}/proposal`
+    const openBuilder = (id: string) => window.open(`/proposals/${id}/builder`, '_blank', 'noopener')
+    const openPreview = (p: ProposalRow) => window.open(`/proposals/${p.id}/view`, '_blank', 'noopener')
+    const downloadPdf = (p: ProposalRow) => window.open(`/proposals/${p.id}/view?print=1`, '_blank', 'noopener')
 
-    const handleCreateProposal = () => {
-        setIsCreateModalOpen(true)
+    const changeStatus = async (p: ProposalRow, status: 'draft' | 'sent' | 'accepted' | 'rejected', message: string) => {
+        const previous = proposals
+        setProposals(list => list.map(x => x.id === p.id ? { ...x, status } : x))
+        const res = await setProposalStatus(p.id, status)
+        if (res.success) toast.success(message)
+        else {
+            setProposals(previous)
+            toast.error(('error' in res && res.error) || "Não foi possível alterar o estado")
+        }
+        return !!res.success
     }
 
+    // Sending = the proposal leaves draft and the client gets a link that opens without an account
+    const sendToClient = async (p: ProposalRow) => {
+        if (p.status === 'draft' && !(await changeStatus(p, 'sent', "Proposta marcada como enviada"))) return
+        try {
+            await navigator.clipboard.writeText(clientLink(p))
+            toast.success("Link do cliente copiado", { description: "Cole-o num email ou mensagem para o cliente." })
+        } catch {
+            toast.message("Link do cliente", { description: clientLink(p) })
+        }
+    }
+
+    const confirmDelete = async () => {
+        if (!toDelete) return
+        setBusy(true)
+        const res = await deleteProposal(toDelete.id)
+        setBusy(false)
+        if (res.success) {
+            toast.success("Proposta apagada")
+            setProposals(list => list.filter(x => x.id !== toDelete.id))
+            setToDelete(null)
+        } else {
+            toast.error(('error' in res && res.error) || "Erro ao apagar")
+        }
+    }
+
+    // Metrics
+    const withStatus = proposals.map(p => ({ p, s: statusOf(p) }))
+    const decided = withStatus.filter(x => x.s === 'accepted' || x.s === 'rejected').length
+    const accepted = withStatus.filter(x => x.s === 'accepted')
+    const open = withStatus.filter(x => x.s === 'sent')
+    const approvalRate = decided ? Math.round(accepted.length / decided * 100) : 0
+    const openValue = open.reduce((acc, x) => acc + x.p.total, 0)
+    const acceptedValue = accepted.reduce((acc, x) => acc + x.p.total, 0)
+
     return (
-        <div className="flex flex-col gap-6 h-full font-inter-tight">
-            {/* Header with Search and Create Button */}
-            <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-6 h-full">
+            {/* Header */}
+            <div className="flex items-end justify-between gap-4">
                 <div>
-                    <h2 className="text-xl font-bold text-[#97A1B3] mb-1">Propostas Comerciais</h2>
-                    <p className="text-xs text-[#97A1B3]/60">Gerencie e envie propostas comerciais para este projeto.</p>
+                    <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Propostas</h2>
+                    <p className="text-xs text-zinc-500 mt-1">Crie, envie e acompanhe as propostas comerciais deste projeto.</p>
                 </div>
-                <Button
-                    onClick={handleCreateProposal}
-                    className="h-11 px-6 bg-accent-indigo hover:bg-accent-indigo/90 text-white rounded-[8px] text-[11px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-accent-indigo/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                >
-                    <Plus className="w-4 h-4" />
-                    Nova Proposta
-                </Button>
+                <div className="flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setIsGalleryOpen(true)}
+                        className="h-9 px-3.5 rounded-lg border border-zinc-200 dark:border-white/10 text-[13px] font-medium text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/[0.06] inline-flex items-center gap-1.5 transition-colors"
+                        title="Começar uma proposta a partir de um template pronto"
+                    >
+                        <LayoutTemplate className="w-3.5 h-3.5" /> Templates
+                    </button>
+                    <DarkButton onClick={() => setIsCreateModalOpen(true)}>
+                        <Plus className="w-3.5 h-3.5" /> Nova proposta
+                    </DarkButton>
+                </div>
             </div>
 
-            {/* Table Area */}
-            <div className="bg-transparent border border-[#373737] rounded-[8px] overflow-hidden shadow-sm flex-1 flex flex-col min-h-0">
-                <div className="overflow-x-auto no-scrollbar">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="bg-[#15171F]/50 text-[#97A1B3] text-[11px] uppercase tracking-wider font-bold border-b border-[#373737]">
-                                <th className="p-4 pl-8">Título da Proposta</th>
-                                <th className="p-4">Valor</th>
-                                <th className="p-4">Estado</th>
-                                <th className="p-4">Data de Envio</th>
-                                <th className="p-4">Expira em</th>
-                                <th className="p-4 pr-8 text-right">Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#373737]">
-                            {proposals.map((proposal) => {
-                                const status = PROPOSAL_STATUS[proposal.status] || PROPOSAL_STATUS.draft
-                                const Icon = status.icon
-                                const totalValue = proposal.proposal_items?.reduce((acc: number, item: { price: number; quantity: number }) => acc + (item.price * item.quantity), 0) || 0
+            <StatStrip stats={[
+                { label: "Propostas", value: proposals.length, icon: FileText, tone: 'zinc' },
+                { label: "Taxa de aprovação", value: `${approvalRate}%`, icon: CheckCircle2, tone: 'green' },
+                { label: "Valor em aberto", value: formatPrice(openValue), icon: Hourglass, tone: 'indigo' },
+                { label: "Valor aceite", value: formatPrice(acceptedValue), icon: Wallet, tone: 'pink' },
+            ]} />
 
-                                return (
-                                    <tr key={proposal.id} className="group hover:bg-[#15171F]/50 transition-all duration-300">
-                                        <td className="p-4 pl-8">
-                                            <div className="flex items-center gap-4">
-                                                <div className="w-10 h-10 rounded-[8px] bg-transparent border border-[#373737] flex items-center justify-center shrink-0 group-hover:border-accent-indigo/30 transition-colors shadow-sm text-[#97A1B3]">
-                                                    <FileText className="w-5 h-5 opacity-60" />
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-bold text-[#97A1B3] group-hover:text-white transition-colors cursor-pointer">
-                                                        {proposal.identifier}
-                                                    </span>
-                                                    <span className="text-[10px] text-[#97A1B3]/40 uppercase tracking-tight font-bold">
-                                                        {proposal.project_name || 'Sem nome de projeto'}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </td>
-
-                                        <td className="p-4">
-                                            <span className="text-sm font-bold text-[#97A1B3]">
-                                                <FormattedPrice amount={totalValue} />
-                                            </span>
-                                        </td>
-
-                                        <td className="p-4">
-                                            <Badge
-                                                variant="outline"
-                                                className="h-7 px-3 flex items-center gap-1.5 border border-[#373737] rounded-[100px] text-[10px] font-black uppercase tracking-tight bg-transparent"
-                                                style={{ color: status.color, borderColor: `${status.color}30` }}
-                                            >
-                                                <Icon className="w-3 h-3" />
-                                                {status.label}
-                                            </Badge>
-                                        </td>
-
-                                        <td className="p-4">
-                                            <span className="text-xs font-bold text-[#97A1B3]/70">
-                                                {proposal.sent_at ? new Date(proposal.sent_at).toLocaleDateString('pt-PT') : '---'}
-                                            </span>
-                                        </td>
-
-                                        <td className="p-4">
-                                            {proposal.expires_at ? (
-                                                <div className="flex items-center gap-2">
-                                                    <Clock className="w-3 h-3 text-[#97A1B3]/40" />
-                                                    <span className="text-xs font-bold text-[#97A1B3]/70">
-                                                        {new Date(proposal.expires_at).toLocaleDateString('pt-PT')}
-                                                    </span>
-                                                </div>
-                                            ) : (
-                                                <span className="text-xs text-[#97A1B3]/40 font-mono">---</span>
-                                            )}
-                                        </td>
-
-                                        <td className="p-4 pr-8 text-right">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    title="Personalizar Proposta"
-                                                    className="h-8 w-8 text-[#97A1B3] hover:text-[#EF0050] hover:bg-[#EF0050]/5 border border-[#373737] rounded-[8px] transition-all"
-                                                    onClick={() => window.open(`/proposals/${proposal.id}/builder`, '_blank')}
-                                                >
-                                                    <Edit3 className="w-4 h-4" />
-                                                </Button>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="icon"
-                                                    title="Baixar PDF"
-                                                    className="h-8 w-8 text-[#97A1B3] hover:text-white hover:bg-[#15171F] border border-[#373737] rounded-[8px] transition-all"
-                                                >
-                                                    <Download className="w-4 h-4" />
-                                                </Button>
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon" className="h-8 w-8 text-[#97A1B3] hover:text-white hover:bg-[#15171F] border border-[#373737] rounded-[8px] transition-all">
-                                                            <MoreHorizontal className="w-4 h-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end" className="w-48 bg-[#0A0A0B] border border-[#373737] shadow-xl p-1 rounded-[8px]">
-                                                        <DropdownMenuItem className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-tight p-2 rounded-[6px] cursor-pointer hover:bg-[#15171F] text-[#97A1B3] hover:text-white">
-                                                            Visualizar
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-tight p-2 rounded-[6px] cursor-pointer hover:bg-[#15171F] text-[#97A1B3] hover:text-white"
-                                                            onClick={() => {
-                                                                setSelectedProposal(proposal)
-                                                                setIsEditModalOpen(true)
-                                                            }}
-                                                        >
-                                                            Editar Proposta
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-tight p-2 rounded-[6px] cursor-pointer hover:bg-[#15171F] text-[#97A1B3] hover:text-white">
-                                                            Enviar para Cliente
-                                                        </DropdownMenuItem>
-                                                        <DropdownMenuItem
-                                                            className="flex items-center gap-2 text-[11px] font-bold uppercase tracking-tight p-2 rounded-[6px] cursor-pointer hover:bg-[#15171F] text-red-500 hover:text-red-400"
-                                                            onClick={async () => {
-                                                                if (confirm("Tem certeza que deseja apagar esta proposta?")) {
-                                                                    const res = await deleteProposal(proposal.id)
-                                                                    if (res.success) {
-                                                                        toast.success("Proposta apagada")
-                                                                        fetchProposals()
-                                                                    } else {
-                                                                        toast.error("Erro ao apagar")
-                                                                    }
-                                                                }
-                                                            }}
-                                                        >
-                                                            Apagar
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )
-                            })}
-                        </tbody>
-                    </table>
-
-                    {proposals.length === 0 && !isLoading && (
-                        <div className="p-20 flex flex-col items-center justify-center text-center">
-                            <div className="w-20 h-20 rounded-[8px] bg-transparent border border-[#373737] flex items-center justify-center mb-6 shadow-inner">
-                                <FileText className="w-10 h-10 text-[#97A1B3] opacity-40" />
+            {/* Table */}
+            {isLoading ? (
+                <div className={cn(PANEL, "py-16 flex items-center justify-center")}>
+                    <div className="w-5 h-5 border-2 border-[#ff0054] border-t-transparent rounded-full animate-spin" />
+                </div>
+            ) : proposals.length === 0 ? (
+                <div className="border border-dashed border-zinc-200 dark:border-white/[0.08] rounded-2xl px-6 py-16 flex flex-col items-center text-center">
+                    <FileText className="w-5 h-5 text-zinc-400 mb-3" />
+                    <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Ainda não há propostas</h3>
+                    <p className="text-xs text-zinc-500 mt-1.5 max-w-md">Crie a primeira proposta deste projeto, escreva-a no editor e envie o link ao cliente.</p>
+                    <DarkButton className="mt-5" onClick={() => setIsCreateModalOpen(true)}><Plus className="w-3.5 h-3.5" /> Nova proposta</DarkButton>
+                </div>
+            ) : (
+                <div className={cn(PANEL, "overflow-hidden")}>
+                    <div className="w-full overflow-x-auto no-scrollbar">
+                        <div className="min-w-[820px]">
+                            <div className={cn(TABLE_HEAD, GRID)}>
+                                <span>Proposta</span><span>Valor</span><span>Estado</span><span>Criada</span><span>Válida até</span><span />
                             </div>
-                            <h3 className="text-[#97A1B3] font-bold text-lg">Sem propostas para este projeto</h3>
-                            <p className="text-[#97A1B3]/60 text-sm max-w-xs mt-2 font-medium">
-                                Comece criando sua primeira proposta comercial para apresentar ao cliente.
-                            </p>
-                            <Button
-                                onClick={handleCreateProposal}
-                                className="mt-8 h-12 px-8 bg-transparent border border-[#373737] hover:bg-[#15171F] text-[#97A1B3] rounded-[8px] text-[11px] font-black uppercase tracking-widest flex items-center gap-2 transition-all"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Criar Proposta
-                            </Button>
-                        </div>
-                    )}
+                            {withStatus.map(({ p, s }) => (
+                                <div key={p.id} className={cn(TABLE_ROW, GRID, "group")}>
+                                    <button type="button" onClick={() => openBuilder(p.id)} className="flex items-center gap-3 min-w-0 text-left" title="Abrir no editor">
+                                        <div className="w-8 h-8 rounded-lg bg-zinc-100 dark:bg-[#181215] border border-red-500/20 flex items-center justify-center shrink-0 shadow-sm">
+                                            <FileText className="w-3.5 h-3.5 text-red-500" />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-xs font-bold tracking-wide uppercase text-zinc-900 dark:text-zinc-100 truncate group-hover:text-[#ff0054] transition-colors font-mono">{p.identifier}</p>
+                                            <p className="text-[11px] text-zinc-500 truncate mt-0.5">{p.brand_name || project.name}</p>
+                                        </div>
+                                    </button>
+                                    <span className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 tabular-nums truncate">{formatPrice(p.total)}</span>
+                                    <span><Pill tone={STATUS[s].tone}>{STATUS[s].label}</Pill></span>
+                                    <span className="text-xs text-zinc-600 dark:text-zinc-400">{fmtDate(p.created_at)}</span>
+                                    <span className={cn("text-xs flex items-center gap-1.5", s === 'expired' ? "text-amber-600 dark:text-amber-400" : "text-zinc-600 dark:text-zinc-400")}>
+                                        {p.expires_at ? <><CalendarClock className="w-3.5 h-3.5 opacity-70" />{fmtDate(p.expires_at)}</> : <span className="text-zinc-400">Sem prazo</span>}
+                                    </span>
 
-                    {isLoading && (
-                        <div className="p-20 flex flex-col items-center justify-center text-center">
-                            <div className="w-8 h-8 border-2 border-[#EF0050] border-t-transparent rounded-full animate-spin mb-4" />
-                            <p className="text-sm text-[#97A1B3]">A carregar propostas...</p>
+                                    <div className="flex items-center justify-end gap-1">
+                                        <IconAction title="Abrir no editor" onClick={() => openBuilder(p.id)}><PenLine className="w-3.5 h-3.5" /></IconAction>
+                                        <IconAction title="Baixar PDF" onClick={() => downloadPdf(p)}><Download className="w-3.5 h-3.5" /></IconAction>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button type="button" aria-label="Mais ações" className="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors">
+                                                    <MoreHorizontal className="w-4 h-4" />
+                                                </button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-56 bg-white dark:bg-[#0c0c0e] border-zinc-200/80 dark:border-white/[0.08] shadow-xl p-1 rounded-xl">
+                                                <MenuItem icon={Eye} onClick={() => openPreview(p)}>Pré-visualizar</MenuItem>
+                                                <MenuItem icon={Settings2} onClick={() => { setSelectedProposal(p); setIsEditModalOpen(true) }}>Editar detalhes</MenuItem>
+                                                <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-white/[0.06]" />
+                                                {p.status === 'draft'
+                                                    ? <MenuItem icon={Send} onClick={() => sendToClient(p)}>Enviar ao cliente</MenuItem>
+                                                    : <MenuItem icon={Link2} onClick={() => sendToClient(p)}>Copiar link do cliente</MenuItem>}
+                                                {p.status !== 'draft' && (
+                                                    <MenuItem icon={ArrowUpRight} onClick={() => window.open(clientLink(p), '_blank', 'noopener')}>Ver como cliente</MenuItem>
+                                                )}
+                                                {p.status !== 'accepted' && p.status !== 'draft' && (
+                                                    <MenuItem icon={CheckCircle2} onClick={() => changeStatus(p, 'accepted', "Proposta marcada como aceite")}>Marcar como aceite</MenuItem>
+                                                )}
+                                                {p.status !== 'rejected' && p.status !== 'draft' && (
+                                                    <MenuItem icon={XCircle} onClick={() => changeStatus(p, 'rejected', "Proposta marcada como recusada")}>Marcar como recusada</MenuItem>
+                                                )}
+                                                {p.status !== 'draft' && (
+                                                    <MenuItem icon={Undo2} onClick={() => changeStatus(p, 'draft', "A proposta voltou a rascunho. O link do cliente deixa de abrir.")}>Voltar a rascunho</MenuItem>
+                                                )}
+                                                <DropdownMenuSeparator className="bg-zinc-200/80 dark:bg-white/[0.06]" />
+                                                <MenuItem icon={Trash2} danger onClick={() => setToDelete(p)}>Apagar</MenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Metrics Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="bg-transparent border border-[#373737] p-6 rounded-[8px] shadow-sm hover:border-accent-indigo/20 transition-all group">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="w-10 h-10 rounded-[8px] bg-accent-indigo/5 border border-[#373737] flex items-center justify-center text-accent-indigo">
-                            <ArrowUpRight className="w-5 h-5" />
-                        </div>
-                        <Badge variant="outline" className="text-[10px] bg-transparent border-[#373737] text-[#97A1B3] font-bold">Total de Propostas</Badge>
                     </div>
-                    <span className="text-2xl font-black text-[#97A1B3]">{proposals.length}</span>
-                    <p className="text-[10px] text-[#97A1B3]/40 uppercase tracking-widest mt-1 font-bold">Documentos Emitidos</p>
                 </div>
+            )}
 
-                <div className="bg-transparent border border-[#373737] p-6 rounded-[8px] shadow-sm hover:border-accent-emerald/20 transition-all group">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="w-10 h-10 rounded-[8px] bg-accent-emerald/5 border border-[#373737] flex items-center justify-center text-accent-emerald">
-                            <CheckCircle2 className="w-5 h-5" />
-                        </div>
-                        <Badge variant="outline" className="text-[10px] bg-transparent border-[#373737] text-[#97A1B3] font-bold">Taxa de Aprovação</Badge>
-                    </div>
-                    <span className="text-2xl font-black text-[#97A1B3]">
-                        {Math.round((proposals.filter(p => p.status === 'accepted').length / proposals.length) * 100 || 0)}%
-                    </span>
-                    <p className="text-[10px] text-[#97A1B3]/40 uppercase tracking-widest mt-1 font-bold">Conversão Comercial</p>
-                </div>
-
-                <div className="bg-transparent border border-[#373737] p-6 rounded-[8px] shadow-sm hover:border-accent-purple/20 transition-all group">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="w-10 h-10 rounded-[8px] bg-accent-purple/5 border border-[#373737] flex items-center justify-center text-accent-purple">
-                            <ArrowUpRight className="w-5 h-5" />
-                        </div>
-                        <Badge variant="outline" className="text-[10px] bg-transparent border-[#373737] text-[#97A1B3] font-bold">Valor em Aberto</Badge>
-                    </div>
-                    <span className="text-2xl font-black text-[#97A1B3]">
-                        {formatPrice(0)}
-                    </span>
-                    <p className="text-[10px] text-[#97A1B3]/40 uppercase tracking-widest mt-1 font-bold">Pendente Aprovação</p>
-                </div>
-            </div>
+            <TemplateGalleryModal
+                isOpen={isGalleryOpen}
+                onClose={() => setIsGalleryOpen(false)}
+                projectId={project.id}
+                projectName={(project as any).name ?? (project as any).title ?? null}
+                onCreated={() => fetchProposals()}
+            />
 
             <ProjectProposalCreateModal
                 isOpen={isCreateModalOpen}
@@ -316,6 +260,7 @@ export function ProjectProposalsView({ project }: ProjectProposalsViewProps) {
                     setIsCreateModalOpen(false)
                     fetchProposals()
                 }}
+                onCreated={(id) => toast("Abrir a proposta no editor?", { action: { label: "Abrir editor", onClick: () => openBuilder(id) } })}
                 project={project}
             />
 
@@ -329,6 +274,43 @@ export function ProjectProposalsView({ project }: ProjectProposalsViewProps) {
                 project={project}
                 proposal={selectedProposal}
             />
+
+            <Modal
+                open={!!toDelete}
+                onClose={() => { if (!busy) setToDelete(null) }}
+                title="Apagar proposta"
+                footer={<>
+                    <ModalSecondary onClick={() => setToDelete(null)} disabled={busy}>Cancelar</ModalSecondary>
+                    <ModalPrimary onClick={confirmDelete} loading={busy}>Apagar</ModalPrimary>
+                </>}
+            >
+                <p className="text-sm text-zinc-600 dark:text-zinc-300">
+                    A proposta <span className="font-mono font-semibold">{toDelete?.identifier}</span> e o seu conteúdo serão apagados. Se já foi enviada, o link do cliente deixa de abrir. Esta ação não pode ser anulada.
+                </p>
+            </Modal>
         </div>
+    )
+}
+
+function IconAction({ title, onClick, children }: { title: string, onClick: () => void, children: React.ReactNode }) {
+    return (
+        <button type="button" title={title} aria-label={title} onClick={onClick} className="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:bg-zinc-100 dark:hover:bg-white/[0.06] transition-colors">
+            {children}
+        </button>
+    )
+}
+
+function MenuItem({ icon: Icon, onClick, danger, children }: { icon: React.ComponentType<{ className?: string }>, onClick: () => void, danger?: boolean, children: React.ReactNode }) {
+    return (
+        <DropdownMenuItem
+            onClick={onClick}
+            className={cn(
+                "flex items-center gap-2.5 text-xs px-2.5 py-2 rounded-lg cursor-pointer font-medium",
+                danger ? "text-red-500 focus:text-red-500 focus:bg-red-500/10" : "text-zinc-700 dark:text-zinc-200"
+            )}
+        >
+            <Icon className={cn("w-3.5 h-3.5", danger ? "" : "text-zinc-400")} />
+            {children}
+        </DropdownMenuItem>
     )
 }
