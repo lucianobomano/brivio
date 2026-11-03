@@ -2,6 +2,8 @@
 
 import type { FolderPreview } from "@/app/actions/assets"
 import { GlassFolderThumb } from "@/components/assets/GlassFolderThumb"
+import { AssetPreview } from "@/components/assets/AssetPreview"
+import { SharePoweredBy } from "@/components/share/SharePageChrome"
 import { useState } from "react"
 import { useRouter } from "nextjs-toploader/app"
 // PERFORMANCE: jszip is only needed when downloading, so it is loaded on demand
@@ -10,7 +12,6 @@ import { getPublicSharedItem, verifySharedItemPasscode, getAllFolderContentsRecu
 import { LockKeyhole, File as FileIcon, Download, AlertCircle, Folder, MoreHorizontal, ArrowDownAZ, ChevronRight, Loader2, Check, Minus, X, Key, Clock } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import { toast } from "sonner"
-import { Logo } from "@/components/layout/Logo"
 import { cn } from "@/lib/utils"
 import { format, differenceInDays } from "date-fns"
 import { ptBR } from "date-fns/locale"
@@ -120,6 +121,8 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
     const [loading, setLoading] = useState(false)
     const [needsPasscode, setNeedsPasscode] = useState(isProtected && !initialAsset)
     const [children, setChildren] = useState<any[]>(initialChildren)
+    const [shareType, setShareType] = useState<'asset' | 'folder'>(initialType)
+    const [fullView, setFullView] = useState(false)
     const [_viewType, _setViewType] = useState<'grid' | 'list'>(initialType === 'folder' ? 'grid' : 'grid')
     const [viewingChild, setViewingChild] = useState<any>(null)
     const [breadcrumbs] = useState(initialBreadcrumbs)
@@ -260,6 +263,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                 if (assetResult.success && assetResult.item) {
                     setAsset(assetResult.item)
                     setChildren(assetResult.children || [])
+                    if (assetResult.type) setShareType(assetResult.type as 'asset' | 'folder')
                     setNeedsPasscode(false)
                 } else {
                     setError("Failed to load content")
@@ -388,10 +392,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                     </motion.div>
                 </div>
 
-                <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex items-center gap-2 opacity-60">
-                    <span className="text-sm font-medium text-gray-500">Powered by</span>
-                    <Logo className="h-6 w-auto grayscale" />
-                </div>
+                <SharePoweredBy className="absolute bottom-10 left-1/2 -translate-x-1/2" />
             </div>
         )
     }
@@ -675,18 +676,61 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
                     </div>
                 </div>
 
-                {/* Powered by Brivio Button - Outside container, 20px spacing */}
-                <div className="flex justify-center mt-5">
-                    <a
-                        href="https://brivio.io"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="w-[210px] h-[35px] bg-black rounded-lg flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
-                    >
-                        <span className="text-white text-sm font-medium">Powered by</span>
-                        <span className="text-gray-400 text-sm font-medium">Brivio°</span>
-                    </a>
+                <SharePoweredBy className="mt-5" />
+            </>
+        )
+    }
+
+    /** A link to one file: the file itself (image, video, or a download card), not a folder */
+    const renderSingleAssetView = () => {
+        const a: any = asset
+        if (!a) return null
+        const isImg = a.type === 'image' || /\.(jpe?g|png|gif|webp|avif|svg)$/i.test(a.name || '')
+        const isVid = a.type === 'video' || /\.(mp4|mov|webm)$/i.test(a.name || '')
+        const ext = (a.name?.split('.').pop() || a.type || 'file').toUpperCase().slice(0, 4)
+        const meta = [a.metadata?.size, a.metadata?.dimensions].filter(Boolean).join(' • ')
+        return (
+            <>
+                <div className="w-full max-w-[1620px] mx-auto bg-white rounded-2xl border border-[#E5E5E5] shadow-sm overflow-hidden">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-6 md:px-[25px] py-5 border-b border-[#F0F0F0]">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <span className="shrink-0 inline-flex items-center rounded bg-[#EEF2FF] px-1.5 py-0.5 text-[10px] font-semibold text-[#5B6EF5] uppercase">{ext}</span>
+                            <div className="min-w-0">
+                                <h1 className="text-[17px] font-semibold text-[#111] truncate" title={a.name}>{a.name}</h1>
+                                <p className="text-[12px] text-gray-500 truncate">
+                                    {meta}{a.created_at ? `${meta ? ' · ' : ''}${format(new Date(a.created_at), "d 'de' MMMM yyyy", { locale: ptBR })}` : ''}
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => a.file_url && handleDownload(a.file_url, a.name)}
+                            className="shrink-0 bg-[#ff0054] hover:bg-[#e60049] text-white px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 transition-colors shadow-sm self-start sm:self-auto"
+                        >
+                            <Download className="w-4 h-4" /> Download
+                        </button>
+                    </div>
+                    <div className="bg-[#F4F4F5] flex items-center justify-center p-4 md:p-8 min-h-[320px]">
+                        {isImg && a.file_url ? (
+                            <img
+                                src={a.file_url}
+                                alt={a.name}
+                                onClick={() => setFullView(true)}
+                                className="max-w-full max-h-[calc(100dvh_-_388px)] min-h-0 object-contain rounded-lg shadow-md cursor-zoom-in"
+                            />
+                        ) : isVid && a.file_url ? (
+                            <video src={a.file_url} controls className="max-w-full max-h-[calc(100dvh_-_388px)] rounded-lg shadow-md bg-black" />
+                        ) : (
+                            <div className="flex flex-col items-center gap-4 py-12 text-center">
+                                <div className="w-24 h-24 rounded-2xl bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+                                    <FileIcon className="w-10 h-10 text-gray-300" />
+                                </div>
+                                <p className="text-sm text-gray-500">Este ficheiro não tem pré-visualização. Descarregue-o para o abrir.</p>
+                            </div>
+                        )}
+                    </div>
                 </div>
+                <SharePoweredBy className="mt-5" />
+                <AssetPreview assets={isImg ? [a] : []} index={fullView && isImg ? 0 : null} onIndexChange={() => { }} onClose={() => setFullView(false)} />
             </>
         )
     }
@@ -825,7 +869,7 @@ export function ShareViewer({ assetId, initialAsset, isProtected, initialError, 
 
     return (
         <>
-            {renderFolderView()}
+            {shareType === 'asset' && asset && !(asset as any).type?.match?.(/^(folder|root)$/) ? renderSingleAssetView() : renderFolderView()}
             <AnimatePresence>
                 {viewingChild && renderAssetModal()}
             </AnimatePresence>

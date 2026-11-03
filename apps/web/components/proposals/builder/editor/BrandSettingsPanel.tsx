@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react"
 import { cn } from "@/lib/utils"
+import { openUpgrade, useMyBilling } from "@/components/billing/upgrade"
 import { Lock, Gem, ChevronRight, Plus, Trash2, Upload } from "lucide-react"
 import { useBrandDesign, FontStyle, BrandSettingsState } from "./BrandDesignContext"
 import { UploadAssetPopup } from "./UploadAssetPopup"
@@ -76,7 +77,7 @@ export const BrandSettingsPanel = ({ isOpen, onClose, brandId, sections }: Brand
 
             <div
                 className={cn(
-                    `fixed top-0 right-0 h-full w-1/2 z-[100] shadow-2xl transition-transform duration-300 ease-in-out flex rounded-l-[24px] overflow-hidden text-[14px]`,
+                    `fixed top-0 right-0 h-full w-[70vw] max-w-[1400px] min-w-[min(100vw,880px)] z-[100] shadow-2xl transition-transform duration-300 ease-in-out flex rounded-l-[24px] overflow-hidden text-[14px]`,
                     t.bg, t.text,
                     isOpen ? "translate-x-0" : "translate-x-full"
                 )}
@@ -400,9 +401,9 @@ const UrlDomainView = ({ t }: { t: ThemeStyles }) => (
             <span className={cn("text-[15px]", t.textSec)}>Custom domain</span>
             <div className={cn("flex items-center gap-2 text-[15px]", t.textSec)}>
                 <Lock className="w-4 h-4" />
-                <span>Brand subscription plan needed. <a href="#" className="text-[#0C56FF]">Upgrade Now.</a></span>
+                <span>Brand subscription plan needed. <button type="button" onClick={() => openUpgrade({ reason: "domain" })} className="text-[#0C56FF] hover:underline">Upgrade Now.</button></span>
             </div>
-            <button className={cn("border px-8 py-3 rounded transition-colors text-sm self-start hover:opacity-80", t.border, t.textSec)}>Upgrade</button>
+            <button type="button" onClick={() => openUpgrade({ reason: "domain" })} className={cn("border px-8 py-3 rounded transition-colors text-sm self-start hover:opacity-80", t.border, t.textSec)}>Upgrade</button>
         </div>
     </div>
 )
@@ -419,14 +420,42 @@ const ViewersView = ({ t }: { t: ThemeStyles }) => (
     </div>
 )
 
-const UpgradeBillingView = ({ theme, t }: { theme: ThemeMode, t: ThemeStyles }) => (
-    <div className="flex flex-col gap-10 max-w-4xl">
-        <span className={cn("text-[15px]", t.textSec)}>Brand New Plan</span>
-        <button className={cn("px-8 py-3 border rounded transition-colors hover:opacity-80 text-[15px]", t.border, t.textSec)}>
-            Upgrade
-        </button>
-    </div>
-)
+const STATUS_LABEL: Record<string, string> = { active: "Ativo", pending: "Em análise", rejected: "Recusado", cancelled: "Terminado" }
+const UpgradeBillingView = ({ t }: { theme: ThemeMode, t: ThemeStyles }) => {
+    const { billing: b } = useMyBilling()
+    const date = (iso?: string | null) => iso ? new Date(iso).toLocaleDateString("pt-PT", { day: "numeric", month: "short", year: "numeric" }) : "—"
+    return (
+        <div className="flex flex-col gap-8 max-w-4xl">
+            <div className="flex flex-col gap-2">
+                <span className={cn("text-[13px] uppercase tracking-wider", t.textSec)}>Plano atual</span>
+                <span className={cn("text-[22px] font-semibold", t.text)}>{b ? b.planName : "…"}</span>
+                <span className={cn("text-[14px]", t.textSec)}>
+                    {b ? `Armazenamento: ${b.storageLimitGB === Infinity ? "ilimitado" : b.storageLimitGB + " GB"}${b.renewsAt ? ` · Renova a ${date(b.renewsAt)}` : ""}` : ""}
+                </span>
+            </div>
+            {b?.pending && <span className="text-[14px] text-amber-500">O pedido do plano {b.pending.planName} está em análise desde {date(b.pending.createdAt)}.</span>}
+            {b?.rejected && <span className="text-[14px] text-red-500">O pedido do plano {b.rejected.planName} não foi aprovado{b.rejected.reason ? `: ${b.rejected.reason}` : "."}</span>}
+            <button type="button" onClick={() => openUpgrade({ reason: "plan" })} className={cn("px-8 py-3 border rounded transition-colors hover:opacity-80 text-[15px] self-start", t.border, t.textSec)}>
+                {b && b.plan !== "free" ? "Mudar de plano" : "Upgrade"}
+            </button>
+            {!!b?.history.length && (
+                <div className="flex flex-col gap-3">
+                    <span className={cn("text-[13px] uppercase tracking-wider", t.textSec)}>Histórico</span>
+                    <div className={cn("flex flex-col divide-y border rounded", t.border)}>
+                        {b.history.map(h => (
+                            <div key={h.id} className={cn("flex items-center justify-between gap-4 px-4 py-3 text-[14px]", t.text)}>
+                                <span>{h.planName}</span>
+                                <span className={t.textSec}>{date(h.createdAt)}</span>
+                                <span className={t.textSec}>{new Intl.NumberFormat("pt-PT", { style: "currency", currency: h.currency || "AOA", maximumFractionDigits: 0 }).format(h.amount)}</span>
+                                <span className={cn("text-[12px] font-medium", h.status === "active" ? "text-emerald-500" : h.status === "pending" ? "text-amber-500" : h.status === "rejected" ? "text-red-500" : t.textSec)}>{STATUS_LABEL[h.status] || h.status}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    )
+}
 
 const DeleteView = ({ t }: { t: ThemeStyles }) => (
     <div className="flex flex-col gap-8 max-w-xl">

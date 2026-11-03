@@ -6,6 +6,7 @@ import { PrintOnLoad } from "@/components/proposals/viewer/PrintOnLoad"
 import { CurrencyProvider } from "@/components/CurrencyUtils"
 import { ProposalPricingProvider } from "@/components/proposals/ProposalPricingContext"
 import { toProposalPricing } from "@/lib/proposal-pricing"
+import { SharePageHeader } from "@/components/share/SharePageChrome"
 
 export const dynamic = "force-dynamic"
 export const metadata: Metadata = { title: "Proposta", robots: { index: false, follow: false } }
@@ -45,6 +46,7 @@ export default async function SharedProposalPage({
 
     return (
         <div className="bg-white min-h-screen print:min-h-0">
+            <SharePageHeader />
             <CurrencyProvider currency={currency}>
                 <ProposalPricingProvider value={toProposalPricing(proposal, proposal.proposal_items)}>
                     <ProposalViewer modules={modules || []} proposalId={proposalId} brandId={proposal.brand_id} />

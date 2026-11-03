@@ -28,6 +28,7 @@ export const metadata: Metadata = {
 import NextTopLoader from "nextjs-toploader";
 import { SpaNavigationProvider } from "@/components/providers/SpaNavigationProvider";
 import { ActionFeedbackProvider } from "@/components/providers/ActionFeedbackProvider";
+import { UpgradeModalHost } from "@/components/billing/upgrade";
 
 export default function RootLayout({
   children,
@@ -62,6 +63,7 @@ export default function RootLayout({
               {children}
             </SpaNavigationProvider>
           </ActionFeedbackProvider>
+          <UpgradeModalHost />
           <Toaster position="top-right" richColors />
         </ThemeProvider>
       </body>

@@ -1,6 +1,7 @@
 "use client"
 
 import React from "react"
+import { SharePoweredBy } from "@/components/share/SharePageChrome"
 import { cn } from "@/lib/utils"
 import { BlockRenderer } from "../builder/editor/blocks/BlockRenderer"
 import { BrandDesignProvider, useBrandDesign } from "../builder/editor/BrandDesignContext"
@@ -109,12 +110,9 @@ function ViewerContent({ modules }: { modules: any[] }) {
                 ))}
             </div>
 
-            {/* Minimalist Footer */}
-            <div className="proposal-footer py-12 border-t border-black/5 flex flex-col items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#00FF94] via-[#0000FF] to-[#FF0054]" />
-                <span className="text-[10px] uppercase tracking-[0.3em] text-gray-400 font-medium">
-                    Powered by Brivio°
-                </span>
+            {/* Footer: the same «Powered by» as every shared page */}
+            <div className="proposal-footer py-10 flex justify-center">
+                <SharePoweredBy />
             </div>
         </div>
     )

@@ -24,6 +24,7 @@ import {
 } from '@/app/actions/assets'
 import { MoveItemsDialog, dropRing, useAssetDndState, type MoveRequest } from './assetMove'
 import { AssetLibraryModal } from './AssetLibraryModal'
+import { AssetPreview } from './AssetPreview'
 import { DeleteConfirmationModal } from '@/components/brandbook/editor/DeleteConfirmationModal'
 import { GlassFolderCard } from './GlassFolderCard'
 import { FolderStylePicker } from './FolderStylePicker'
@@ -60,6 +61,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
         return () => { alive = false }
     }, [folderKey, folderStyle])
     const [assets, setAssets] = useState<Asset[]>(initialData?.assets || [])
+    const [previewIndex, setPreviewIndex] = useState<number | null>(null)
     const usedInitialDataRef = React.useRef(false)
     const [breadcrumbs, setBreadcrumbs] = useState<AssetFolder[]>([])
     const [currentFolderId, setCurrentFolderId] = useState<string | undefined>(undefined)
@@ -304,7 +306,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
             </div>
 
             {/* Main Content */}
-            <main className="flex-1 w-full h-full flex justify-center pt-[50px] relative px-[40px]">
+            <main className="flex-1 w-full h-full flex justify-center pt-[50px] [@media(max-height:800px)]:pt-[28px] relative px-[40px]">
 
                 {/* Upload Modal Overlay */}
                 <AnimatePresence>
@@ -544,7 +546,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                         {/* New Folder Button */}
                         <button
                             onClick={() => setIsCreateFolderOpen(true)}
-                            className="w-full h-[320px] xl:h-[400px] rounded-[12px] group relative overflow-hidden flex flex-col items-center justify-center transition-transform hover:scale-[1.02] active:scale-95 shadow-2xl"
+                            className="w-full h-[clamp(240px,calc(100dvh_-_440px),320px)] xl:h-[clamp(240px,calc(100dvh_-_440px),400px)] rounded-[12px] group relative overflow-hidden flex flex-col items-center justify-center transition-transform hover:scale-[1.02] active:scale-95 shadow-2xl"
                         >
                             <div
                                 className="absolute inset-0 animate-liquid-gradient"
@@ -591,7 +593,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                                         setIsLibraryOpen(true)
                                     }}
                                     className={cn(
-                                        "w-full h-[320px] xl:h-[400px] rounded-[12px] relative flex flex-col items-center justify-between p-6 xl:p-8 transition-colors group cursor-pointer border",
+                                        "w-full h-[clamp(240px,calc(100dvh_-_440px),320px)] xl:h-[clamp(240px,calc(100dvh_-_440px),400px)] rounded-[12px] relative flex flex-col items-center justify-between p-6 xl:p-8 transition-colors group cursor-pointer border",
                                         assetDnd.isOver(folder.id) && dropRing,
                                         isSelected
                                             ? "border-[#FF0054] bg-[#FF0054]/5"
@@ -667,9 +669,9 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                                 <div
                                     key={asset.id}
                                     {...assetDnd.dragProps("asset", asset.id)}
-                                    onClick={() => handleToggleAssetSelection(asset.id)}
+                                    onClick={() => { if (isSelectionMode) handleToggleAssetSelection(asset.id); else setPreviewIndex(assets.findIndex(a => a.id === asset.id)) }}
                                     className={cn(
-                                        "w-full h-[320px] xl:h-[400px] rounded-[12px] relative flex flex-col items-center justify-between p-6 xl:p-8 transition-colors group cursor-pointer border",
+                                        "w-full h-[clamp(240px,calc(100dvh_-_440px),320px)] xl:h-[clamp(240px,calc(100dvh_-_440px),400px)] rounded-[12px] relative flex flex-col items-center justify-between p-6 xl:p-8 transition-colors group cursor-pointer border",
                                         isSelected
                                             ? "border-[#FF0054] bg-[#FF0054]/5"
                                             : "border-transparent hover:border-white/5",
@@ -765,6 +767,7 @@ export function AssetsClient({ initialData, initialFolderStyle }: { initialData?
                 confirmLabel="Eliminar"
             />
 
+            <AssetPreview assets={assets} index={previewIndex} onIndexChange={setPreviewIndex} onClose={() => setPreviewIndex(null)} />
             <AssetLibraryModal
                 isOpen={isLibraryOpen}
                 onClose={() => setIsLibraryOpen(false)}

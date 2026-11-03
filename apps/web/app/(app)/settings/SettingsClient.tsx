@@ -1,4 +1,5 @@
 "use client"
+import { openUpgrade } from "@/components/billing/upgrade"
 
 import * as React from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -794,7 +795,7 @@ function TeamModule({ initialData: _initialData }: any) {
                     <p className="text-text-secondary text-sm max-w-[300px] mb-6">
                         A funcionalidade de equipas permite que você adicione colaboradores aos seus projetos.
                     </p>
-                    <Button className="bg-text-primary text-bg-1 hover:scale-105 transition-all">
+                    <Button onClick={() => openUpgrade({ reason: "plan", tier: "agency" })} className="bg-text-primary text-bg-1 hover:scale-105 transition-all">
                         Upgrade para Equipa
                     </Button>
                 </div>

@@ -17,6 +17,15 @@ type ThemeLike = { bg: string, text: string, textSec: string, border: string }
 
 /** Schematic of a navigation style: a small page with the navigation drawn where it sits */
 const StyleThumb = ({ preset, accent }: { preset: NavPreset, accent: string }) => {
+    const box = React.useRef<HTMLDivElement>(null)
+    const [scale, setScale] = useState(1)
+    React.useEffect(() => {
+        const el = box.current
+        if (!el) return
+        const ro = new ResizeObserver(([e]) => setScale(e.contentRect.width / 160))
+        ro.observe(el)
+        return () => ro.disconnect()
+    }, [])
     const t = getNavTokens(preset.theme, accent)
     const bar = { backgroundColor: t.bg, borderColor: t.border }
     const dot = (active?: boolean, key?: number) => (
@@ -117,14 +126,18 @@ const StyleThumb = ({ preset, accent }: { preset: NavPreset, accent: string }) =
     }
 
     return (
-        <div className="relative w-full aspect-[16/10] rounded-lg overflow-hidden bg-[#ECECEE]">
-            {/* Page content hint */}
-            <div className="absolute inset-[22%] flex flex-col gap-1.5 opacity-40">
-                <span className="h-[5px] w-[60%] rounded-full bg-black/40" />
-                <span className="h-[3px] w-[85%] rounded-full bg-black/25" />
-                <span className="h-[3px] w-[70%] rounded-full bg-black/25" />
+        // Drawn on a fixed 160×100 page and scaled to the card, so the navigation keeps its proportions at any size
+        <div ref={box} className="relative w-full aspect-[16/10] rounded-lg overflow-hidden bg-[#ECECEE] ring-1 ring-black/10">
+            <div className="absolute left-0 top-0 w-[160px] h-[100px] origin-top-left" style={{ transform: `scale(${scale})` }}>
+                {/* Page content hint */}
+                <div className="absolute inset-[22%] flex flex-col gap-1.5 opacity-50">
+                    <span className="h-[5px] w-[60%] rounded-full bg-black/40" />
+                    <span className="h-[3px] w-[85%] rounded-full bg-black/25" />
+                    <span className="h-[3px] w-[70%] rounded-full bg-black/25" />
+                    <span className="h-[3px] w-[55%] rounded-full bg-black/25" />
+                </div>
+                {nav}
             </div>
-            {nav}
         </div>
     )
 }
@@ -303,17 +316,20 @@ export const NavigationSettingsView = ({ t }: { t: ThemeLike }) => {
                         ))}
                     </div>
                 </div>
-                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-4">
                     {visiblePresets.map(p => {
                         const selected = p.id === preset.id
                         return (
                             <button
                                 key={p.id}
                                 onClick={() => save({ style: p.id })}
-                                className={cn("relative flex flex-col gap-2 p-2 rounded-xl border text-left transition-all", selected ? "border-[#FF0054] ring-2 ring-[#FF0054]/30" : cn(t.border, "hover:border-[#FF0054]/50"))}
+                                className={cn("relative flex flex-col gap-2.5 p-2.5 rounded-xl border text-left transition-all", selected ? "border-[#FF0054] ring-2 ring-[#FF0054]/30" : cn(t.border, "hover:border-[#FF0054]/50"))}
                             >
                                 <StyleThumb preset={p} accent={accent} />
-                                <span className={cn("text-[12px] font-medium px-1 truncate", t.text)}>{p.name}</span>
+                                <span className="flex flex-col gap-0.5 px-1 pb-0.5 min-w-0">
+                                    <span className={cn("text-[13px] font-semibold leading-snug", t.text)}>{p.name}</span>
+                                    <span className={cn("text-[11px]", t.textSec)}>{p.group.replace(" (atual)", "")}</span>
+                                </span>
                                 {selected && (
                                     <span className="absolute top-3.5 right-3.5 w-5 h-5 rounded-full bg-[#FF0054] text-white flex items-center justify-center">
                                         <Check className="w-3 h-3" strokeWidth={3} />

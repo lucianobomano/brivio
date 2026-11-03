@@ -42,7 +42,7 @@ export default async function BrandsPage() {
         .sort((a: any, b: any) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())
 
     return (
-        <div className="min-h-screen bg-[#EFF0F2] dark:bg-bg-0 selection:bg-[#FF0054] selection:text-white pb-20">
+        <div className="min-h-[calc(100dvh_-_30px)] bg-[#EFF0F2] dark:bg-bg-0 selection:bg-[#FF0054] selection:text-white pb-6">
             <StandupHeader />
             <BrandsClient brandsList={brandsList} user={user} />
         </div>

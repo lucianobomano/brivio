@@ -23,7 +23,7 @@ export function BrandCard({ brand }: BrandCardProps) {
         : '---'
 
     return (
-        <div className="relative w-[374px] h-[588px] rounded-[16px] bg-white overflow-hidden group border border-gray-100 shadow-sm transition-all duration-500">
+        <div className="relative w-full max-w-[374px] h-[clamp(320px,calc(100dvh_-_392px),588px)] rounded-[16px] bg-white overflow-hidden group border border-gray-100 shadow-sm transition-all duration-500">
             {/* Clickable Area for the brand */}
             <Link href={`/brand/${brand.id}/brandbook`} className="absolute inset-0 z-10" />
 
@@ -35,7 +35,7 @@ export function BrandCard({ brand }: BrandCardProps) {
             {/* Content Container - Centered */}
             <div className="h-full flex flex-col items-center justify-center p-8 text-center">
                 {/* Brand Logo - Animation only on hover */}
-                <div className="relative mb-8">
+                <div className="relative mb-8 [@media(max-height:800px)]:mb-5">
                     <div className="w-[120px] h-[120px] rounded-full bg-brand-mesh shadow-lg opacity-90 group-hover:opacity-100 group-hover:animate-mesh-spin group-hover:animate-hue-dynamic transition-all duration-700 ease-in-out" />
                     {/* Subtle outer ring */}
                     <div className="absolute -inset-2 rounded-full border border-gray-50 opacity-50 group-hover:scale-110 transition-transform duration-700" />

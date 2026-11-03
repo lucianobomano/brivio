@@ -159,3 +159,21 @@ export const agencyPlans: Plan[] = [
 ]
 
 export const PLANS: Record<PlanTier, Plan[]> = { individual: individualPlans, agency: agencyPlans }
+
+/** Every plan, individual first */
+export const ALL_PLANS: (Plan & { tier: PlanTier })[] = [
+    ...individualPlans.map(p => ({ ...p, tier: "individual" as PlanTier })),
+    ...agencyPlans.map(p => ({ ...p, tier: "agency" as PlanTier })),
+]
+
+export const findPlan = (slug?: string | null) => ALL_PLANS.find(p => p.slug === slug) || ALL_PLANS[0]
+
+/** Storage of a plan in GB, read from its features ("10GB", "1TB", "Ilimitado" → Infinity) */
+export function planStorageGB(slug?: string | null): number {
+    const feature = findPlan(slug).features.find(f => /Armazenamento/i.test(f.name))?.name || ""
+    if (/ilimitado/i.test(feature)) return Infinity
+    const m = /(\d+(?:[.,]\d+)?)\s*(GB|TB)/i.exec(feature)
+    if (!m) return 1
+    const n = parseFloat(m[1].replace(",", "."))
+    return m[2].toUpperCase() === "TB" ? n * 1024 : n
+}

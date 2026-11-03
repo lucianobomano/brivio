@@ -47,7 +47,8 @@ export function GlassFolderCard({ folder, style, preview, index, isSelectionMode
     React.useEffect(() => {
         const el = ref.current
         if (!el) return
-        const ro = new ResizeObserver(([e]) => setWidth(Math.max(200, Math.min(340, Math.floor(e.contentRect.width - 24)))))
+        // The folder is (272 + 54) / 340 ≈ 0.96 × its width tall: on short windows the card height limits it too
+        const ro = new ResizeObserver(([e]) => setWidth(Math.max(180, Math.min(340, Math.floor(e.contentRect.width - 24), Math.floor((e.contentRect.height - 16) / 0.96)))))
         ro.observe(el)
         return () => ro.disconnect()
     }, [])
@@ -62,7 +63,7 @@ export function GlassFolderCard({ folder, style, preview, index, isSelectionMode
             ref={ref}
             {...boxProps}
             className={cn(
-                "w-full h-[320px] xl:h-[400px] rounded-[12px] relative flex items-center justify-center border transition-colors",
+                "w-full h-[clamp(240px,calc(100dvh_-_440px),320px)] xl:h-[clamp(240px,calc(100dvh_-_440px),400px)] rounded-[12px] relative flex items-center justify-center border transition-colors",
                 isSelected ? "border-[#FF0054] bg-[#FF0054]/5" : "border-transparent",
                 highlighted && "ring-2 ring-[#FF0054] bg-[#FF0054]/10"
             )}

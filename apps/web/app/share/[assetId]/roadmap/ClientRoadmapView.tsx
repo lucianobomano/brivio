@@ -1,6 +1,7 @@
 "use client"
 
 import * as React from "react"
+import { SharePageHeader, SharePoweredBy } from "@/components/share/SharePageChrome"
 import { motion, AnimatePresence } from "framer-motion"
 import {
     Check,
@@ -213,8 +214,9 @@ export function ClientRoadmapView({
             {bgStyle && bgStyle !== 'default' && (
                 <div className="fixed inset-0 -z-10 bg-white/40 backdrop-blur-[30px] transition-all duration-700" />
             )}
-            {/* Header / Brand Bar */}
-            <div className="sticky top-0 z-50 bg-white/90 backdrop-blur-2xl border-b border-[#E5E5EA]/50">
+            <SharePageHeader />
+            {/* Project bar: the client's brand and the project */}
+            <div className="bg-white/90 backdrop-blur-2xl border-b border-[#E5E5EA]/50">
                 <div className="max-w-[1100px] mx-auto px-6 h-20 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#1D1D1F] to-[#3d3d3f] flex items-center justify-center text-white font-black text-[14px] shadow-lg">
@@ -977,11 +979,7 @@ export function ClientRoadmapView({
 
                 {/* Footer Security */}
                 <div className="mt-32 pt-12 border-t border-[#E5E5EA] text-center space-y-6">
-                    <div className="flex items-center justify-center gap-8">
-                        <p className="text-[12px] font-bold text-[#86868B] uppercase tracking-[0.2em] flex items-center gap-2">
-                            Powered by <span className="text-[#1D1D1F]">BRIVIO™</span>
-                        </p>
-                    </div>
+                    <SharePoweredBy />
                     <div className="flex items-center justify-center gap-2 text-[11px] text-[#86868B]">
                         <Lock className="w-3 h-3" />
                         <span>Esta página é protegida e destinada apenas ao cliente autorizado.</span>

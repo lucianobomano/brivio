@@ -1,4 +1,6 @@
 "use client"
+import { StorageMeter } from "@/components/billing/StorageMeter"
+import { AssetPreview } from "@/components/assets/AssetPreview"
 
 import { AssetDndContext, MoveItemsDialog, dropRing, useAssetDnd, useAssetDndState, type MoveRequest } from "@/components/assets/assetMove"
 import { DeleteConfirmationModal } from "./DeleteConfirmationModal"
@@ -103,6 +105,8 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
     const glassFolders = folderStyle !== "classic"
     const folderPreviews = useFolderPreviews(folders.map(f => f.id), glassFolders)
     const [assets, setAssets] = useState<Asset[]>([])
+    // The file open in the viewer (index in assets)
+    const [previewIndex, setPreviewIndex] = useState<number | null>(null)
     const [breadcrumbs, setBreadcrumbs] = useState<AssetFolder[]>([])
     const [allFolders, setAllFolders] = useState<AssetFolder[]>([]) // For sidebar tree
     const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(new Set(["root"]))
@@ -953,25 +957,13 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                             {/* Bottom: Storage Indicator */}
                             <div className="mt-auto pt-6">
-                                <div className="bg-[#111] border border-[#222] rounded-2xl p-4 flex items-center justify-between shadow-lg">
-                                    <div className="flex flex-col">
-                                        <div className="flex items-baseline gap-1">
-                                            <span className="text-[14px] font-bold text-white">8.25 MB</span>
-                                            <span className="text-[11px] text-[#555]">/ 5GB</span>
-                                        </div>
-                                        <div className="w-full bg-[#222] h-1 rounded-full mt-2 overflow-hidden">
-                                            <div className="bg-[#ff0054] h-full w-[15%]" />
-                                        </div>
-                                    </div>
-                                    <button className="text-[11px] font-bold text-white hover:bg-[#ff0054] transition-all px-3 py-1.5 bg-[#222] rounded-xl ml-4">
-                                        Upgrade
-                                    </button>
-                                </div>
+                                <StorageMeter scope={{ brandId }} refreshKey={isOpen} />
+                                <AssetPreview assets={assets} index={previewIndex} onIndexChange={setPreviewIndex} onClose={() => setPreviewIndex(null)} />
                             </div>
                         </div>
 
                         {/* 2. Main Content Area */}
-                        <div className="flex-1 bg-[#0A0A0B] relative flex flex-col items-center justify-start p-20 pt-[60px]">
+                        <div className="flex-1 bg-[#0A0A0B] relative flex flex-col items-center justify-start pt-[60px] pl-16 pr-10 min-w-0">
 
                             {/* Breadcrumb Navigation */}
                             {selectedFolderIds.size === 0 && selectedAssetIds.size === 0 && (
@@ -1030,12 +1022,12 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                             </AnimatePresence>
 
                             {/* Main Content Scroll Area */}
-                            <div className="w-full flex-1 mt-8 overflow-y-auto px-6 pb-20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]">
+                            <div className="w-[calc(100%_+_16px)] flex-1 mt-8 overflow-y-auto -mx-2 px-2 pb-20 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:none]">
 
                                 {/* Folders Grid */}
                                 {folders.length > 0 && (
                                     <div className="w-full mb-8">
-                                        <h4 className="text-[12px] font-bold text-[#444] uppercase tracking-wider mb-4 px-1">Folders</h4>
+                                        <h4 className="text-[12px] font-bold text-[#444] uppercase tracking-wider mb-4">Folders</h4>
                                         <div className={glassFolders ? "grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4" : "grid grid-cols-4 gap-4"}>
                                             {folders.map(folder => {
                                                 const isSelected = selectedFolderIds.has(folder.id)
@@ -1193,7 +1185,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
 
                                 {/* Asset Grid or Empty State */}
                                 {assets.length === 0 && folders.length === 0 ? (
-                                    <div className="w-full h-[670px] mt-[60px] rounded-[48px] border-2 border-dashed border-[#1a1a1a] bg-[#0d0d0e]/30 flex flex-col items-center justify-center relative overflow-hidden group/dropzone">
+                                    <div className="w-full h-[clamp(320px,calc(100dvh_-_260px),670px)] mt-[clamp(8px,4vh,60px)] rounded-[48px] border-2 border-dashed border-[#1a1a1a] bg-[#0d0d0e]/30 flex flex-col items-center justify-center relative overflow-hidden group/dropzone">
 
                                         {/* Ambient Glow Background */}
                                         <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none group-hover/dropzone:opacity-20 transition-opacity duration-1000">
@@ -1254,7 +1246,7 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                 ) : (
                                     assets.length > 0 && (
                                         <div className="w-full">
-                                            <h4 className="text-[12px] font-bold text-[#444] uppercase tracking-wider mb-4 px-1">Assets</h4>
+                                            <h4 className="text-[12px] font-bold text-[#444] uppercase tracking-wider mb-4">Assets</h4>
                                             <div className="grid grid-cols-4 gap-6">
                                                 {assets.map(asset => {
                                                     const isSelected = selectedAssetIds.has(asset.id)
@@ -1266,10 +1258,10 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                             {...assetDnd.dragProps("asset", asset.id)}
                                                             onClick={() => {
                                                                 if (isSelectionMode) handleToggleAssetSelection(asset.id)
-                                                                // else maybe open asset preview? For now just select logic or nothing.
+                                                                else setPreviewIndex(assets.findIndex(a => a.id === asset.id))
                                                             }}
                                                             className={cn(
-                                                                "bg-[#111] rounded-2xl relative group overflow-hidden border transition-all",
+                                                                "bg-[#111] rounded-2xl relative group overflow-hidden border transition-all cursor-pointer",
                                                                 isSelected
                                                                     ? "border-[#ff0054] border-[3px]"
                                                                     : isSelectionMode
@@ -1305,24 +1297,23 @@ export function AssetLibrary({ isOpen, onClose, brandId, brandName = "Brand Asse
                                                                     <span className="text-xs text-[#666] uppercase">{asset.type}</span>
                                                                 </div>
                                                             )}
-                                                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-4 pointer-events-none z-20 pb-4">
-                                                                {/* Overlay Card - Full Width x 98px */}
-                                                                <div className="w-full h-[98px] bg-[#0F1012] rounded-xl border border-[#222] shadow-2xl p-4 flex flex-col justify-between pointer-events-auto backdrop-blur-sm">
-                                                                    <div className="flex items-center justify-between">
-                                                                        <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-pink-500 to-blue-500 shadow-[0_0_10px_rgba(255,0,84,0.3)]" />
-                                                                        <span className="text-[10px] text-[#666] font-mono tracking-tight">
+                                                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-2 min-[1500px]:p-4 pointer-events-none z-20">
+                                                                {/* Overlay card: as tall as its content, the actions wrap below the details on narrow cards */}
+                                                                <div onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()} className="w-full max-h-full overflow-hidden bg-[#0F1012] rounded-xl border border-[#222] shadow-2xl cursor-default p-3 min-[1500px]:p-4 flex flex-col gap-2 min-[1500px]:gap-3 pointer-events-auto backdrop-blur-sm">
+                                                                    <div className="flex items-center justify-between gap-2 min-w-0">
+                                                                        <div className="w-6 h-6 shrink-0 rounded-full bg-gradient-to-tr from-pink-500 to-blue-500 shadow-[0_0_10px_rgba(255,0,84,0.3)]" />
+                                                                        <span className="text-[10px] text-[#666] font-mono tracking-tight truncate min-w-0">
                                                                             {asset.created_at ? new Date(asset.created_at).toLocaleString('pt-BR') : '-'}
                                                                         </span>
                                                                     </div>
                                                                     {/* Bottom Row */}
-                                                                    <div className="flex items-end justify-between">
-                                                                        <div className="flex flex-col gap-0.5">
-                                                                            <span className="text-[12px] text-white font-medium tracking-wide">
-                                                                                {/* Mock Metadata if missing */}
-                                                                                {asset.metadata?.size || "101.62 KB"} • {asset.metadata?.dimensions || "736x1313"}
+                                                                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                                                                        <div className="flex flex-col gap-0.5 min-w-0">
+                                                                            <span className="text-[12px] text-white font-medium tracking-wide whitespace-nowrap">
+                                                                                                                                                                {[asset.metadata?.size, asset.metadata?.dimensions].filter(Boolean).join(" • ") || (asset.type || "").toUpperCase()}
                                                                             </span>
                                                                         </div>
-                                                                        <div className="flex items-center gap-2.5 text-[#888]">
+                                                                        <div className="flex items-center gap-2.5 text-[#888] shrink-0 ml-auto">
                                                                             <Download className="w-4 h-4 hover:text-white cursor-pointer transition-colors" />
                                                                             <Heart
                                                                                 className={cn(

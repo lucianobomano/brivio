@@ -146,8 +146,8 @@ export function DashboardClient({
 
             <StandupHeader />
 
-            {/* Main Content - Match Standups Layout */}
-            <main className="flex-1 flex justify-center p-4 md:p-10 mt-10 w-full">
+            {/* Main Content - Match Standups Layout (fits short screens: no top margin below 900px tall, cards capped to the window) */}
+            <main className="flex-1 flex justify-center p-4 md:p-10 mt-10 [@media(max-height:900px)]:mt-0 w-full">
                 <div className="max-w-[1600px] w-full flex justify-center gap-2 md:gap-[20px]">
                     {NAV_OPTIONS.filter(opt => opt.id !== "03" && opt.id !== "06").map((opt, idx) => {
                         const Icon = opt.icon
@@ -164,7 +164,7 @@ export function DashboardClient({
                                 onMouseEnter={() => prefetchFull(opt.href)}
                                 onFocus={() => prefetchFull(opt.href)}
                                 onTouchStart={() => prefetchFull(opt.href)}
-                                className="w-full max-w-[372px] flex-1 min-w-0 aspect-[372/585] rounded-[12px] relative overflow-hidden flex flex-col justify-between p-4 md:p-8 text-white transition-all hover:translate-y-[-10px] shadow-2xl group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
+                                className="w-full max-w-[372px] flex-1 min-w-0 aspect-[372/585] max-h-[calc(100dvh_-_320px)] rounded-[12px] relative overflow-hidden flex flex-col justify-between p-4 md:p-8 text-white transition-all hover:translate-y-[-10px] shadow-2xl group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
                                 style={{ backgroundColor: '#1A1B20' }}
                             >
                                 {opt.imageUrl && (

@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { StandupHeader } from './StandupHeader';
-import { Plus, ArrowRight, MoreVertical, Edit2, Trash2 } from 'lucide-react';
+import { Plus, ArrowRight, MoreVertical, Edit2, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 import { cn } from "@/lib/utils";
 import { CreateStandupModal } from './CreateStandupModal';
@@ -46,6 +47,19 @@ interface Standup {
     members: any[]; // refined type later
 }
 
+/** Stand-ups shown per page, next to the «Novo Stand-up» card, so the cards always stay on one row */
+function usePerPage() {
+    const read = () => typeof window === 'undefined' ? 3 : window.innerWidth >= 1280 ? 3 : window.innerWidth >= 1024 ? 2 : 1
+    const [n, setN] = useState(3)
+    React.useEffect(() => {
+        const update = () => setN(read())
+        update()
+        window.addEventListener('resize', update)
+        return () => window.removeEventListener('resize', update)
+    }, [])
+    return n
+}
+
 interface StandupListClientProps {
     workspaceId?: string;
     initialStandups?: Standup[];
@@ -80,18 +94,29 @@ export function StandupListClient({ workspaceId, initialStandups = [] }: Standup
         }
     };
 
-    const displayStandups = initialStandups;
+    const perPage = usePerPage();
+    const [currentPage, setCurrentPage] = useState(1);
+    const totalPages = Math.max(1, Math.ceil(initialStandups.length / perPage));
+    // Keep the page valid when the list or the number per page changes
+    React.useEffect(() => { if (currentPage > totalPages) setCurrentPage(totalPages) }, [currentPage, totalPages]);
+    const page = Math.min(currentPage, totalPages);
+    const displayStandups = initialStandups.slice((page - 1) * perPage, page * perPage);
+    // Cards follow the window height: the row and the pagination stay above the bottom toolbar
+    const CARD = "w-full max-w-[372px] h-[clamp(320px,calc(100dvh_-_392px),585px)]";
 
     return (
         <div className="flex flex-col min-h-screen font-sans text-white bg-bg-0">
             <StandupHeader />
 
-            <main className="flex-1 flex justify-center p-10">
-                <div className="max-w-[1600px] w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 justify-items-center">
+            <main className="flex-1 flex flex-col items-center px-10 pt-10 [@media(max-height:800px)]:pt-6 pb-[120px]">
+                <div
+                    className="w-full max-w-[1532px] grid gap-[12px] grid-cols-1 sm:[grid-template-columns:repeat(var(--cols),minmax(0,1fr))]"
+                    style={{ ['--cols' as string]: perPage + 1 } as React.CSSProperties}
+                >
                     {/* New Stand-up Card */}
                     <button
                         onClick={() => setIsCreateModalOpen(true)}
-                        className="w-[372px] h-[585px] rounded-[12px] relative group overflow-hidden transition-transform hover:scale-[1.02] active:scale-95 shadow-2xl animate-liquid-gradient"
+                        className={cn(CARD, "rounded-[12px] relative group overflow-hidden transition-transform hover:scale-[1.02] active:scale-95 shadow-2xl animate-liquid-gradient")}
                         style={{
                             background: "linear-gradient(135deg, #FF0054 0%, #88007F 33%, #06D6A0 66%, #311C99 100%)"
                         }}
@@ -105,9 +130,16 @@ export function StandupListClient({ workspaceId, initialStandups = [] }: Standup
                     </button>
 
                     {/* Existing Cards */}
+                    <AnimatePresence mode="popLayout" initial={false}>
                     {displayStandups.map((standup) => (
-                        <div key={standup.id} className={cn(
-                            "w-[372px] h-[585px] rounded-[12px] relative overflow-hidden flex flex-col justify-between p-8 text-white transition-transform hover:translate-y-[-5px] shadow-2xl",
+                        <motion.div
+                            key={`${page}-${standup.id}`}
+                            initial={{ opacity: 0, scale: 0.97, filter: "blur(4px)" }}
+                            animate={{ opacity: 1, scale: 1, filter: "blur(0px)" }}
+                            exit={{ opacity: 0, scale: 0.97, filter: "blur(4px)" }}
+                            transition={{ duration: 0.25, ease: "easeInOut" }}
+                            className={cn(
+                            CARD, "rounded-[12px] relative overflow-hidden flex flex-col justify-between p-6 xl:p-8 text-white transition-transform hover:translate-y-[-5px] shadow-2xl",
                             standup.gradient // keep gradient class as fallback or base
                         )}>
                             {/* Background Image or Gradient */}
@@ -161,7 +193,7 @@ export function StandupListClient({ workspaceId, initialStandups = [] }: Standup
                                 <div className="space-y-3">
                                     {/* Index and Button Row */}
                                     <div className="flex items-center justify-between">
-                                        <span className="text-[64px] font-thin opacity-80 tracking-tighter drop-shadow-lg leading-none" style={{ fontFamily: 'Inter, sans-serif' }}>
+                                        <span className="text-[clamp(44px,4.4vw,64px)] font-thin opacity-80 tracking-tighter drop-shadow-lg leading-none" style={{ fontFamily: 'Inter, sans-serif' }}>
                                             {standup.id}
                                         </span>
                                         <Link href={`/standups/${(standup as any).fullId || standup.id}`}>
@@ -198,11 +230,46 @@ export function StandupListClient({ workspaceId, initialStandups = [] }: Standup
                                     ))}
                                 </div>
                             </div>
+                        </motion.div>
+                    ))}
+                    </AnimatePresence>
+                </div>
+
+                {/* Pagination: the same pill as the brands and projects pages */}
+                {totalPages > 1 && (
+                    <div className="mt-6 [@media(max-height:800px)]:mt-3 flex justify-center">
+                        <div className="flex items-center gap-2 bg-white/5 dark:bg-[#16171C]/50 border border-white/10 px-4 py-2.5 rounded-full shadow-lg backdrop-blur-md">
+                            <button
+                                onClick={() => setCurrentPage(Math.max(1, page - 1))}
+                                disabled={page === 1}
+                                className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-all cursor-pointer disabled:cursor-not-allowed"
+                                aria-label="Página anterior"
+                            >
+                                <ChevronLeft className="w-5 h-5" />
+                            </button>
+                            <div className="flex items-center gap-1.5 px-2">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
+                                    <button
+                                        key={n}
+                                        onClick={() => setCurrentPage(n)}
+                                        className={cn("w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all", n === page ? "bg-[#FF0054] text-white shadow-md shadow-[#FF0054]/20 scale-105" : "text-gray-400 hover:text-white hover:bg-white/5")}
+                                    >
+                                        {n}
+                                    </button>
+                                ))}
+                            </div>
+                            <button
+                                onClick={() => setCurrentPage(Math.min(totalPages, page + 1))}
+                                disabled={page === totalPages}
+                                className="p-1.5 rounded-full text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-400 transition-all cursor-pointer disabled:cursor-not-allowed"
+                                aria-label="Próxima página"
+                            >
+                                <ChevronRight className="w-5 h-5" />
+                            </button>
                         </div>
-                    ))
-                    }
-                </div >
-            </main >
+                    </div>
+                )}
+            </main>
 
             <CreateStandupModal
                 open={isCreateModalOpen}

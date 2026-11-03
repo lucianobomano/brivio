@@ -68,7 +68,7 @@ export function BrandsClient({ brandsList, user }: BrandsClientProps) {
     return (
         <div className="w-full">
             {/* Search & Filters */}
-            <div className="py-8 flex justify-center px-[40px]">
+            <div className="py-8 [@media(max-height:800px)]:py-6 flex justify-center px-[40px]">
                 <div className="w-full max-w-[1600px]">
                     <div className="flex items-center justify-end gap-6">
                         <div className="relative w-full max-w-md">
@@ -114,7 +114,7 @@ export function BrandsClient({ brandsList, user }: BrandsClientProps) {
                 <div className="w-full max-w-[1600px]">
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-[12px] max-w-[1532px] mx-auto justify-items-center sm:justify-items-start">
                         {/* Create New Card (Always Visible, static position) */}
-                        <div className="flex justify-center sm:justify-start w-[374px]">
+                        <div className="flex justify-center sm:justify-start w-full">
                             <CreateBrandCard
                                 userName={user?.user_metadata?.full_name || user?.user_metadata?.name || user?.email?.split('@')[0]}
                                 brandsCount={brandsList.length}
@@ -133,7 +133,7 @@ export function BrandsClient({ brandsList, user }: BrandsClientProps) {
                                     className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-[12px] w-full"
                                 >
                                     {displayedBrands.map((brand) => (
-                                        <div key={brand.id} className="flex justify-center sm:justify-start w-[374px]">
+                                        <div key={brand.id} className="flex justify-center sm:justify-start w-full min-w-0">
                                             <BrandCard brand={brand} />
                                         </div>
                                     ))}
@@ -146,7 +146,7 @@ export function BrandsClient({ brandsList, user }: BrandsClientProps) {
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
-                <div className="mt-6 flex justify-center items-center gap-4 px-[40px]">
+                <div className="mt-6 [@media(max-height:800px)]:mt-2 flex justify-center items-center gap-4 px-[40px]">
                     <div className="flex items-center gap-2 bg-white/5 dark:bg-[#16171C]/50 border border-white/10 px-4 py-2.5 rounded-full shadow-lg backdrop-blur-md">
                         {/* Prev Button */}
                         <button
